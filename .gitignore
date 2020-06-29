@@ -1,0 +1,50 @@
+# Project specific git ignore file
+#
+# Walid Keyrouz (wtk@nist.gov)	Thu Dec  5 12:07:50 2019 EST
+#
+# Time-stamp: <2020-01-08 11:46:25 wtk>
+# 
+
+
+# Emacs backup files
+
+*~
+*.~[0-9]+~
+
+# Mike training?
+
+.idea
+data
+_build
+
+# Python
+__pychache__
+*.pyc
+*.simg
+*.sif
+*.log 
+*.out
+*.json
+*.docx
+
+
+token.pickle
+credentials.json
+
+
+
+
+# LaTeX extensions
+*.aux
+*.log
+*.out
+*.glo
+*.glsdefs
+*.ist
+*.synctex.gz
+*.bbl
+*.blg
+
+
+
+

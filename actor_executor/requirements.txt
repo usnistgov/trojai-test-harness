@@ -1,0 +1,12 @@
+wheel
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+jsonpickle
+pid
+numpy
+pytablewriter
+dominate
+GitPython
+httplib2<0.16.0
+sklearn

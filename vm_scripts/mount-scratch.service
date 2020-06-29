@@ -1,0 +1,15 @@
+[Unit]
+Description=format and mount scratch script
+Requires=dev-vdb1.device
+After=dev-vdb1.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/mkfs.ext4 -F /dev/vdb1
+ExecStart=/bin/mount -t ext4 /dev/vdb1 /mnt/scratch
+ExecStart=/bin/chown trojai-user:trojai-user /mnt/scratch
+
+[Install]
+WantedBy=multi-user.target
+Alias=mount-scratch.service
