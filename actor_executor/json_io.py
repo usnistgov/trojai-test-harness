@@ -14,7 +14,7 @@ def write(filepath, obj):
         try:
             fcntl.lockf(lfh, fcntl.LOCK_EX)
             with open(filepath, mode='w', encoding='utf-8') as f:
-                f.write(jsonpickle.encode(obj, warn=True))
+                f.write(jsonpickle.encode(obj, warn=True, indent=2))
         except:
             msg = 'json_io failed writing file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
             TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
