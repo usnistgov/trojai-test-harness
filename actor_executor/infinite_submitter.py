@@ -3,6 +3,16 @@ import time
 
 from drive_io import DriveIO
 
+def connection_test(token, email):
+    if os.path.exists(token):
+        g_drive = DriveIO(token)
+        while(True):
+            files = g_drive.query_by_email(email)
+            for f in files:
+                print(f)
+    else:
+        print(token + " does not exist")
+
 
 def main(token, upload_time, filepath, share_email):
 
@@ -45,7 +55,8 @@ if __name__ == "__main__":
     filepath = args.filepath
     share_email = args.share_email
 
-    main(token, upload_time, filepath, share_email)
+    connection_test(token, share_email)
+    # main(token, upload_time, filepath, share_email)
 
 
 

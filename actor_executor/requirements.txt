@@ -8,5 +8,5 @@ numpy
 pytablewriter
 dominate
 GitPython
-httplib2<0.16.0
+httplib2
 sklearn
