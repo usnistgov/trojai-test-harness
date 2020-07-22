@@ -210,21 +210,26 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
 
             # Check for result file, if its there we read it in
             if os.path.exists(result_filepath):
-                with open(result_filepath) as file:
-                    file_contents = file.readline().strip()
-                    result = float(file_contents)
-                    # Check to ensure the result correctly parsed into a float
-                    if np.isnan(result):
-                        if submission.slurm_queue == 'sts':
-                            logging.warning('Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(model_name, file_contents, result))
-                        if ":Result Parse:" not in submission.web_display_parse_errors:
-                            submission.web_display_parse_errors += ":Result Parse:"
+                try:
+                    with open(result_filepath) as file:
+                        file_contents = file.readline().strip()
+                        result = float(file_contents)
+                except:
+                    # if file parsing fails for any reason, the value is nan
+                    result = np.nan
 
-                        if submission.slurm_queue == 'sts':
-                            logging.warning('Unable to parse results for model "{}".'.format(model_name))
-                        results[model_name] = np.nan
-                    else:
-                        results[model_name] = result
+                # Check to ensure the result correctly parsed into a float
+                if np.isnan(result):
+                    if submission.slurm_queue == 'sts':
+                        logging.warning('Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(model_name, file_contents, result))
+                    if ":Result Parse:" not in submission.web_display_parse_errors:
+                        submission.web_display_parse_errors += ":Result Parse:"
+
+                    if submission.slurm_queue == 'sts':
+                        logging.warning('Unable to parse results for model "{}".'.format(model_name))
+                    results[model_name] = np.nan
+                else:
+                    results[model_name] = result
             else:  # If the result file does not exist, then we fill it in with the default answer
                 logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
                 results[model_name] = np.nan
