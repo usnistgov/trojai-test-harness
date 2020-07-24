@@ -13,7 +13,7 @@ for ip in $IPs; do
 done
 
 
-IPs="192.168.200.2 192.168.200.5"
+IPs="192.168.200.2 192.168.200.3 192.168.200.5 192.168.200.6"
 MODEL_DIR="/mnt/trojainas/datasets/round1/round1-dataset-test/models/"
 
 for ip in $IPs; do
