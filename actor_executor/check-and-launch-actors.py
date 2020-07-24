@@ -59,18 +59,18 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
         actor.file_status = "Ok"
 
         # Check file timestamp at 1 second resolution
-        if int(g_file.modified_epoch) > int(actor.last_execution_epoch):
-            if not actor.can_submit_timewindow(config.execute_window, cur_epoch):
-                logging.info('Submission found is newer than the last execution run for team {}, but timeout window has not elapsed.'.format(actor.name))
-                actor.job_status = "Awaiting Timeout"
-            else:
-                logging.info('Submission is new .... EXECUTING')
+        if not actor.can_submit_timewindow(config.execute_window, cur_epoch):
+            logging.info('Submission found is newer than the last execution run for team {}, but timeout window has not elapsed.'.format(actor.name))
+            actor.job_status = "Awaiting Timeout"
+        else:
+            if int(g_file.modified_epoch) != int(actor.last_file_epoch):
+                logging.info('Submission is different .... EXECUTING')
                 submission = Submission(g_file, actor, config.submission_dir, config.results_dir, config.ground_truth_dir, config.slurm_queue)
                 submission_manager.add_submission(submission)
                 logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.file.name, actor.email))
                 submission.execute(config.slurm_script_file, config_filepath, cur_epoch)
-        else:
-            logging.info('Submission found is older than the last execution run for team {}.'.format(actor.name))
+            else:
+                logging.info('Submission found is the same as the last execution run for team {}.'.format(actor.name))
 
 
 def process_team(config: Config, g_drive: DriveIO, actor: Actor, submission_manager: SubmissionManager, config_filepath: str, cur_epoch: int) -> None:
