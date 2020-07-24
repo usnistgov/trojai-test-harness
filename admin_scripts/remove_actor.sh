@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SRC_DIR=/mnt/isgnas/project/ai/trojai/trojai-nist/src/te-scripts/actor_executor
+SRC_DIR=/mnt/isgnas/project/ai/trojai/trojai-test-harness/actor_executor
 
 email=michael.majurski@nist.gov
 

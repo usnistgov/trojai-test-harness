@@ -1,7 +1,7 @@
 #!/bin/bash
 
 conda activate scripts
-SRC_DIR=/mnt/isgnas/project/ai/trojai/trojai-nist/src/te-scripts/actor_executor
+SRC_DIR=/mnt/isgnas/project/ai/trojai/trojai-test-harness/actor_executor
 
 teamName=TestTeam
 email=
