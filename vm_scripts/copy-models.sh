@@ -8,7 +8,7 @@ for ip in $IPs; do
 	ssh trojai@$ip "rm -rf /home/trojai/data/*"
 	echo "Copying to $ip"
 	rsync -ar --prune-empty-dirs $MODEL_DIR trojai@$ip:/home/trojai/data/
-	rsync -ar /mnt/isgnas/project/ai/trojai/trojai-nist/src/te-scripts/vm_scripts/evaluate_models.sh trojai@$ip:/home/trojai/evaluate_models.sh
+	rsync -ar /mnt/isgnas/project/ai/trojai/trojai-test-harness/vm_scripts/evaluate_models.sh trojai@$ip:/home/trojai/evaluate_models.sh
 	echo "Done copying to $ip"
 done
 
@@ -21,7 +21,7 @@ for ip in $IPs; do
 	ssh trojai@$ip "rm -rf /home/trojai/data/*"
 	echo "Copying to $ip"
 	rsync -ar --prune-empty-dirs $MODEL_DIR trojai@$ip:/home/trojai/data/
-	rsync -ar /mnt/isgnas/project/ai/trojai/trojai-nist/src/te-scripts/vm_scripts/evaluate_models.sh trojai@$ip:/home/trojai/evaluate_models.sh
+	rsync -ar /mnt/isgnas/project/ai/trojai/trojai-test-harness/vm_scripts/evaluate_models.sh trojai@$ip:/home/trojai/evaluate_models.sh
 	echo "Done copying to $ip"
 done
 
