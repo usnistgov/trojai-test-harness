@@ -60,17 +60,17 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
 
         # Check file timestamp at 1 second resolution
         if not actor.can_submit_timewindow(config.execute_window, cur_epoch):
-            logging.info('Submission found is newer than the last execution run for team {}, but timeout window has not elapsed.'.format(actor.name))
+            logging.info('Team {} timeout window has not elapsed. cur_epoch: {}, last_exec_epoc: {}'.format(actor.name, cur_epoch, actor.last_execution_epoch))
             actor.job_status = "Awaiting Timeout"
         else:
             if int(g_file.modified_epoch) != int(actor.last_file_epoch):
-                logging.info('Submission is different .... EXECUTING')
+                logging.info('Submission is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.last_file_epoch))
                 submission = Submission(g_file, actor, config.submission_dir, config.results_dir, config.ground_truth_dir, config.slurm_queue)
                 submission_manager.add_submission(submission)
                 logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.file.name, actor.email))
                 submission.execute(config.slurm_script_file, config_filepath, cur_epoch)
             else:
-                logging.info('Submission found is the same as the last execution run for team {}.'.format(actor.name))
+                logging.info('Submission found is the same as the last execution run for team {}; new file name: {}, new file epoch: {}, last file epoch: {}'.format(actor.name, g_file.name, g_file.modified_epoch, actor.last_file_epoch))
 
 
 def process_team(config: Config, g_drive: DriveIO, actor: Actor, submission_manager: SubmissionManager, config_filepath: str, cur_epoch: int) -> None:
