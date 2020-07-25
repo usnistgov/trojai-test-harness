@@ -71,7 +71,7 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
                 submission.execute(config.slurm_script_file, config_filepath, cur_epoch)
             else:
                 logging.info('Submission found is the same as the last execution run for team {}; new file name: {}, new file epoch: {}, last file epoch: {}'.format(actor.name, g_file.name, g_file.modified_epoch, actor.last_file_epoch))
-
+                actor.job_status = "None"
 
 def process_team(config: Config, g_drive: DriveIO, actor: Actor, submission_manager: SubmissionManager, config_filepath: str, cur_epoch: int) -> None:
 
