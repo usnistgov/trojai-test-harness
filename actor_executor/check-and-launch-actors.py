@@ -48,10 +48,12 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
     if len(gdrive_file_list) < 1:
         logging.info("Actor {} does not have a submission from email {}.".format(actor.name, actor.email))
         actor.file_status = "None"
+        actor.job_status = "None"
 
     if len(gdrive_file_list) > 1:
         logging.warning("Actor {} shared {} files from email {}.".format(actor.name, len(gdrive_file_list),actor.email))
         actor.file_status = "Multiple files shared"
+        actor.job_status = "None"
 
     if len(gdrive_file_list) == 1:
         g_file = gdrive_file_list[0]
