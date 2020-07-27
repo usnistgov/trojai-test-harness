@@ -23,11 +23,11 @@ def copy_in_models(host, model_dir):
     return child.wait()
 
 def copy_in_eval_script(host, eval_script_dir, eval_script_name):
-    child = subprocess.Popen(['scp', '-q', eval_script_dir + "/" + eval_script_name, 'trojai@'+host+':/home/trojai/' + eval_script_name])
+    child = subprocess.Popen(['scp', '-q', eval_script_dir + "/" + eval_script_name, 'trojai@'+host+':/mnt/scratch/' + eval_script_name])
     return child.wait()
 
 def execute_submission(host, eval_script_name, submission_name, queue_name, model_dir, timeout='25h'):
-    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/' + eval_script_name, submission_name, queue_name, '/mnt/scratch/' + model_dir])
+    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/mnt/scratch/' + eval_script_name, submission_name, queue_name, '/mnt/scratch/' + model_dir])
     return child.wait()
 
 
