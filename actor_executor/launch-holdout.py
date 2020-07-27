@@ -48,11 +48,11 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
         #stdout, stderr = out.communicate()
 
         # Check if there are no errors reported from sbatch
-        if stderr == b'':
-            job_id = int(stdout.strip())
-            logging.info("Slurm job executed with job id: {}".format(job_id))
-        else:
-            logging.error("The slurm script: {} resulted in errors {}".format(holdout_config.slurm_script, stderr))
+        #if stderr == b'':
+        #    job_id = int(stdout.strip())
+        #    logging.info("Slurm job executed with job id: {}".format(job_id))
+        #else:
+        #    logging.error("The slurm script: {} resulted in errors {}".format(holdout_config.slurm_script, stderr))
 
 
 if __name__ == "__main__":
