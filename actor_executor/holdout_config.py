@@ -9,7 +9,8 @@ class HoldoutConfig(object):
                  min_loss_criteria: float,
                  holdout_result_dir: str,
                  evaluate_script: str,
-                 slurm_script:str
+                 slurm_script:str,
+                 pyhton_executor_script: str
                  ):
         self.log_file = log_file
         self.round_config_filepath = round_config_filepath
@@ -19,6 +20,7 @@ class HoldoutConfig(object):
         self.holdout_result_dir = holdout_result_dir
         self.evaluate_script = evaluate_script
         self.slurm_script = slurm_script
+        self.python_executor_script = pyhton_executor_script
 
 
     def __str__(self):
