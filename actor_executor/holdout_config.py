@@ -7,7 +7,7 @@ class HoldoutConfig(object):
                  holdout_model_dir: str,
                  slurm_queue: str,
                  min_loss_criteria: float):
-        self.log_filepath = log_file
+        self.log_file = log_file
         self.round_config_filepath = round_config_filepath
         self.holdout_model_dir = holdout_model_dir
         self.slurm_queue = slurm_queue
