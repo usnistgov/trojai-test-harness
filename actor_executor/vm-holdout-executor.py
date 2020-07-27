@@ -26,6 +26,10 @@ def copy_in_eval_script(host, eval_script_dir, eval_script_name):
     child = subprocess.Popen(['scp', '-q', eval_script_dir + "/" + eval_script_name, 'trojai@'+host+':/mnt/scratch/' + eval_script_name])
     return child.wait()
 
+def update_perms_eval_script(host, eval_script_name):
+    child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/mnt/scratch/' + eval_script_name])
+    return child.wait()
+
 def execute_submission(host, eval_script_name, submission_name, queue_name, model_dir, timeout='25h'):
     child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/mnt/scratch/' + eval_script_name, submission_name, queue_name, '/mnt/scratch/' + model_dir])
     return child.wait()
@@ -142,6 +146,14 @@ if __name__ == "__main__":
     sc = copy_in_eval_script(vmIp, eval_script_dir, eval_script_name)
     if sc != 0:
         msg = '"{}" Evaluate script copy in may have failed with status code "{}".'.format(vm_name, sc)
+        logging.error(msg)
+        errors += ":Copy in:"
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
+
+    logging.info('Updating eval permissions in "{}"'.format(eval_script_name))
+    sc = update_perms_eval_script(vmIp, eval_script_name)
+    if sc != 0:
+        msg = '"{}" Evaluate script update perms may have failed with status code "{}".'.format(vm_name, sc)
         logging.error(msg)
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
