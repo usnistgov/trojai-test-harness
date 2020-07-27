@@ -1,6 +1,8 @@
+import os
 import logging
 import logging.handlers
 
+import time_utils
 from config import Config
 from holdout_config import HoldoutConfig
 from submission import Submission, SubmissionManager
@@ -18,8 +20,10 @@ def main(round_config: Config, holdout_config: HoldoutConfig) -> None:
     holdout_execution_submissions = submission_manager.gather_submissions(holdout_config.min_loss_criteria)
 
     for actor_email in holdout_execution_submissions.keys():
-        print(actor_email)
-        print(holdout_execution_submissions[actor_email])
+        submission = holdout_execution_submissions[actor_email]
+        time_str = time_utils.convert_epoch_to_psudo_iso(submission.execution_epoch)
+        actor_submission_filepath = os.path.join(submission.global_submission_dirpath, submission.actor.name, time_str, submission.file.name)
+        print(actor_submission_filepath)
 
 if __name__ == "__main__":
     import argparse
