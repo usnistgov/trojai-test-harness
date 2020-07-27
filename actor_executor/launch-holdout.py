@@ -1,4 +1,6 @@
 import logging
+import logging.handlers
+
 from config import Config
 from holdout_config import HoldoutConfig
 from submission import Submission, SubmissionManager
@@ -57,3 +59,4 @@ if __name__ == "__main__":
                         handlers=[handler])
 
     logging.log('Starting parsing for holdout execution')
+    main(roundConfig, holdoutConfig)
