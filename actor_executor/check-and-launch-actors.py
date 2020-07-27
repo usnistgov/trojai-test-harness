@@ -59,7 +59,7 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
         actor.file_status = "Ok"
 
         # Check file timestamp at 1 second resolution
-        if not actor.can_submit_timewindow(config.execute_window, cur_epoch):
+        if not actor.can_submit_timewindow(config.execute_window, cur_epoch) and int(g_file.modified_epoch) != int(actor.last_file_epoch):
             logging.info('Team {} timeout window has not elapsed. cur_epoch: {}, last_exec_epoc: {}'.format(actor.name, cur_epoch, actor.last_execution_epoch))
             actor.job_status = "Awaiting Timeout"
         else:
