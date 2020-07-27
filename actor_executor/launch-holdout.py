@@ -39,7 +39,7 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
         cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", holdout_config.slurm_queue,
                         "--gres=gpu:1", "-J", slurm_job_name, "--parsable", "-o", slurm_output_filepath,
                         holdout_config.slurm_script, submission.actor.name, actor_submission_filepath, result_dirpath, round_config_path,
-                        submission.actor.email, holdout_config_path, holdout_config.pyhton_executor_script]
+                        submission.actor.email, holdout_config_path, holdout_config.python_executor_script]
         logging.info('launching sbatch command: "{}"'.format(' '.join(cmd_str_list)))
         print(cmd_str_list)
         out = subprocess.Popen(cmd_str_list,
