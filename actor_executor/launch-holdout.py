@@ -32,9 +32,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     holdout_config = HoldoutConfig.load_json(args.holdout_config_file)
-    round_config = Config.load_json(holdoutConfig.round_config_filepath)
+    round_config = Config.load_json(holdout_config.round_config_filepath)
 
-    handler = logging.handlers.RotatingFileHandler(holdoutConfig.log_file, maxBytes=100*1e6, backupCount=10) # 100MB
+    handler = logging.handlers.RotatingFileHandler(holdout_config.log_file, maxBytes=100*1e6, backupCount=10) # 100MB
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                         handlers=[handler])

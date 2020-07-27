@@ -168,7 +168,7 @@ class SubmissionManager(object):
             best_submission = None
 
             for submission in submissions:
-                if submission.score < best_loss:
+                if submission.score is not None and submission.score < best_loss:
                     best_submission = submission
                     best_loss = submission.score
 
