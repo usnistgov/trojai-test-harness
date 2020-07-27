@@ -15,10 +15,11 @@ def main(round_config: Config, holdout_config: HoldoutConfig) -> None:
     min_loss_criteria = holdout_config.min_loss_criteria
 
     # Key = actor, value = submission that is best that meets critera
-    holdout_execution_submissions = submission_manager.gather_Submissions(holdout_config.min_loss_criteria)
+    holdout_execution_submissions = submission_manager.gather_submissions(holdout_config.min_loss_criteria)
 
     for actor_email in holdout_execution_submissions.keys():
         print(actor_email)
+        print(holdout_execution_submissions[actor_email])
 
 if __name__ == "__main__":
     import argparse
