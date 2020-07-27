@@ -147,14 +147,14 @@ if __name__ == "__main__":
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
 
 
-    sc = copy_in_models(vmIp, holdout_config_file.holdout_model_dir)
+    sc = copy_in_models(vmIp, holdout_config.holdout_model_dir)
     if sc != 0:
         msg = '"{}" Model copy in may have failed with status code "{}."'.format(vm_name, sc)
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Models Failed'.format(vm_name), message=msg)
 
     logging.info('Starting Holdout Execution of ' + submission_name)
-    executeStatus = execute_submission(vmIp, eval_script_name, submission_name, config.slurm_queue, holdout_config_file.holdout_model_dir, timeout="25h")
+    executeStatus = execute_submission(vmIp, eval_script_name, submission_name, config.slurm_queue, holdout_config.holdout_model_dir, timeout="25h")
 
     logging.info("Execute status = " + str(executeStatus))
     if executeStatus == -9:
