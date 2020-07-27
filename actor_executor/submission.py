@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 from typing import List
+from typing import Dict
 
 from drive_io import DriveIO
 from google_drive_file import GoogleDriveFile
@@ -157,6 +158,27 @@ class SubmissionManager(object):
             for s in submissions:
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
+
+    def gather_submissions(self, min_loss_criteria: float) -> Dict[str, Submission]:
+        holdout_execution_submissions = dict()
+
+        for actor_email in self.__submissions.keys():
+            submissions = self.__submissions[actor_email]
+            best_loss = 42.0
+            best_submission = None
+
+            for submission in submissions:
+                if submission.score < best_loss:
+                    best_submission = submission
+                    best_loss = submission.score
+
+            if best_loss < min_loss_criteria and best_submission is not None:
+                holdout_execution_submissions[actor_email] = submission
+
+        return holdout_execution_submissions
+
+
+
 
     def add_submission(self, submission: Submission) -> None:
         actor = submission.actor
