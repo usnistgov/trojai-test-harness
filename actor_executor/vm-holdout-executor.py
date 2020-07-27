@@ -19,7 +19,7 @@ def copy_in_submission(host, submission_dir, submission_name):
     return child.wait()
 
 def copy_in_models(host, model_dir):
-    child = subprocess.Popen(['scp', '-q', '-r', model_dir, 'trojai@'+host+':/mnt/scratch/' + model_dir])
+    child = subprocess.Popen(['scp', '-q', '-r', model_dir, 'trojai@'+host+':/mnt/scratch/models'])
     return child.wait()
 
 def copy_in_eval_script(host, eval_script_dir, eval_script_name):
@@ -30,8 +30,8 @@ def update_perms_eval_script(host, eval_script_name):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/mnt/scratch/' + eval_script_name])
     return child.wait()
 
-def execute_submission(host, eval_script_name, submission_name, queue_name, model_dir, timeout='25h'):
-    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/mnt/scratch/' + eval_script_name, submission_name, queue_name, '/mnt/scratch/' + model_dir])
+def execute_submission(host, eval_script_name, submission_name, queue_name, timeout='25h'):
+    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/mnt/scratch/' + eval_script_name, submission_name, queue_name, '/mnt/scratch/models'])
     return child.wait()
 
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Models Failed'.format(vm_name), message=msg)
 
     logging.info('Starting Holdout Execution of ' + submission_name)
-    executeStatus = execute_submission(vmIp, eval_script_name, submission_name, config.slurm_queue, holdout_config.holdout_model_dir, timeout="25h")
+    executeStatus = execute_submission(vmIp, eval_script_name, submission_name, config.slurm_queue, timeout="25h")
 
     logging.info("Execute status = " + str(executeStatus))
     if executeStatus == -9:
