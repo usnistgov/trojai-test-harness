@@ -175,7 +175,7 @@ class SubmissionManager(object):
             if best_submission is not None:
                 if execute_team_name is not None and execute_team_name == best_submission.actor.name:
                     holdout_execution_submissions[actor_email] = submission
-                elif best_loss < min_loss_criteria:
+                elif execute_team_name is None and best_loss < min_loss_criteria:
                     holdout_execution_submissions[actor_email] = submission
 
         return holdout_execution_submissions
