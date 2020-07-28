@@ -9,7 +9,7 @@ from holdout_config import HoldoutConfig
 from submission import Submission, SubmissionManager
 
 
-def main(round_config_path:str, round_config: Config, holdout_config_path: str, holdout_config: HoldoutConfig) -> None:
+def main(round_config_path:str, round_config: Config, holdout_config_path: str, holdout_config: HoldoutConfig, execute_team_name: str) -> None:
     submission_manager = SubmissionManager.load_json(round_config.submissions_json_file)
     logging.debug('Loaded submission_manager from filepath: {}'.format(round_config.submissions_json_file))
     logging.debug(submission_manager)
@@ -18,7 +18,7 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
     min_loss_criteria = holdout_config.min_loss_criteria
 
     # Key = actor, value = submission that is best that meets criteria
-    holdout_execution_submissions = submission_manager.gather_submissions(holdout_config.min_loss_criteria)
+    holdout_execution_submissions = submission_manager.gather_submissions(holdout_config.min_loss_criteria, execute_team_name)
 
     for actor_email in holdout_execution_submissions.keys():
         submission = holdout_execution_submissions[actor_email]
@@ -64,10 +64,15 @@ if __name__ == "__main__":
                         help='The JSON file that describes the holdout execution',
                         default='holdout-config.json')
 
+    parser.add_argument('--execute-team-name', type=str,
+                        help='Executes the best model from team name',
+                        default=None)
+
     args = parser.parse_args()
 
     holdout_config = HoldoutConfig.load_json(args.holdout_config_file)
     round_config = Config.load_json(holdout_config.round_config_filepath)
+    execute_team_name = args.execute_team_name
 
     handler = logging.handlers.RotatingFileHandler(holdout_config.log_file, maxBytes=100*1e6, backupCount=10) # 100MB
     logging.basicConfig(level=logging.INFO,
@@ -75,4 +80,4 @@ if __name__ == "__main__":
                         handlers=[handler])
 
     logging.info('Starting parsing for holdout execution')
-    main(holdout_config.round_config_filepath, round_config, args.holdout_config_file, holdout_config)
+    main(holdout_config.round_config_filepath, round_config, args.holdout_config_file, holdout_config, execute_team_name)
