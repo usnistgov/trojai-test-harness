@@ -16,6 +16,7 @@ class Config(object):
                  result_table_name: str,
                  vms: dict,
                  slurm_queue: str,
+                 evaluate_script: str,
                  log_file_byte_limit: int):
         self.actor_json_file = actor_json_file
         self.submissions_json_file = submissions_json_file
@@ -31,6 +32,7 @@ class Config(object):
         self.job_table_name = job_table_name
         self.result_table_name = result_table_name
         self.vms = vms
+        self.evaluate_script = evaluate_script
         self.slurm_queue = slurm_queue
         # TODO log file byte limit should be set to None by default, and it should be supported by the codebase (its currently commented out)
         self.log_file_byte_limit = log_file_byte_limit
@@ -51,6 +53,7 @@ class Config(object):
         msg += 'result_table_name = "{}"\n'.format(self.result_table_name)
         msg += 'vms = "{}"\n'.format(self.vms)
         msg += 'slurm_queue = "{}"\n'.format(self.slurm_queue)
+        msg += 'evaluate_script: = "{}"\n'.format(self.evaluate_script)
         msg += 'log_file_byte_limit = "{}")'.format(self.log_file_byte_limit)
         return msg
 
@@ -69,21 +72,23 @@ class HoldoutConfig(object):
                  model_dir: str,
                  slurm_queue: str,
                  min_loss_criteria: float,
-                 output_dir: str,
+                 results_dir: str,
                  evaluate_script: str,
                  slurm_script: str,
-                 python_executor_script: str
+                 python_executor_script: str,
+                 submission_dir: str
                  ):
         self.log_file = log_file
         self.round_config_filepath = round_config_filepath
         self.model_dir = model_dir
         self.slurm_queue = slurm_queue
         self.min_loss_criteria = min_loss_criteria
-        self.output_dir = output_dir
+        self.results_dir = results_dir
         self.evaluate_script = evaluate_script
         self.slurm_script = slurm_script
         # TODO what are the differences between the python_executor script and the evaluate_script
         self.python_executor_script = python_executor_script
+        self.submission_dir = submission_dir
 
     def __str__(self):
         msg = 'HoldoutConfig: (log_file = "{}"\n'.format(self.log_file)
@@ -91,10 +96,11 @@ class HoldoutConfig(object):
         msg += 'model_dir: = "{}"\n'.format(self.model_dir)
         msg += 'slurm_queue: = "{}"\n'.format(self.slurm_queue)
         msg += 'min_loss_criteria: = "{}"\n'.format(self.min_loss_criteria)
-        msg += 'output_dir: = "{}"\n'.format(self.output_dir)
+        msg += 'results_dir: = "{}"\n'.format(self.results_dir)
         msg += 'evaluate_script: = "{}"\n'.format(self.evaluate_script)
         msg += 'slurm_script: = "{}"\n'.format(self.slurm_script)
         msg += 'python_executor_script: = "{}"\n'.format(self.python_executor_script)
+        msg += 'submission_dir: = "{}"\n'.format(self.submission_dir)
         return msg
 
     def save_json(self, filepath: str):

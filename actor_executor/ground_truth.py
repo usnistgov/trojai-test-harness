@@ -164,8 +164,9 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
     #             a = np.random.randn(1, 1000)
     #             fh.write(np.array2string(a))
 
-    # truncate log file to N bytes
-    # if os.path.exists(slurm_log_filepath):
+    # TODO test log file truncation and enable it, since the sts limit is null or 0 (i.e. not applied) and the ES is 1MB, but that won't be reached by the test harness
+    # # truncate log file to N bytes
+    # if os.path.exists(slurm_log_filepath) and log_file_byte_limit > 0:
     #     if (1.01 * os.path.getsize(slurm_log_filepath)) > log_file_byte_limit:  # use 1% buffer
     #         shutil.copyfile(slurm_log_filepath, slurm_log_filepath.replace('.txt', '.orig.txt'))
     #         os.truncate(slurm_log_filepath, log_file_byte_limit)

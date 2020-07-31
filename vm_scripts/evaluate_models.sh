@@ -2,7 +2,7 @@
 
 CONTAINER_NAME=$1
 QUEUE_NAME=$2
-MODEL_DIR=/home/trojai/data
+MODEL_DIR=$3
 
 ACTIVE_DIR=/home/trojai/active
 

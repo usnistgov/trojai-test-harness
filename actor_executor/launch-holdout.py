@@ -9,26 +9,18 @@ from config import Config, HoldoutConfig
 from submission import Submission, SubmissionManager
 
 
-def main(round_config_path:str, round_config: Config, holdout_config_path: str, holdout_config: HoldoutConfig, execute_team_name: str) -> None:
+def main(round_config_path: str, round_config: Config, holdout_config_path: str, holdout_config: HoldoutConfig, execute_team_name: str) -> None:
+
     submission_manager = SubmissionManager.load_json(round_config.submissions_json_file)
     logging.debug('Loaded submission_manager from filepath: {}'.format(round_config.submissions_json_file))
     logging.debug(submission_manager)
 
-    if not os.path.exists(holdout_config.output_dir):
-        logging.info('Creating result directory: {}'.format(holdout_config.output_dir))
-        os.makedirs(holdout_config.output_dir)
-
-    # Create submissions and results directory
-    holdout_submission_dirpath = os.path.join(holdout_config.output_dir, 'submissions')
-    output_dirpath = os.path.join(holdout_config.output_dir, 'results')
-
-    if not os.path.exists(holdout_submission_dirpath):
-        logging.info('Creating submission directory: {}'.format(holdout_submission_dirpath))
-        os.makedirs(holdout_submission_dirpath)
-
-    if not os.path.exists(output_dirpath):
-        logging.info('Creating result directory: {}'.format(output_dirpath))
-        os.makedirs(output_dirpath)
+    if not os.path.exists(holdout_config.results_dir):
+        logging.info('Creating results directory: {}'.format(holdout_config.results_dir))
+        os.makedirs(holdout_config.results_dir)
+    if not os.path.exists(holdout_config.submission_dir):
+        logging.info('Creating submissions directory: {}'.format(holdout_config.submission_dir))
+        os.makedirs(holdout_config.submission_dir)
 
     # Gather submissions based on criteria
     # Key = actor email, value = list of submissions that meets min loss criteria
@@ -48,12 +40,13 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
                 logging.error('Unable to find {}, cannot execute submission without container.'.format(existing_actor_submission_filepath))
                 continue
 
-            holdout_actor_submission_filepath = os.path.join(holdout_submission_dirpath, submission.actor.name, time_str, submission.file.name)
+            holdout_actor_submission_filepath = os.path.join(holdout_config.submission_dir, submission.actor.name, time_str, submission.file.name)
 
             # Copy existing submission into holdout record
+            logging.info('Copying container from {} to {}.'.format(existing_actor_submission_filepath, holdout_actor_submission_filepath))
             shutil.copyfile(existing_actor_submission_filepath, holdout_actor_submission_filepath)
 
-            holdout_actor_results_dirpath = os.path.join(output_dirpath, submission.actor.name, time_str)
+            holdout_actor_results_dirpath = os.path.join(holdout_config.results_dir, submission.actor.name, time_str)
             if not os.path.exists(holdout_actor_results_dirpath):
                 logging.debug('Creating result directory: {}'.format(holdout_actor_results_dirpath))
                 os.makedirs(holdout_actor_results_dirpath)
@@ -62,7 +55,7 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
                 shutil.rmtree(holdout_actor_results_dirpath)
                 os.makedirs(holdout_actor_results_dirpath)
 
-            slurm_output_filename = submission.actor.name + ".es.log.txt"
+            slurm_output_filename = submission.actor.name + ".holdout.log.txt"
             slurm_job_name = submission.actor.name
             slurm_output_filepath = os.path.join(holdout_actor_results_dirpath, slurm_output_filename)
 

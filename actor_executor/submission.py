@@ -159,7 +159,7 @@ class SubmissionManager(object):
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
-    def gather_submissions(self, min_loss_criteria: float, execute_team_name: str) -> Dict[str, list[Submission]]:
+    def gather_submissions(self, min_loss_criteria: float, execute_team_name: str) -> Dict[str, List[Submission]]:
         holdout_execution_submissions = dict()
 
         for actor_email in self.__submissions.keys():
@@ -177,9 +177,6 @@ class SubmissionManager(object):
                 holdout_execution_submissions[actor_email] = accepted_submissions
 
         return holdout_execution_submissions
-
-
-
 
     def add_submission(self, submission: Submission) -> None:
         actor = submission.actor

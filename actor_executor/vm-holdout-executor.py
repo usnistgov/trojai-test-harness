@@ -3,7 +3,6 @@ import subprocess
 import logging
 import traceback
 
-from drive_io import DriveIO
 from config import Config, HoldoutConfig
 from mail_io import TrojaiMail
 
@@ -12,21 +11,26 @@ def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
     return child.wait()
 
+
 def copy_in_submission(host, submission_dir, submission_name):
     child = subprocess.Popen(['scp', '-q', submission_dir + "/" + submission_name, 'trojai@'+host+':/mnt/scratch/' + submission_name])
     return child.wait()
+
 
 def copy_in_models(host, model_dir):
     child = subprocess.Popen(['scp', '-q', '-r', model_dir, 'trojai@'+host+':/mnt/scratch/models'])
     return child.wait()
 
+
 def copy_in_eval_script(host, eval_script_dir, eval_script_name):
     child = subprocess.Popen(['scp', '-q', eval_script_dir + "/" + eval_script_name, 'trojai@'+host+':/mnt/scratch/' + eval_script_name])
     return child.wait()
 
+
 def update_perms_eval_script(host, eval_script_name):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/mnt/scratch/' + eval_script_name])
     return child.wait()
+
 
 def execute_submission(host, eval_script_name, submission_name, queue_name, timeout='25h'):
     child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/mnt/scratch/' + eval_script_name, submission_name, queue_name, '/mnt/scratch/models'])

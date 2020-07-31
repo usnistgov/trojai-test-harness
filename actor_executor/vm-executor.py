@@ -18,8 +18,18 @@ def copy_in_submission(host, submission_dir, submission_name):
     return child.wait()
 
 
+def copy_in_eval_script(host, eval_script_path):
+    child = subprocess.Popen(['scp', '-q', eval_script_path, 'trojai@'+host+':/home/trojai/evaluate_models.sh'])
+    return child.wait()
+
+
+def update_perms_eval_script(host):
+    child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/home/trojai/evaluate_models.sh'])
+    return child.wait()
+
+
 def execute_submission(host, submission_name, queue_name, timeout='25h'):
-    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', submission_name, queue_name])
+    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', submission_name, queue_name, '/home/trojai/data'])
     return child.wait()
 
 
@@ -130,6 +140,22 @@ if __name__ == "__main__":
         logging.error(msg)
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Copy In Failed'.format(vm_name), message=msg)
+
+    logging.info('Copying in "{}"'.format(config.evaluate_script))
+    sc = copy_in_eval_script(vmIp, config.evaluate_script)
+    if sc != 0:
+        msg = '"{}" Evaluate script copy in may have failed with status code "{}".'.format(vm_name, sc)
+        logging.error(msg)
+        errors += ":Copy in:"
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
+
+    logging.info('Updating eval permissions in "{}"'.format(config.evaluate_script))
+    sc = update_perms_eval_script(vmIp)
+    if sc != 0:
+        msg = '"{}" Evaluate script update perms may have failed with status code "{}".'.format(vm_name, sc)
+        logging.error(msg)
+        errors += ":Copy in:"
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
 
     logging.info('Starting Execution of ' + submission_name)
     if sts:
