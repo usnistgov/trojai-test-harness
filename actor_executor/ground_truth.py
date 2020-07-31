@@ -46,14 +46,30 @@ def load_ground_truth(ground_truth_dir: str) -> typing.OrderedDict[str, float]:
     return ground_truth_dict
 
 
-def binary_cross_entropy(predictions: np.ndarray, targets: np.ndarray, epsilon=1e-12) -> float:
+def binary_cross_entropy(predictions: np.ndarray, targets: np.ndarray, epsilon=1e-12) -> np.ndarray:
     predictions = predictions.astype(np.float64)
     targets = targets.astype(np.float64)
     predictions = np.clip(predictions, epsilon, 1.0 - epsilon)
     a = targets * np.log(predictions)
     b = (1 - targets) * np.log(1 - predictions)
-    ce = np.mean(-(a + b))
-    return float(ce)
+    ce = -(a + b)
+    return ce
+
+
+def cross_entropy_confidence_interval(elementwise_cross_entropy: np.ndarray, level: int = 95) -> float:
+    # sources https://en.wikipedia.org/wiki/Standard_error
+    standard_error = np.std(elementwise_cross_entropy) / np.sqrt(float(len(elementwise_cross_entropy)))
+    if level == 90:
+        ci = standard_error * 1.64
+    elif level == 95:
+        ci = standard_error * 1.96
+    elif level == 98:
+        ci = standard_error * 2.33
+    elif level == 99:
+        ci = standard_error * 2.58
+    else:
+        raise RuntimeError('Unsupported confidence interval level: {}. Must be in [90, 95, 98, 99]'.format(level))
+    return float(ci)
 
 
 def gen_confusion_matrix(targets, predictions):
@@ -275,7 +291,9 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
         logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
 
         predictions[np.isnan(predictions)] = default_result
-        submission.score = float(binary_cross_entropy(predictions, targets))
+        elementwise_cross_entropy = binary_cross_entropy(predictions, targets)
+        confidence_interval = cross_entropy_confidence_interval(elementwise_cross_entropy)
+        submission.score = float(np.mean(elementwise_cross_entropy))
 
         TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = gen_confusion_matrix(targets, predictions)
         submission.roc_auc = sklearn.metrics.auc(FPR, TPR)
