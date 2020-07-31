@@ -40,7 +40,11 @@ def main(round_config_path: str, round_config: Config, holdout_config_path: str,
                 logging.error('Unable to find {}, cannot execute submission without container.'.format(existing_actor_submission_filepath))
                 continue
 
-            holdout_actor_submission_filepath = os.path.join(holdout_config.submission_dir, submission.actor.name, time_str, submission.file.name)
+            container_submission_dir = os.path.join(holdout_config.submission_dir, submission.actor.name, time_str)
+            holdout_actor_submission_filepath = os.path.join(container_submission_dir, submission.file.name)
+            if not os.path.exists(container_submission_dir):
+                logging.info('Creating directory to hold container image. {}'.format(container_submission_dir))
+                os.makedirs(container_submission_dir)
 
             # Copy existing submission into holdout record
             logging.info('Copying container from {} to {}.'.format(existing_actor_submission_filepath, holdout_actor_submission_filepath))
