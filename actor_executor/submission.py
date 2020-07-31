@@ -159,24 +159,22 @@ class SubmissionManager(object):
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
-    def gather_submissions(self, min_loss_criteria: float, execute_team_name: str) -> Dict[str, Submission]:
+    def gather_submissions(self, min_loss_criteria: float, execute_team_name: str) -> Dict[str, list[Submission]]:
         holdout_execution_submissions = dict()
 
         for actor_email in self.__submissions.keys():
             submissions = self.__submissions[actor_email]
-            best_loss = 42.0
-            best_submission = None
+            accepted_submissions = list()
 
             for submission in submissions:
-                if submission.score is not None and submission.score < best_loss:
-                    best_submission = submission
-                    best_loss = submission.score
+                if execute_team_name is not None and execute_team_name != submission.actor.name:
+                    break
 
-            if best_submission is not None:
-                if execute_team_name is not None and execute_team_name == best_submission.actor.name:
-                    holdout_execution_submissions[actor_email] = best_submission
-                elif execute_team_name is None and best_loss < min_loss_criteria:
-                    holdout_execution_submissions[actor_email] = best_submission
+                if submission.score is not None and submission.score < min_loss_criteria:
+                    accepted_submissions.append(submission)
+
+            if len(accepted_submissions) > 0:
+                holdout_execution_submissions[actor_email] = accepted_submissions
 
         return holdout_execution_submissions
 

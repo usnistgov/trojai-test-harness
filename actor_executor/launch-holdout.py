@@ -1,6 +1,7 @@
 import os
 import logging
 import logging.handlers
+import shutil
 import subprocess
 
 import time_utils
@@ -14,45 +15,82 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
     logging.debug('Loaded submission_manager from filepath: {}'.format(round_config.submissions_json_file))
     logging.debug(submission_manager)
 
-    # Gather submissions based on criteria
-    min_loss_criteria = holdout_config.min_loss_criteria
+    if not os.path.exists(holdout_config.holdout_result_dir):
+        logging.info('Creating result directory: {}'.format(holdout_config.holdout_result_dir))
+        os.makedirs(holdout_config.holdout_result_dir)
 
-    # Key = actor, value = submission that is best that meets criteria
+    # Create submissions and results directory
+    holdout_submission_dirpath = os.path.join(holdout_config.holdout_result_dir, 'submissions')
+    holdout_result_dirpath = os.path.join(holdout_config.holdout_result_dir, 'results')
+
+    if not os.path.exists(holdout_submission_dirpath):
+        logging.info('Creating submission directory: {}'.format(holdout_submission_dirpath))
+        os.makedirs(holdout_submission_dirpath)
+
+    if not os.path.exists(holdout_result_dirpath):
+        logging.info('Creating result directory: {}'.format(holdout_result_dirpath))
+        os.makedirs(holdout_result_dirpath)
+
+    # Gather submissions based on criteria
+    # Key = actor email, value = list of submissions that meets min loss criteria
     holdout_execution_submissions = submission_manager.gather_submissions(holdout_config.min_loss_criteria, execute_team_name)
 
     for actor_email in holdout_execution_submissions.keys():
-        submission = holdout_execution_submissions[actor_email]
-        time_str = time_utils.convert_epoch_to_psudo_iso(submission.execution_epoch)
-        actor_submission_filepath = os.path.join(submission.global_submission_dirpath, submission.actor.name, time_str, submission.file.name)
+        # process list of submissions for the actor
+        submissions = holdout_execution_submissions[actor_email]
 
-        result_dirpath = os.path.join(holdout_config.holdout_result_dir, submission.actor.name)
-        if not os.path.exists(result_dirpath):
-            logging.debug('Creating result directory: {}'.format(result_dirpath))
-            os.makedirs(result_dirpath)
+        logging.info("Submitting {} submissions for actor email {}".format(len(submissions), actor_email))
 
-        slurm_output_filename = submission.actor.name + ".es.log.txt"
-        slurm_job_name = submission.actor.name
-        slurm_output_filepath = os.path.join(result_dirpath, slurm_output_filename)
+        for submission in submissions:
+            time_str = time_utils.convert_epoch_to_psudo_iso(submission.execution_epoch)
+            existing_actor_submission_filepath = os.path.join(submission.global_submission_dirpath, submission.actor.name, time_str, submission.file.name)
 
-        v100_slurm_queue = 'control'
+            if not os.path.exists(existing_actor_submission_filepath):
+                logging.error('Unable to find {}, cannot execute submission without container.'.format(existing_actor_submission_filepath))
+                continue
 
-        cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", holdout_config.slurm_queue,
-                        "--gres=gpu:1", "-J", slurm_job_name, "--parsable", "-o", slurm_output_filepath,
-                        holdout_config.slurm_script, submission.actor.name, actor_submission_filepath, result_dirpath, round_config_path,
-                        submission.actor.email, holdout_config_path, holdout_config.python_executor_script]
-        logging.info('launching sbatch command: "{}"'.format(' '.join(cmd_str_list)))
-        print(cmd_str_list)
-        out = subprocess.Popen(cmd_str_list,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-        stdout, stderr = out.communicate()
+            holdout_actor_submission_filepath = os.path.join(holdout_submission_dirpath, submission.actor.name, time_str, submission.file.name)
 
-        # Check if there are no errors reported from sbatch
-        if stderr == b'':
-            job_id = int(stdout.strip())
-            logging.info("Slurm job executed with job id: {}".format(job_id))
-        else:
-            logging.error("The slurm script: {} resulted in errors {}".format(holdout_config.slurm_script, stderr))
+            # Copy existing submission into holdout record
+            shutil.copyfile(existing_actor_submission_filepath, holdout_actor_submission_filepath)
+
+            holdout_actor_results_dirpath = os.path.join(holdout_result_dirpath, submission.actor.name, time_str)
+            if not os.path.exists(holdout_actor_results_dirpath):
+                logging.debug('Creating result directory: {}'.format(holdout_actor_results_dirpath))
+                os.makedirs(holdout_actor_results_dirpath)
+            else:
+                logging.debug('Result directory {} already exists, recreating it to purge old results'.format(holdout_actor_results_dirpath))
+                shutil.rmtree(holdout_actor_results_dirpath)
+                os.makedirs(holdout_actor_results_dirpath)
+
+            slurm_output_filename = submission.actor.name + ".es.log.txt"
+            slurm_job_name = submission.actor.name
+            slurm_output_filepath = os.path.join(holdout_actor_results_dirpath, slurm_output_filename)
+
+            v100_slurm_queue = 'control'
+
+            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", holdout_config.slurm_queue,
+                            "--gres=gpu:1", "-J", slurm_job_name, "--parsable", "-o", slurm_output_filepath,
+                            holdout_config.slurm_script, submission.actor.name, holdout_actor_submission_filepath, holdout_actor_results_dirpath, round_config_path, holdout_config_path, holdout_config.python_executor_script]
+
+            logging.info('Launching holdout computation for actor: {}'.format(submission.actor.name))
+            logging.info('\tES Cross entropy loss: {}'.format(submission.score))
+            logging.info('\tSubmission container: {}'.format(holdout_actor_submission_filepath))
+            logging.info('\tHoldout result dir: {}'.format(holdout_actor_results_dirpath))
+            logging.info('\tRound config: {}'.format(round_config_path))
+            logging.info('\tHoldout config: {}'.format(holdout_config_path))
+
+            out = subprocess.Popen(cmd_str_list,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+            stdout, stderr = out.communicate()
+
+            # Check if there are no errors reported from sbatch
+            if stderr == b'':
+                job_id = int(stdout.strip())
+                logging.info("Slurm job executed with job id: {}".format(job_id))
+            else:
+                logging.error("The slurm script: {} resulted in errors {}".format(holdout_config.slurm_script, stderr))
 
 
 if __name__ == "__main__":
@@ -80,4 +118,6 @@ if __name__ == "__main__":
                         handlers=[handler])
 
     logging.info('Starting parsing for holdout execution')
+    logging.info(holdout_config)
+    logging.info(round_config)
     main(holdout_config.round_config_filepath, round_config, args.holdout_config_file, holdout_config, execute_team_name)

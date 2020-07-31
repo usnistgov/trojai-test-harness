@@ -7,7 +7,7 @@ class HoldoutConfig(object):
                  holdout_model_dir: str,
                  slurm_queue: str,
                  min_loss_criteria: float,
-                 holdout_result_dir: str,
+                 holdout_output_dir: str,
                  evaluate_script: str,
                  slurm_script:str,
                  python_executor_script: str
@@ -17,7 +17,7 @@ class HoldoutConfig(object):
         self.holdout_model_dir = holdout_model_dir
         self.slurm_queue = slurm_queue
         self.min_loss_criteria = min_loss_criteria
-        self.holdout_result_dir = holdout_result_dir
+        self.holdout_output_dir = holdout_output_dir
         self.evaluate_script = evaluate_script
         self.slurm_script = slurm_script
         self.python_executor_script = python_executor_script
@@ -29,7 +29,7 @@ class HoldoutConfig(object):
         msg += 'holdout_model_dir: = "{}"\n'.format(self.holdout_model_dir)
         msg += 'slurm_queue: = "{}"\n'.format(self.slurm_queue)
         msg += 'min_loss_criteria: = "{}"\n'.format(self.min_loss_criteria)
-        msg += 'holdout_result_dir: = "{}"\n'.format(self.holdout_result_dir)
+        msg += 'holdout_output_dir: = "{}"\n'.format(self.holdout_output_dir)
         return msg
 
     def save_json(self, filepath: str):

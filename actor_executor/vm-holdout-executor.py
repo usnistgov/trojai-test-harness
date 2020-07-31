@@ -13,7 +13,6 @@ def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
     return child.wait()
 
-
 def copy_in_submission(host, submission_dir, submission_name):
     child = subprocess.Popen(['scp', '-q', submission_dir + "/" + submission_name, 'trojai@'+host+':/mnt/scratch/' + submission_name])
     return child.wait()
@@ -61,9 +60,6 @@ if __name__ == "__main__":
     parser.add_argument('--team-name', type=str,
                         help='The team name',
                         required=True)
-    parser.add_argument('--team-email', type=str,
-                        help='The team email',
-                        required=True)
     parser.add_argument('--submission-filepath', type=str,
                         help='The submission dir for the team',
                         required=True)
@@ -83,7 +79,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     team_name = args.team_name
-    team_email = args.team_email
     submission_filepath = args.submission_filepath
     result_dir = args.result_dir
     config_file = args.config_file
@@ -158,7 +153,7 @@ if __name__ == "__main__":
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
 
-
+    logging.info('Copying in models: "{}"'.format(holdout_config.holdout_model_dir))
     sc = copy_in_models(vmIp, holdout_config.holdout_model_dir)
     if sc != 0:
         msg = '"{}" Model copy in may have failed with status code "{}."'.format(vm_name, sc)
