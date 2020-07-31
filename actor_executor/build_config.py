@@ -45,6 +45,11 @@ if __name__ == "__main__":
                         help='The slurm script that each actor executes',
                         required=True)
 
+    parser.add_argument('--evaluate-script', type=str,
+                        help='The evaluation script that executes on the VM',
+                        default='/mnt/isgnas/project/ai/trojai/trojai-test-harness/vm_scripts/evaluate_models.sh'
+                        )
+
     parser.add_argument('--sts', action='store_true')
     parser.add_argument('--accepting-submissions', action='store_true')
 
@@ -76,7 +81,7 @@ if __name__ == "__main__":
     MB_limit = 1
     log_file_byte_limit = int(MB_limit * 1024 * 1024)
 
-    evaluate_script = '/mnt/isgnas/project/ai/trojai/trojai-test-harness/vm_scripts/evaluate_models.sh'
+    evaluate_script = args.evaluate_script
 
     config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, log_file_byte_limit)
 
