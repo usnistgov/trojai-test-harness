@@ -5,8 +5,7 @@ import shutil
 import subprocess
 
 import time_utils
-from config import Config
-from holdout_config import HoldoutConfig
+from config import Config, HoldoutConfig
 from submission import Submission, SubmissionManager
 
 
@@ -15,21 +14,21 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
     logging.debug('Loaded submission_manager from filepath: {}'.format(round_config.submissions_json_file))
     logging.debug(submission_manager)
 
-    if not os.path.exists(holdout_config.holdout_result_dir):
-        logging.info('Creating result directory: {}'.format(holdout_config.holdout_result_dir))
-        os.makedirs(holdout_config.holdout_result_dir)
+    if not os.path.exists(holdout_config.output_dir):
+        logging.info('Creating result directory: {}'.format(holdout_config.output_dir))
+        os.makedirs(holdout_config.output_dir)
 
     # Create submissions and results directory
-    holdout_submission_dirpath = os.path.join(holdout_config.holdout_result_dir, 'submissions')
-    holdout_result_dirpath = os.path.join(holdout_config.holdout_result_dir, 'results')
+    holdout_submission_dirpath = os.path.join(holdout_config.output_dir, 'submissions')
+    output_dirpath = os.path.join(holdout_config.output_dir, 'results')
 
     if not os.path.exists(holdout_submission_dirpath):
         logging.info('Creating submission directory: {}'.format(holdout_submission_dirpath))
         os.makedirs(holdout_submission_dirpath)
 
-    if not os.path.exists(holdout_result_dirpath):
-        logging.info('Creating result directory: {}'.format(holdout_result_dirpath))
-        os.makedirs(holdout_result_dirpath)
+    if not os.path.exists(output_dirpath):
+        logging.info('Creating result directory: {}'.format(output_dirpath))
+        os.makedirs(output_dirpath)
 
     # Gather submissions based on criteria
     # Key = actor email, value = list of submissions that meets min loss criteria
@@ -54,7 +53,7 @@ def main(round_config_path:str, round_config: Config, holdout_config_path: str, 
             # Copy existing submission into holdout record
             shutil.copyfile(existing_actor_submission_filepath, holdout_actor_submission_filepath)
 
-            holdout_actor_results_dirpath = os.path.join(holdout_result_dirpath, submission.actor.name, time_str)
+            holdout_actor_results_dirpath = os.path.join(output_dirpath, submission.actor.name, time_str)
             if not os.path.exists(holdout_actor_results_dirpath):
                 logging.debug('Creating result directory: {}'.format(holdout_actor_results_dirpath))
                 os.makedirs(holdout_actor_results_dirpath)

@@ -4,9 +4,8 @@ import logging
 import traceback
 
 from drive_io import DriveIO
-from config import Config
+from config import Config, HoldoutConfig
 from mail_io import TrojaiMail
-from holdout_config import HoldoutConfig
 
 
 def check_gpu(host):
@@ -153,8 +152,8 @@ if __name__ == "__main__":
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
 
-    logging.info('Copying in models: "{}"'.format(holdout_config.holdout_model_dir))
-    sc = copy_in_models(vmIp, holdout_config.holdout_model_dir)
+    logging.info('Copying in models: "{}"'.format(holdout_config.model_dir))
+    sc = copy_in_models(vmIp, holdout_config.model_dir)
     if sc != 0:
         msg = '"{}" Model copy in may have failed with status code "{}."'.format(vm_name, sc)
         logging.error(msg)
