@@ -3,8 +3,8 @@ teamName=$1
 submissionPath=$2
 resultDir=$3
 configFile=$4
-holdoutConfigFile=$6
-pythonExecutorScript=$7
+holdoutConfigFile=$5
+pythonExecutorScript=$6
 
 #echo $SLURM_JOB_NODELIST_PACK_GROUP_0  # host
 #echo $SLURM_JOB_NODELIST_PACK_GROUP_1  # vm
