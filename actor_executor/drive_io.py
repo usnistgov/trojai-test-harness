@@ -7,6 +7,9 @@ import time
 import logging
 from typing import List
 
+import socket
+socket.setdefaulttimeout(300)  # set timeout to 5 minutes (300s)
+
 from google_drive_file import GoogleDriveFile
 
 from googleapiclient.discovery import build
@@ -168,6 +171,8 @@ class DriveIO(object):
         _, file_name = os.path.split(file_path)
         logging.info('Uploading file: "{}" to Drive'.format(file_name))
         m_type = mimetypes.guess_type(file_name)[0]
+
+        # TODO ensure file_path is a file, and not a folder
 
         for retry_count in range(self.max_retry_count):
             try:

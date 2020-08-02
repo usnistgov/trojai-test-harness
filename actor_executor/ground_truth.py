@@ -297,7 +297,8 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
         submission.score = float(np.mean(elementwise_cross_entropy))
 
         TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = gen_confusion_matrix(targets, predictions)
-        submission.roc_auc = sklearn.metrics.auc(FPR, TPR)
+        # cast to a float so its human readable in the joson
+        submission.roc_auc = float(sklearn.metrics.auc(FPR, TPR))
 
         confusion_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, submission.confusion_output_filename)
         write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_filepath)
