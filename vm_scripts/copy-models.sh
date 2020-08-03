@@ -1,7 +1,7 @@
 #!/bin/bash
 
 IPs="192.168.200.4 192.168.200.7"
-MODEL_DIR="/mnt/trojainas/datasets/round1/round1-dataset-sts/models/"
+MODEL_DIR="/mnt/trojainas/datasets/round2/sts-dataset/models/"
 
 for ip in $IPs; do
 	echo "Deleting old models on $ip"
@@ -14,7 +14,7 @@ done
 
 
 IPs="192.168.200.2 192.168.200.3 192.168.200.5 192.168.200.6"
-MODEL_DIR="/mnt/trojainas/datasets/round1/round1-dataset-test/models/"
+MODEL_DIR="/mnt/trojainas/datasets/round2/es-dataset/models/"
 
 for ip in $IPs; do
 	echo "Deleting old models on $ip"
