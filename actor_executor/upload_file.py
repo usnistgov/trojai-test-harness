@@ -35,20 +35,24 @@ def upload(token, filepath):
 
 token = '/home/mmajurski/nist/token.pickle'
 
-fp = '/mnt/scratch/trojai/data/round1/round1-holdout-dataset.tar.gz'
+# fp = '/mnt/scratch/trojai/data/round1/round1-holdout-dataset.tar.gz'
+# upload(token, fp)
+#
+# fp = '/mnt/scratch/trojai/data/round1/round1-test-dataset.tar.gz'
+# upload(token, fp)
+
+fp = '/mnt/scratch/trojai/data/round1/trojai-round1-dataset-train.tar.gz'
 upload(token, fp)
 
-fp = '/mnt/scratch/trojai/data/round1/round1-test-dataset.tar.gz'
-upload(token, fp)
 
 
 
-fp = '/mnt/scratch/trojai/data/round2/round2-train-dataset/'
-fns = ['id-000000xx.tar.gz', 'id-000001xx.tar.gz', 'id-000002xx.tar.gz', 'id-000003xx.tar.gz', 'id-000004xx.tar.gz', 'id-000005xx.tar.gz','id-000006xx.tar.gz','id-000007xx.tar.gz','id-000008xx.tar.gz','id-000009xx.tar.gz', 'id-000010xx.tar.gz', 'id-000011xx.tar.gz']
-
-
-for fn in fns:
-    print(fn)
-    cur_fp = os.path.join(fp, fn)
-    upload(token, cur_fp)
+# fp = '/mnt/scratch/trojai/data/round2/round2-train-dataset/'
+# fns = ['id-000000xx.tar.gz', 'id-000001xx.tar.gz', 'id-000002xx.tar.gz', 'id-000003xx.tar.gz', 'id-000004xx.tar.gz', 'id-000005xx.tar.gz','id-000006xx.tar.gz','id-000007xx.tar.gz','id-000008xx.tar.gz','id-000009xx.tar.gz', 'id-000010xx.tar.gz', 'id-000011xx.tar.gz']
+#
+#
+# for fn in fns:
+#     print(fn)
+#     cur_fp = os.path.join(fp, fn)
+#     upload(token, cur_fp)
 

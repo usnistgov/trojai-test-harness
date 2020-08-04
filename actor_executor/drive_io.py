@@ -8,7 +8,7 @@ import logging
 from typing import List
 
 import socket
-socket.setdefaulttimeout(300)  # set timeout to 5 minutes (300s)
+socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
 
 from google_drive_file import GoogleDriveFile
 
