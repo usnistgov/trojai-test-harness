@@ -1,4 +1,4 @@
-#!/bin/bash
+# You cannot run this script, its a list of commands to execute manually.
 
 conda activate scripts
 cd /mnt/isgnas/project/ai/trojai/trojai-test-harness/actor_executor
