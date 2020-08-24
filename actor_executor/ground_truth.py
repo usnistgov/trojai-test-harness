@@ -242,8 +242,6 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
                     if ":Result Parse:" not in submission.web_display_parse_errors:
                         submission.web_display_parse_errors += ":Result Parse:"
 
-                    if submission.slurm_queue == 'sts':
-                        logging.warning('Unable to parse results for model "{}".'.format(model_name))
                     results[model_name] = np.nan
                 else:
                     results[model_name] = result
@@ -325,7 +323,8 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
             submission.web_display_parse_errors += ":Confusion File Missing:"
     except:
         logging.error('Unable to upload confusion matrix output file: {}'.format(confusion_filepath))
-        submission.web_display_parse_errors += ":File Upload:"
+        if ":File Upload:" not in submission.web_display_parse_errors:
+            submission.web_display_parse_errors += ":File Upload:"
 
     # upload log file to drive
     try:
@@ -336,7 +335,8 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
             submission.web_display_parse_errors += ":Log File Missing:"
     except:
         logging.error('Unable to upload slurm output log file: {}'.format(slurm_log_filepath))
-        submission.web_display_parse_errors += ":File Upload:"
+        if ":File Upload:" not in submission.web_display_parse_errors:
+            submission.web_display_parse_errors += ":File Upload:"
 
     if os.path.exists(errors_filepath):
         logging.error('Found errors log from job execution.')
