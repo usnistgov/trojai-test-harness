@@ -2,10 +2,12 @@ import os
 import subprocess
 import logging
 import traceback
+import time
 
 from drive_io import DriveIO
 from config import Config
 from mail_io import TrojaiMail
+import json_io
 
 
 def check_gpu(host):
@@ -97,6 +99,7 @@ if __name__ == "__main__":
     submission_metadata_file = os.path.join(result_dir, team_name + '.metadata.json')
     logging.info('Serializing executed file to "{}"'.format(submission_metadata_file))
     error_file = os.path.join(result_dir, 'errors.txt')
+    info_file = os.path.join(result_dir, 'info.json')
 
     errors = ""
 
@@ -157,11 +160,14 @@ if __name__ == "__main__":
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
 
+    start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
     if sts:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="20m")
     else:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="25h")
+    execution_time = time.time() - start_time
+    logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 
     logging.info("Execute status = " + str(executeStatus))
     if executeStatus == -9:
@@ -189,3 +195,9 @@ if __name__ == "__main__":
 
     if errors != "":
         write_errors(error_file, errors)
+
+    # build dictionary of info to transfer back to the command and control
+    info_dict = dict()
+    info_dict['execution_runtime'] = execution_time
+    json_io.write(info_file, info_dict)
+

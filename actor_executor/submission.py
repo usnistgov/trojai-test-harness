@@ -18,8 +18,11 @@ class Submission(object):
         self.actor = actor
 
         self.slurm_queue = slurm_queue
-        self.score = None  # score = cross entropy loss
+        self.cross_entropy = None
+        self.cross_entropy_95_confidence_interval = None
         self.roc_auc = None
+        self.brier_score = None
+        self.execution_runtime = None
         self.execution_epoch = None
         self.slurm_job_name = None
         self.slurm_output_filename = None
@@ -170,7 +173,7 @@ class SubmissionManager(object):
                 if execute_team_name is not None and execute_team_name != submission.actor.name:
                     break
 
-                if submission.score is not None and submission.score < min_loss_criteria:
+                if submission.cross_entropy is not None and submission.cross_entropy < min_loss_criteria:
                     accepted_submissions.append(submission)
 
             if len(accepted_submissions) > 0:
@@ -215,6 +218,7 @@ class SubmissionManager(object):
         return json_io.read(filepath)
 
     def get_score_table(self):
+        # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
         scores = []
 
         for key in self.__submissions.keys():
@@ -235,6 +239,6 @@ class SubmissionManager(object):
                 if len(s.web_display_parse_errors.strip()) == 0:
                     s.web_display_parse_errors = "None"
 
-                if s.score is not None:
-                    scores.append([s.actor.name, s.score, s.roc_auc, execute_timestr, file_timestr, s.web_display_parse_errors, s.web_display_execution_errors])
+                if s.cross_entropy is not None:
+                    scores.append([s.actor.name, s.cross_entropy, s.cross_entropy_95_confidence_interval, s.brier_score, s.roc_auc, s.execution_runtime, execute_timestr, file_timestr, s.web_display_parse_errors, s.web_display_execution_errors])
         return scores

@@ -8,7 +8,8 @@ from mail_io import TrojaiMail
 
 
 def write(filepath, obj):
-    assert filepath.endswith('.json')
+    if not filepath.endswith('.json'):
+        raise RuntimeError("Expecting a file ending in '.json'")
     lock_file = '/var/lock/trojai-json_io-lockfile'
     with open(lock_file, 'w') as lfh:
         try:
@@ -24,7 +25,8 @@ def write(filepath, obj):
 
 
 def read(filepath):
-    assert filepath.endswith('.json')
+    if not filepath.endswith('.json'):
+        raise RuntimeError("Expecting a file ending in '.json'")
     lock_file = '/var/lock/trojai-json_io-lockfile'
     with open(lock_file, 'w') as lfh:
         try:

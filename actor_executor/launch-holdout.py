@@ -70,7 +70,7 @@ def main(round_config_path: str, round_config: Config, holdout_config_path: str,
                             holdout_config.slurm_script, submission.actor.name, holdout_actor_submission_filepath, holdout_actor_results_dirpath, round_config_path, holdout_config_path, holdout_config.python_executor_script]
 
             logging.info('Launching holdout computation for actor: {}'.format(submission.actor.name))
-            logging.info('\tES Cross entropy loss: {}'.format(submission.score))
+            logging.info('\tES Cross entropy loss: {}'.format(submission.cross_entropy))
             logging.info('\tSubmission container: {}'.format(holdout_actor_submission_filepath))
             logging.info('\tHoldout result dir: {}'.format(holdout_actor_results_dirpath))
             logging.info('\tRound config: {}'.format(round_config_path))

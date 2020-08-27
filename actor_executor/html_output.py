@@ -26,9 +26,18 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
                 scores = submission_manager.get_score_table()
 
                 scoreWriter = HtmlTableWriter()
-                scoreWriter.headers = ["Team", "Loss (Cross Entropy)", "ROC-AUC", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
+                scoreWriter.headers = ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
                 scoreWriter.value_matrix = scores
-                scoreWriter.type_hints = [pytablewriter.String, pytablewriter.RealNumber, pytablewriter.RealNumber, pytablewriter.String, pytablewriter.String, pytablewriter.String, pytablewriter.String]
+                scoreWriter.type_hints = [pytablewriter.String, # Team
+                                          pytablewriter.RealNumber, # Cross Entropy
+                                          pytablewriter.RealNumber, # CE 95% CI
+                                          pytablewriter.RealNumber, # Brier Score
+                                          pytablewriter.RealNumber, # ROC-AUC
+                                          pytablewriter.Integer,  # Runtime
+                                          pytablewriter.String, # Execution Timestamp
+                                          pytablewriter.String, # File Timestamp
+                                          pytablewriter.String, # arsing Errors
+                                          pytablewriter.String]  # Launch Errors
                 scoreTable = scoreWriter.dumps()
 
 

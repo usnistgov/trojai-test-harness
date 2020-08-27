@@ -13,6 +13,7 @@ from google_drive_file import GoogleDriveFile
 import time_utils
 from mail_io import TrojaiMail
 from submission import Submission
+import json_io
 
 
 def load_ground_truth(ground_truth_dir: str) -> typing.OrderedDict[str, float]:
@@ -54,6 +55,14 @@ def binary_cross_entropy(predictions: np.ndarray, targets: np.ndarray, epsilon=1
     b = (1 - targets) * np.log(1 - predictions)
     ce = -(a + b)
     return ce
+
+
+def binary_brier_score(predictions: np.ndarray, targets: np.ndarray) -> np.ndarray:
+    predictions = predictions.astype(np.float64)
+    targets = targets.astype(np.float64)
+
+    mse = np.mean(np.square(predictions - targets))
+    return mse
 
 
 def cross_entropy_confidence_interval(elementwise_cross_entropy: np.ndarray, level: int = 95) -> float:
@@ -155,6 +164,7 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
 
     time_str = time_utils.convert_epoch_to_psudo_iso(submission.execution_epoch)
     errors_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, "errors.txt")
+    info_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, "info.json")
     slurm_log_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, submission.slurm_output_filename)
 
     # Test log file truncations
@@ -291,21 +301,39 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
 
         predictions[np.isnan(predictions)] = default_result
         elementwise_cross_entropy = binary_cross_entropy(predictions, targets)
-        confidence_interval = cross_entropy_confidence_interval(elementwise_cross_entropy)
-        submission.score = float(np.mean(elementwise_cross_entropy))
+        ce_95_ci = cross_entropy_confidence_interval(elementwise_cross_entropy)
+        submission.cross_entropy = float(np.mean(elementwise_cross_entropy))
+        submission.cross_entropy_95_confidence_interval = ce_95_ci
+
+        # compute Brier score
+        submission.brier_score = binary_brier_score(predictions, targets)
 
         TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = gen_confusion_matrix(targets, predictions)
         # cast to a float so its human readable in the joson
         submission.roc_auc = float(sklearn.metrics.auc(FPR, TPR))
 
+        # load the runtime from the vm-executor
+        if not os.path.exists(info_filepath):
+            logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
+            submission.web_display_parse_errors += ":Info File Missing:"
+            # TODO add ":Info File Missing:" to the web display of errors
+        else:
+            info_dict = json_io.read(info_filepath)
+            if 'execution_runtime' not in info_dict.keys():
+                logging.error("Missing 'execution_runtime' key in info file dictionary")
+                submission.execution_runtime = np.nan
+            else:
+                submission.execution_runtime = info_dict['execution_runtime']
+
         confusion_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, submission.confusion_output_filename)
         write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_filepath)
 
         # generate_roc_image(fpr, tpr, submission.global_results_dirpath, submission.slurm_job_name)
-        logging.info('Binary Cross Entropy Loss: "{}"'.format(submission.score))
+        logging.info('Binary Cross Entropy Loss: "{}"'.format(submission.cross_entropy))
         logging.info('ROC AUC: "{}"'.format(submission.roc_auc))
         if len(targets) < 2:
             logging.info("  ROC Curve undefined for vectors of length: {}".format(len(targets)))
+        logging.info('Brier Score: "{}"'.format(submission.brier_score))
 
     finally:
         # stop outputting logging to submission log file
