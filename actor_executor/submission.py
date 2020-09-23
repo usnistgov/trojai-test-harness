@@ -4,12 +4,13 @@ import logging
 from typing import List
 from typing import Dict
 
-from drive_io import DriveIO
-from google_drive_file import GoogleDriveFile
-from actor import Actor
-import json_io
-import slurm
-import time_utils
+from actor_executor.drive_io import DriveIO
+from actor_executor.google_drive_file import GoogleDriveFile
+from actor_executor.actor import Actor
+from actor_executor import json_io
+from actor_executor import slurm
+from actor_executor import time_utils
+from actor_executor import ground_truth
 
 
 class Submission(object):
@@ -49,7 +50,6 @@ class Submission(object):
         return msg
 
     def check_submission(self, g_drive: DriveIO, log_file_byte_limit: int) -> None:
-        import ground_truth
 
         if self.slurm_job_name is None:
             logging.info('Submission "{}" by team "{}" is not active.'.format(self.file.name, self.actor.name))

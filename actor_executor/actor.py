@@ -1,9 +1,9 @@
 import os
 from typing import KeysView
 
-import json_io
-import slurm
-import time_utils
+from actor_executor import json_io
+from actor_executor import slurm
+from actor_executor import time_utils
 
 
 class Actor(object):

@@ -8,12 +8,12 @@ import shutil
 import sklearn.metrics
 import csv
 
-from drive_io import DriveIO
-from google_drive_file import GoogleDriveFile
-import time_utils
-from mail_io import TrojaiMail
-from submission import Submission
-import json_io
+from actor_executor.drive_io import DriveIO
+from actor_executor.google_drive_file import GoogleDriveFile
+from actor_executor import time_utils
+from actor_executor.mail_io import TrojaiMail
+from actor_executor.submission import Submission
+from actor_executor import json_io
 
 
 def load_ground_truth(ground_truth_dir: str) -> typing.OrderedDict[str, float]:
@@ -95,7 +95,7 @@ def gen_confusion_matrix(targets, predictions):
     nb_condition_negative = np.sum(targets == 0)
 
     for t in thresholds:
-        detections = predictions > t
+        detections = predictions >= t
 
         # both detections and targets should be a 1d numpy array
         TP_count = np.sum(np.logical_and(detections == 1, targets == 1))

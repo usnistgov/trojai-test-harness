@@ -1,5 +1,5 @@
-import json_io
-import time_utils
+from actor_executor import json_io
+from actor_executor import time_utils
 
 
 class GoogleDriveFile(object):

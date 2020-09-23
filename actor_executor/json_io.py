@@ -4,7 +4,7 @@ import jsonpickle
 import logging
 import traceback
 
-from mail_io import TrojaiMail
+from actor_executor.mail_io import TrojaiMail
 
 
 def write(filepath, obj):

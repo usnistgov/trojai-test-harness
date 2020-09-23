@@ -3,8 +3,8 @@ import subprocess
 import logging
 import traceback
 
-from config import Config, HoldoutConfig
-from mail_io import TrojaiMail
+from actor_executor.config import Config, HoldoutConfig
+from actor_executor.mail_io import TrojaiMail
 
 
 def check_gpu(host):

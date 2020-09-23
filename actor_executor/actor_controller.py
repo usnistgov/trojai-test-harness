@@ -1,7 +1,7 @@
 import logging
 
-from actor import ActorManager
-from config import Config
+from actor_executor.actor import ActorManager
+from actor_executor.config import Config
 
 
 def remove_actor(key, config):

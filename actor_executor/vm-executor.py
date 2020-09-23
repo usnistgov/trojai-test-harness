@@ -4,10 +4,10 @@ import logging
 import traceback
 import time
 
-from drive_io import DriveIO
-from config import Config
-from mail_io import TrojaiMail
-import json_io
+from actor_executor.drive_io import DriveIO
+from actor_executor.config import Config
+from actor_executor.mail_io import TrojaiMail
+from actor_executor import json_io
 
 
 def check_gpu(host):

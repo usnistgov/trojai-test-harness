@@ -4,13 +4,13 @@ import logging.handlers
 import os
 
 import fcntl
-from config import Config
+from actor_executor.config import Config
 
-from drive_io import DriveIO
-from actor import Actor, ActorManager
-from submission import Submission, SubmissionManager
-import html_output
-import time_utils
+from actor_executor.drive_io import DriveIO
+from actor_executor.actor import Actor, ActorManager
+from actor_executor.submission import Submission, SubmissionManager
+from actor_executor import html_output
+from actor_executor import time_utils
 
 
 def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submission_manager: SubmissionManager, config_filepath: str, cur_epoch: int) -> None:

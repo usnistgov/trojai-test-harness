@@ -1,7 +1,7 @@
 import argparse
 
-import time_utils
-from config import Config
+from actor_executor import time_utils
+from actor_executor.config import Config
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Construct a config.json file.')

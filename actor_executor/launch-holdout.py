@@ -4,9 +4,9 @@ import logging.handlers
 import shutil
 import subprocess
 
-import time_utils
-from config import Config, HoldoutConfig
-from submission import Submission, SubmissionManager
+from actor_executor import time_utils
+from actor_executor.config import Config, HoldoutConfig
+from actor_executor.submission import Submission, SubmissionManager
 
 
 def main(round_config_path: str, round_config: Config, holdout_config_path: str, holdout_config: HoldoutConfig, execute_team_name: str) -> None:

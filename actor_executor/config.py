@@ -1,4 +1,4 @@
-import json_io
+from actor_executor import json_io
 
 
 class Config(object):
