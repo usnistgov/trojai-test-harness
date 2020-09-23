@@ -17,7 +17,6 @@ def generate_roc_image(df, team_name, timestamp, output_fp):
 
     if not os.path.exists(output_fp):
         os.makedirs(output_fp)
-    output_fp = os.path.join(output_fp, 'roc')
     if not os.path.exists(output_fp):
         os.makedirs(output_fp)
 

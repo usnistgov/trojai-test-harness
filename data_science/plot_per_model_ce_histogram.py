@@ -46,7 +46,7 @@ def main(global_results_csv_filepath, output_dirpath):
             bins = np.arange(0, 10, 0.1).tolist()
             plt.hist(elementwise_ce, bins=100)
             plt.title('Per Model CE Loss Histogram')
-            plt.savefig(os.path.join(output_dirpath, '{}-{}-roc.png'.format(team, timestamp)))
+            plt.savefig(os.path.join(output_dirpath, '{}-{}.png'.format(team, timestamp)))
             plt.clf()
     plt.close(fig)
 
