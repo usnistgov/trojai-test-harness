@@ -27,9 +27,8 @@ def copy_in_submission(host, submission_dir, submission_name):
 
 
 def copy_in_models(host, models_dir):
-    # TODO change this to use rsync with --delete to avoid doing any copying if the models are correct
-    # TODO rsync -ar --prune-empty-dirs $MODEL_DIR trojai@$ip:/home/trojai/data/
-    child = subprocess.Popen(['scp', '-q', '-r', models_dir, 'trojai@'+host+':/mnt/scratch/models'])
+    # TODO Test this functionality
+    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/mnt/scratch/models'])
     return child.wait()
 
 
