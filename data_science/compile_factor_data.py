@@ -41,30 +41,6 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     results_df['instagram_filter_type'] = instagram_filter_type
     results_df = results_df.drop(columns=['trigger_type_option'])
 
-    results_df = results_df.drop(columns=['final_train_loss'])
-    results_df = results_df.drop(columns=['final_train_acc'])
-    results_df = results_df.drop(columns=['final_combined_val_acc'])
-    results_df = results_df.drop(columns=['final_combined_val_loss'])
-    results_df = results_df.drop(columns=['final_clean_val_acc'])
-    results_df = results_df.drop(columns=['final_triggered_val_acc'])
-    results_df = results_df.drop(columns=['final_clean_data_test_acc'])
-    results_df = results_df.drop(columns=['final_triggered_data_test_acc'])
-    results_df = results_df.drop(columns=['final_example_acc'])
-    results_df = results_df.drop(columns=['trigger_target_class'])
-    results_df = results_df.drop(columns=['trigger_behavior'])
-    results_df = results_df.drop(columns=['foreground_size_percentage_of_image_min'])
-    results_df = results_df.drop(columns=['foreground_size_percentage_of_image_max'])
-    results_df = results_df.drop(columns=['foreground_size_pixels_min'])
-    results_df = results_df.drop(columns=['foreground_size_pixels_max'])
-    results_df = results_df.drop(columns=['number_triggered_classes'])
-    results_df = results_df.drop(columns=['trigger_size_percentage_of_foreground_min'])
-    results_df = results_df.drop(columns=['trigger_size_percentage_of_foreground_max'])
-    results_df = results_df.drop(columns=['final_clean_val_loss'])
-    results_df = results_df.drop(columns=['final_triggered_val_loss'])
-    results_df = results_df.drop(columns=['training_wall_time_sec'])
-    results_df = results_df.drop(columns=['test_wall_time_sec'])
-
-
     # drop columns with only one unique value, since they cannot meaningfully influence the trojan detector
     to_drop = list()
     for col in list(results_df.columns):
@@ -83,6 +59,28 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     to_drop.append('final_clean_data_n_total')
     to_drop.append('final_triggered_data_n_total')
     to_drop.append('optimizer_0')
+    to_drop.append('final_train_loss')
+    to_drop.append('final_train_acc')
+    to_drop.append('final_combined_val_acc')
+    to_drop.append('final_combined_val_loss')
+    to_drop.append('final_clean_val_acc')
+    to_drop.append('final_triggered_val_acc')
+    to_drop.append('final_clean_data_test_acc')
+    to_drop.append('final_triggered_data_test_acc')
+    to_drop.append('final_example_acc')
+    to_drop.append('trigger_target_class')
+    to_drop.append('trigger_behavior')
+    to_drop.append('foreground_size_percentage_of_image_min')
+    to_drop.append('foreground_size_percentage_of_image_max')
+    to_drop.append('foreground_size_pixels_min')
+    to_drop.append('foreground_size_pixels_max')
+    to_drop.append('trigger_size_percentage_of_foreground_min')
+    to_drop.append('trigger_size_percentage_of_foreground_max')
+    to_drop.append('final_clean_val_loss')
+    to_drop.append('final_triggered_val_loss')
+    to_drop.append('training_wall_time_sec')
+    to_drop.append('test_wall_time_sec')
+
     results_df = results_df.drop(columns=to_drop)
     results_df.reset_index(drop=True, inplace=True)
 
@@ -121,7 +119,7 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
 
     factor_df.reset_index(drop=True, inplace=True)
     output_filepath = os.path.join(output_dirpath, 'factor-global-results.csv')
-    factor_df.to_csv(output_filepath, na_rep='nan')
+    factor_df.to_csv(output_filepath, na_rep='nan', index=False)
 
 
 if __name__ == "__main__":

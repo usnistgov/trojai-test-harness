@@ -21,6 +21,9 @@ export PYTHONPATH="$PYTHONPATH:/home/mmajurski/usnistgov/trojai-test-harness/"
 echo "Building test global csv results file from test harness directories and metadata file"
 python compile_global_csv_results.py --test-harness-dirpath=${TEST_HARNESS_DIR} --server=es --metadata-filepath=${DATA_DIR}/METADATA.csv --output-dirpath=${OUTPUT_DIR}
 
+echo "Converting global results csv into factor levels"
+python compile_factor_data.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}
+
 echo "Building leaderboard archive csv file"
 python build_leaderboard_archive.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --queue=es --output-dirpath=${OUTPUT_DIR}
 
@@ -34,16 +37,13 @@ echo "Plotting Per-Model CE Histograms"
 python plot_per_model_ce_histogram.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}/ce-hist
 
 echo "Plotting experimental design factors"
-python plot_dex_factors.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/dex-plots
+python plot_dex_factors.py --global-results-csv-filepath=${OUTPUT_DIR}/factor-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/dex-plots
 
 echo "Plotting every other column against the selected one"
-python plot_features.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/feature-plots
+python plot_features.py --global-results-csv-filepath=${OUTPUT_DIR}/factor-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/feature-plots
 
 echo "Plotting mean effects for every other column against the selected one"
-python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots #--box-plot
-
-echo "Converting global results csv into factor levels"
-python compile_factor_data.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/factor-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots #--box-plot
 
 echo "Plotting two term interactiosn using mean effects plots"
 python plot_2term_interactions.py --factor-global-results-csv-filepath=${OUTPUT_DIR}/factor-global-results.csv --output-dirpath=${OUTPUT_DIR}/2term-mean-effets-plots

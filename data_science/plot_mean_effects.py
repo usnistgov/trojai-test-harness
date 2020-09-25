@@ -107,9 +107,10 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
 
     results_df = pd.read_csv(global_results_csv_filepath)
     # treat two boolean columns categorically
-    results_df['trigger_target_class'] = results_df['trigger_target_class'].astype('category')
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
-    results_df['poisoned'] = results_df['poisoned'].astype('category')
+    to_drop = [fn for fn in list(results_df.columns) if fn.endswith('_level')]
+    results_df = results_df.drop(columns=to_drop)
+    results_df.reset_index(drop=True, inplace=True)
 
     results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
 
@@ -118,23 +119,14 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     results_df['number_triggered_classes'][idx] = np.nan
     results_df['triggered_fraction'][idx] = np.nan
 
-    # split trigger_type_option into two columns
-    trigger_type = results_df['trigger_type']
-    trigger_type_option = results_df['trigger_type_option']
-    polygon_side_count = trigger_type_option.copy()
-    instagram_filter_type = trigger_type_option.copy()
-    polygon_side_count[trigger_type == 'instagram'] = np.nan
-    instagram_filter_type[trigger_type == 'polygon'] = np.nan
-
-    results_df.drop(columns=['trigger_type_option'])
-    results_df['polygon_side_count'] = polygon_side_count
-    results_df['instagram_filter_type'] = instagram_filter_type
-
     # drop columns with only one unique value
     to_drop = list()
     for col in list(results_df.columns):
         if len(results_df[col].unique()) <= 1:
             to_drop.append(col)
+    to_drop.append('model_name')
+    to_drop.append('execution_time_stamp')
+    to_drop.append('team_name')
     results_df = results_df.drop(columns=to_drop)
 
     features_list = list(results_df.columns)

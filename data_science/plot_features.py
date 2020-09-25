@@ -53,10 +53,11 @@ def main(global_results_csv, metric, output_dir):
         os.makedirs(output_dir)
 
     results_df = pd.read_csv(global_results_csv)
-    # treat two boolean columns categorically
-    results_df['trigger_target_class'] = results_df['trigger_target_class'].astype('category')
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
-    results_df['poisoned'] = results_df['poisoned'].astype('category')
+
+    to_drop = [fn for fn in list(results_df.columns) if fn.endswith('_level')]
+    results_df = results_df.drop(columns=to_drop)
+    results_df.reset_index(drop=True, inplace=True)
 
     results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
 
@@ -65,7 +66,10 @@ def main(global_results_csv, metric, output_dir):
     for col in list(results_df.columns):
         if len(results_df[col].unique()) <= 1:
             to_drop.append(col)
+    to_drop.append('model_name')
+    to_drop.append('team_name')
     results_df = results_df.drop(columns=to_drop)
+    results_df.reset_index(drop=True, inplace=True)
 
     features_list = list(results_df.columns)
     if metric not in features_list:

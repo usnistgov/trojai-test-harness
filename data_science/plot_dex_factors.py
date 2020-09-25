@@ -88,9 +88,11 @@ def main(global_results_csv, metric, output_dir):
 
     results_df = pd.read_csv(global_results_csv)
     # treat two boolean columns categorically
-    results_df['trigger_target_class'] = results_df['trigger_target_class'].astype('category')
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
-    results_df['poisoned'] = results_df['poisoned'].astype('category')
+
+    to_drop = [fn for fn in list(results_df.columns) if fn.endswith('_level')]
+    results_df = results_df.drop(columns=to_drop)
+    results_df.reset_index(drop=True, inplace=True)
 
     results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
 
@@ -99,6 +101,7 @@ def main(global_results_csv, metric, output_dir):
     for col in list(results_df.columns):
         if len(results_df[col].unique()) <= 1:
             to_drop.append(col)
+    to_drop.append('model_name')
     results_df = results_df.drop(columns=to_drop)
 
     features_list = list(results_df.columns)
@@ -109,6 +112,7 @@ def main(global_results_csv, metric, output_dir):
     # plot the primary controlled factors
     primary_factors = ['number_classes', 'trigger_type', 'number_triggered_classes']
     fig = plot_feature_list(results_df, primary_factors, metric)
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'primary-factors.png'))
     plt.close(fig)
 
@@ -118,7 +122,7 @@ def main(global_results_csv, metric, output_dir):
         factors_list.remove(name)
     factors_list.remove(metric)
     fig = plot_feature_list(results_df, factors_list, metric)
-
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'robustness-factors.png'))
     plt.close(fig)
 
