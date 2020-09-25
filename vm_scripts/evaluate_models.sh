@@ -9,8 +9,8 @@
 
 CONTAINER_NAME=$1
 QUEUE_NAME=$2
-MODEL_DIR=$3
 
+MODEL_DIR=/home/trojai/data
 ACTIVE_DIR=/home/trojai/active
 
 CONTAINER_EXEC=/mnt/scratch/$CONTAINER_NAME

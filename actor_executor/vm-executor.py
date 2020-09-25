@@ -26,6 +26,13 @@ def copy_in_submission(host, submission_dir, submission_name):
     return child.wait()
 
 
+def copy_in_models(host, models_dir):
+    # TODO change this to use rsync with --delete to avoid doing any copying if the models are correct
+    # TODO rsync -ar --prune-empty-dirs $MODEL_DIR trojai@$ip:/home/trojai/data/
+    child = subprocess.Popen(['scp', '-q', '-r', models_dir, 'trojai@'+host+':/mnt/scratch/models'])
+    return child.wait()
+
+
 def copy_in_eval_script(host, eval_script_path):
     child = subprocess.Popen(['scp', '-q', eval_script_path, 'trojai@'+host+':/home/trojai/evaluate_models.sh'])
     return child.wait()
@@ -37,7 +44,7 @@ def update_perms_eval_script(host):
 
 
 def execute_submission(host, submission_name, queue_name, timeout='25h'):
-    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', submission_name, queue_name, '/home/trojai/data'])
+    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', submission_name, queue_name])
     return child.wait()
 
 
@@ -70,8 +77,8 @@ if __name__ == "__main__":
     parser.add_argument('--team-email', type=str,
                         help='The team email',
                         required=True)
-    parser.add_argument('--submission-dir', type=str,
-                        help='The submission dir for the team',
+    parser.add_argument('--submission-filepath', type=str,
+                        help='The submission filepath. This is either the path to the teams submission directory, or the full file path to the existing container image.',
                         required=True)
     parser.add_argument('--result-dir', type=str,
                         help='The result dir for the team',
@@ -87,7 +94,7 @@ if __name__ == "__main__":
 
     team_name = args.team_name
     team_email = args.team_email
-    submission_dir = args.submission_dir
+    submission_filepath = args.submission_filepath
     result_dir = args.result_dir
     config_file = args.config_file
     vm_name = args.vm_name
@@ -113,10 +120,21 @@ if __name__ == "__main__":
 
     logging.info('Downloading file for "{}" from "{}"'.format(team_name, team_email))
 
-    g_drive = DriveIO(config.token_pickle_file)
-    g_drive_file = g_drive.submission_download(team_email, submission_dir, submission_metadata_file, sts)
-    submission_name = g_drive_file.name
-    logging.info('Download complete for "{}".'.format(submission_name))
+    # if the submission_filepath is a directory, download the submission from GDrive
+    if os.path.isdir(submission_filepath):
+        logging.info('submission_filepath = "{}" is a directory, starting download of container from GDrive.'.format(submission_filepath))
+        submission_dir = submission_filepath
+        g_drive = DriveIO(config.token_pickle_file)
+        g_drive_file = g_drive.submission_download(team_email, submission_dir, submission_metadata_file, sts)
+        submission_name = g_drive_file.name
+        logging.info('Download complete for "{}".'.format(submission_name))
+    elif os.path.isfile(submission_filepath):
+        logging.info('submission_filepath = "{}" is a normal file, assuming that file is a Singularity container for evaluation.'.format(submission_filepath))
+        # if the submission_filepath is a normal file, use that file for execution
+        submission_name = os.path.basename(submission_filepath)
+        submission_dir = os.path.dirname(submission_filepath)
+    else:
+        raise RuntimeError('submission_filepath = "{}" is neither a directory or a normal file. Expecting either a directory to download a container into from GDrive, or a singularity container to execute.' .format(submission_filepath))
 
     try:
         vmIp = config.vms[vm_name]
@@ -164,12 +182,19 @@ if __name__ == "__main__":
         msg = '"{}" Evaluate script update perms may have failed with status code "{}".'.format(vm_name, sc)
         logging.error(msg)
         errors += ":Copy in:"
-        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Updating Permissions of Evaluation Script Failed'.format(vm_name), message=msg)
+
+    logging.info('Copying in models: "{}"'.format(config.models_dir))
+    sc = copy_in_models(vmIp, config.models_dir)
+    if sc != 0:
+        msg = '"{}" Model copy in may have failed with status code "{}."'.format(vm_name, sc)
+        logging.error(msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Model Data Copy Into VM Failed'.format(vm_name), message=msg)
 
     start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
     if sts:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="20m")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="30m")
     else:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="25h")
     execution_time = time.time() - start_time

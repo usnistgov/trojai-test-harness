@@ -157,59 +157,105 @@ def write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR,
 #     plt.savefig(png_filename)
 
 
+def load_results(ground_truth_dict: typing.OrderedDict[str, float], submission: Submission, time_str: str):
+    # Dictionary storing results -- key = model name, value = prediction
+    results = collections.OrderedDict()
+
+    # loop over each model file trojan prediction is being made for
+    logging.info('Looping over ground truth files, computing cross entropy loss.')
+    for model_name in ground_truth_dict.keys():
+        result_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, model_name + ".txt")
+
+        # Check for result file, if its there we read it in
+        if os.path.exists(result_filepath):
+            try:
+                with open(result_filepath) as file:
+                    file_contents = file.readline().strip()
+                    result = float(file_contents)
+            except:
+                # if file parsing fails for any reason, the value is nan
+                result = np.nan
+
+            # Check to ensure the result correctly parsed into a float
+            if np.isnan(result):
+                if submission.slurm_queue == 'sts':
+                    logging.warning('Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(model_name, file_contents, result))
+                if ":Result Parse:" not in submission.web_display_parse_errors:
+                    submission.web_display_parse_errors += ":Result Parse:"
+
+                results[model_name] = np.nan
+            else:
+                results[model_name] = result
+        else:  # If the result file does not exist, then we fill it in with the default answer
+            logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
+            results[model_name] = np.nan
+
+    return results
+
+
+def compute_metrics(submission: Submission, ground_truth_dict: typing.OrderedDict[str, float], time_str: str, confusion_filepath: str) -> Submission:
+
+    # load the results from disk
+    results = load_results(ground_truth_dict, submission, time_str)
+
+    # compute cross entropy
+    default_result = 0.5
+    logging.info('Computing cross entropy between predictions and ground truth.')
+    if submission.slurm_queue == 'sts':
+        logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
+    predictions = np.array(list(results.values())).reshape(-1, 1)
+    targets = np.array(list(ground_truth_dict.values())).reshape(-1, 1)
+
+    if not np.any(np.isfinite(predictions)):
+        logging.warning('Found no parse-able results from container execution.')
+        submission.web_display_parse_errors += ":No Results:"
+
+    num_missing_predictions = np.count_nonzero(np.isnan(predictions))
+    num_total_predictions = predictions.size
+
+    logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
+
+    predictions[np.isnan(predictions)] = default_result
+    elementwise_cross_entropy = binary_cross_entropy(predictions, targets)
+    ce_95_ci = cross_entropy_confidence_interval(elementwise_cross_entropy)
+    submission.cross_entropy = float(np.mean(elementwise_cross_entropy))
+    submission.cross_entropy_95_confidence_interval = ce_95_ci
+
+    # compute Brier score
+    submission.brier_score = binary_brier_score(predictions, targets)
+
+    TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = gen_confusion_matrix(targets, predictions)
+    # cast to a float so its human readable in the joson
+    submission.roc_auc = float(sklearn.metrics.auc(FPR, TPR))
+
+    write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_filepath)
+
+    # generate_roc_image(fpr, tpr, submission.global_results_dirpath, submission.slurm_job_name)
+    logging.info('Binary Cross Entropy Loss: "{}"'.format(submission.cross_entropy))
+    logging.info('ROC AUC: "{}"'.format(submission.roc_auc))
+    if len(targets) < 2:
+        logging.info("  ROC Curve undefined for vectors of length: {}".format(len(targets)))
+    logging.info('Brier Score: "{}"'.format(submission.brier_score))
+
+    return submission
+
+
 def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limit: int) -> None:
     logging.info("Checking results for {}".format(submission.actor.name))
-
-    try:
-        ground_truth_dict = load_ground_truth(submission.ground_truth_dirpath)
-    except:
-        msg = 'Unable to load ground truth results: "{}".\n{}'.format(submission.ground_truth_dirpath, traceback.format_exc())
-        logging.error(msg)
-        TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
-        raise
 
     time_str = time_utils.convert_epoch_to_psudo_iso(submission.execution_epoch)
     errors_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, "errors.txt")
     info_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, "info.json")
     slurm_log_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, submission.slurm_output_filename)
 
-    # Test log file truncations
-    # while os.path.getsize(slurm_log_filepath) < (1.1 * log_file_byte_limit):
-    #     with open(slurm_log_filepath, 'a') as fh:
-    #         for i in range(100):
-    #             a = np.random.randn(1, 1000)
-    #             fh.write(np.array2string(a))
+    # truncate log file to N bytes
+    if os.path.exists(slurm_log_filepath) and (log_file_byte_limit is not None) and (log_file_byte_limit > 0):
+        if (1.01 * os.path.getsize(slurm_log_filepath)) > log_file_byte_limit:  # use 1% buffer
+            shutil.copyfile(slurm_log_filepath, slurm_log_filepath.replace('.txt', '.orig.txt'))
+            os.truncate(slurm_log_filepath, log_file_byte_limit)
 
-    # TODO test log file truncation and enable it, since the sts limit is null or 0 (i.e. not applied) and the ES is 1MB, but that won't be reached by the test harness
-    # # truncate log file to N bytes
-    # if os.path.exists(slurm_log_filepath) and log_file_byte_limit > 0:
-    #     if (1.01 * os.path.getsize(slurm_log_filepath)) > log_file_byte_limit:  # use 1% buffer
-    #         shutil.copyfile(slurm_log_filepath, slurm_log_filepath.replace('.txt', '.orig.txt'))
-    #         os.truncate(slurm_log_filepath, log_file_byte_limit)
-    #
-    #         with open(slurm_log_filepath, 'a') as fh:
-    #                 fh.write('\n\n**** Log File Truncated ****\n\n')
-    #         shutil.copyfile(slurm_log_filepath, slurm_log_filepath.replace('.txt', '.orig.txt'))
-    #
-    #         found_executing = False
-    #         found_done_executing = False
-    #         temp_out = slurm_log_filepath + ".tmp"
-    #         with open(slurm_log_filepath, 'r') as slurm_log_file_in, open(temp_out, 'w') as slurm_log_file_out:
-    #             for line in slurm_log_filepath:
-    #                 if 'Container Execution Complete for team' in line:
-    #                     found_done_executing = True
-    #
-    #                 if not found_executing:
-    #                     temp_out.write(line)
-    #
-    #                 if found_done_executing:
-    #                     temp_out.write(line)
-    #
-    #                 if 'Starting Execution of' in line:
-    #                     found_executing = True
-    #
-    #         os.remove(slurm_log_filepath)
-    #         os.rename(temp_out, slurm_log_filepath)
+            with open(slurm_log_filepath, 'a') as fh:
+                fh.write('\n\n**** Log File Truncated ****\n\n')
 
     # start logging to the submission log, in addition to server log
     cur_logging_level = logging.getLogger().getEffectiveLevel()
@@ -224,46 +270,15 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
     submission_log_handler.setLevel(logging.DEBUG)
     logging.getLogger().addHandler(submission_log_handler)
 
-    try:  # try, finally block to ensure removal of submission logging from the logger utility
+    try:
+        # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
         logging.info('**************************************************')
         logging.info('Processing {}: Results'.format(submission.actor.name))
         logging.info('**************************************************')
 
-        # Dictionary storing results -- key = model name, value = prediction
-        results = collections.OrderedDict()
-
         # initialize error strings to empty
         submission.web_display_parse_errors = ""
         submission.web_display_execution_errors = ""
-
-        # loop over each model file trojan prediction is being made for
-        logging.info('Looping over ground truth files, computing cross entropy loss.')
-        for model_name in ground_truth_dict.keys():
-            result_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, model_name + ".txt")
-
-            # Check for result file, if its there we read it in
-            if os.path.exists(result_filepath):
-                try:
-                    with open(result_filepath) as file:
-                        file_contents = file.readline().strip()
-                        result = float(file_contents)
-                except:
-                    # if file parsing fails for any reason, the value is nan
-                    result = np.nan
-
-                # Check to ensure the result correctly parsed into a float
-                if np.isnan(result):
-                    if submission.slurm_queue == 'sts':
-                        logging.warning('Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(model_name, file_contents, result))
-                    if ":Result Parse:" not in submission.web_display_parse_errors:
-                        submission.web_display_parse_errors += ":Result Parse:"
-
-                    results[model_name] = np.nan
-                else:
-                    results[model_name] = result
-            else:  # If the result file does not exist, then we fill it in with the default answer
-                logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
-                results[model_name] = np.nan
 
         # Get the actual file that was downloaded for the submission
         logging.info('Loading metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
@@ -288,35 +303,16 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
             logging.error(msg)
             submission.web_display_parse_errors += ":Executed File Update:"
 
-        # compute cross entropy
-        default_result = 0.5
-        logging.info('Computing cross entropy between predictions and ground truth.')
-        if submission.slurm_queue == 'sts':
-            logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
-        predictions = np.array(list(results.values())).reshape(-1,1)
-        targets = np.array(list(ground_truth_dict.values())).reshape(-1,1)
+        try:
+            ground_truth_dict = load_ground_truth(submission.ground_truth_dirpath)
+        except:
+            msg = 'Unable to load ground truth results: "{}".\n{}'.format(submission.ground_truth_dirpath, traceback.format_exc())
+            logging.error(msg)
+            TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
+            raise
 
-        if not np.any(np.isfinite(predictions)):
-            logging.warning('Found no parse-able results from container execution.')
-            submission.web_display_parse_errors += ":No Results:"
-
-        num_missing_predictions = np.count_nonzero(np.isnan(predictions))
-        num_total_predictions = predictions.size
-
-        logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
-
-        predictions[np.isnan(predictions)] = default_result
-        elementwise_cross_entropy = binary_cross_entropy(predictions, targets)
-        ce_95_ci = cross_entropy_confidence_interval(elementwise_cross_entropy)
-        submission.cross_entropy = float(np.mean(elementwise_cross_entropy))
-        submission.cross_entropy_95_confidence_interval = ce_95_ci
-
-        # compute Brier score
-        submission.brier_score = binary_brier_score(predictions, targets)
-
-        TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = gen_confusion_matrix(targets, predictions)
-        # cast to a float so its human readable in the joson
-        submission.roc_auc = float(sklearn.metrics.auc(FPR, TPR))
+        confusion_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, submission.confusion_output_filename)
+        submission = compute_metrics(submission, ground_truth_dict, time_str, confusion_filepath)
 
         # load the runtime from the vm-executor
         if not os.path.exists(info_filepath):
@@ -330,16 +326,6 @@ def process_results(submission: Submission, g_drive: DriveIO, log_file_byte_limi
                 submission.execution_runtime = np.nan
             else:
                 submission.execution_runtime = info_dict['execution_runtime']
-
-        confusion_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, submission.confusion_output_filename)
-        write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_filepath)
-
-        # generate_roc_image(fpr, tpr, submission.global_results_dirpath, submission.slurm_job_name)
-        logging.info('Binary Cross Entropy Loss: "{}"'.format(submission.cross_entropy))
-        logging.info('ROC AUC: "{}"'.format(submission.roc_auc))
-        if len(targets) < 2:
-            logging.info("  ROC Curve undefined for vectors of length: {}".format(len(targets)))
-        logging.info('Brier Score: "{}"'.format(submission.brier_score))
 
     finally:
         # stop outputting logging to submission log file
