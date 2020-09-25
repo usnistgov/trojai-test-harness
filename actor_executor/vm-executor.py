@@ -57,11 +57,6 @@ def copy_out_results(host, result_dir):
     return child.wait()
 
 
-def write_errors(file, errors):
-    with open(file, mode='w', encoding='utf-8') as f:
-        f.write(errors)
-
-
 if __name__ == "__main__":
     import argparse
 
@@ -223,11 +218,9 @@ if __name__ == "__main__":
     logging.info('Container Execution Complete for team: {}'.format(team_name))
     logging.info('**************************************************')
 
-    if errors != "":
-        write_errors(error_file, errors)
-
     # build dictionary of info to transfer back to the command and control
     info_dict = dict()
     info_dict['execution_runtime'] = execution_time
+    info_dict['errors'] = errors
     json_io.write(info_file, info_dict)
 

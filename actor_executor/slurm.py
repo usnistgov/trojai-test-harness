@@ -8,6 +8,8 @@ import logging
 import subprocess
 import traceback
 
+from actor_executor.mail_io import TrojaiMail
+
 
 def squeue(job_name: str, queue_name: str):
     out = subprocess.Popen(['squeue', "-n", str(job_name), "-p", str(queue_name), "-o", "%T"],
@@ -16,9 +18,10 @@ def squeue(job_name: str, queue_name: str):
     stdout, stderr = out.communicate()
 
     if stderr != b'':
-        # TODO figure what went wrong with slurm (email dev team)
         logging.error("Slurm is no longer online, error = {}".format(stderr))
         logging.error(traceback.format_exc())
+        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
         raise RuntimeError("Slurm is no longer online, error = {}".format(stderr))
     return stdout, stderr
 
@@ -31,6 +34,9 @@ def sinfo_node_query(queue_name: str, state: str):
 
     if stderr != b'':
         logging.error("Slurm is no longer online, error = {}".format(stderr))
+        logging.error(traceback.format_exc())
+        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
         return '0'
 
     if stdout == b'':

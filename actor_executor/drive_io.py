@@ -178,7 +178,10 @@ class DriveIO(object):
         logging.info('Uploading file: "{}" to Drive'.format(file_name))
         m_type = mimetypes.guess_type(file_name)[0]
 
-        # TODO ensure file_path is a file, and not a folder
+        # ensure file_path is a regular file
+        if not os.path.isfile(file_path):
+            logging.error('Upload file_path = "{}" is not a regular file, aborting upload.'.format(file_path))
+            raise RuntimeError('Upload file_path = "{}" is not a regular file, aborting upload.'.format(file_path))
 
         for retry_count in range(self.max_retry_count):
             try:

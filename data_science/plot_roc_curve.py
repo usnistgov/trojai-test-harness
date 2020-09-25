@@ -10,7 +10,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import sklearn.metrics
 
-from actor_executor import ground_truth
+from actor_executor import metrics
 from data_science import utils
 
 
@@ -29,7 +29,7 @@ def generate_roc_image(df, team_name, timestamp, output_fp):
     targets = df['ground_truth']
     predictions = df['predicted']
 
-    TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = ground_truth.gen_confusion_matrix(targets, predictions)
+    TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
     roc_auc = sklearn.metrics.auc(FPR, TPR)
 
     fig = plt.figure(figsize=(5, 4), dpi=100)

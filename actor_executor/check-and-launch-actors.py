@@ -33,7 +33,8 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
         actor.job_status = "Disabled"
         return
     elif actor.job_status == "Disabled":
-      actor.job_status = "None"
+        logging.info("{} was previously disabled, resetting job status back to None.".format(actor.name))
+        actor.job_status = "None"
 
     logging.info("Checking for new submissions from {}.".format(actor.name))
 
@@ -41,13 +42,13 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
     actor_file_list = g_drive.query_by_email(actor.email)
 
     # filter list based on file prefix
-    sts = config.slurm_queue == 'sts'
+    sts_flag = config.slurm_queue == 'sts'
 
     gdrive_file_list = list()
     for g_file in actor_file_list:
-        if sts and g_file.name.startswith('test'):
+        if sts_flag and g_file.name.startswith('test'):
             gdrive_file_list.append(g_file)
-        if not sts and not g_file.name.startswith('test'):
+        if not sts_flag and not g_file.name.startswith('test'):
             gdrive_file_list.append(g_file)
 
     # ensure submission is unique (one and only one possible submission file from a team email)
@@ -72,7 +73,7 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
             actor.job_status = "Awaiting Timeout"
         else:
             if int(g_file.modified_epoch) != int(actor.last_file_epoch):
-                logging.info('Submission is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.last_file_epoch))
+                logging.info('Submission timestamp is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.last_file_epoch))
                 submission = Submission(g_file, actor, config.submission_dir, config.results_dir, config.ground_truth_dir, config.slurm_queue)
                 submission_manager.add_submission(submission)
                 logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.file.name, actor.email))
@@ -92,7 +93,7 @@ def process_team(config: Config, g_drive: DriveIO, actor: Actor, submission_mana
             # re link actor object which was lost on loading object from json serialization
             submission.actor = actor
             logging.info('Found live submission "{}" from "{}"'.format(submission.file.name, submission.actor.name))
-            submission.check_submission(g_drive, config.log_file_byte_limit)
+            submission.check(g_drive, config.log_file_byte_limit)
 
     # look for any new submissions
     # This might modify the SubmissionManager instance

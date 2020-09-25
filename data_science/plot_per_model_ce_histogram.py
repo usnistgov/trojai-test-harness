@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
-from actor_executor import ground_truth
+from actor_executor import metrics
 from data_science import utils
 
 
@@ -47,7 +47,7 @@ def main(global_results_csv_filepath, output_dirpath):
 
             predictions[np.isnan(predictions)] = 0.5
 
-            elementwise_ce = ground_truth.binary_cross_entropy(predictions, targets)
+            elementwise_ce = metrics.elementwise_binary_cross_entropy(predictions, targets)
 
             plt.hist(elementwise_ce, bins=100)
             plt.title('Per Model CE Loss Histogram')

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 
-from actor_executor import ground_truth
+from actor_executor import metrics
 
 
 def find_dirs(fp):
@@ -43,10 +43,10 @@ def main(global_results_csv_filepath, queue, output_dirpath):
                 targets = run_df['ground_truth'].to_numpy(dtype=np.float32)
                 predictions = run_df['predicted'].to_numpy(dtype=np.float32)
                 ce = run_df['cross_entropy'].to_numpy(dtype=np.float32)
-                ci = ground_truth.cross_entropy_confidence_interval(ce)
+                ci = metrics.cross_entropy_confidence_interval(ce)
                 ce = np.mean(ce)
 
-                TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = ground_truth.gen_confusion_matrix(targets, predictions)
+                TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
                 roc_auc = sklearn.metrics.auc(FPR, TPR)
 
                 fh.write('{}, {}, {}, {}, {}\n'.format(team, ce, ci, roc_auc, timestamp))

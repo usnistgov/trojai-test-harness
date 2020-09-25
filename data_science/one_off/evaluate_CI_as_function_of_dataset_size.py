@@ -6,7 +6,7 @@
 
 import numpy as np
 
-from actor_executor import ground_truth
+from actor_executor import metrics
 
 x_vals = list()
 y_vals = list()
@@ -16,8 +16,8 @@ for n in range(10, 1001):
         targets = (np.random.rand(n, 1) > 0.5).astype(np.float32)
         pred = np.random.rand(n, 1)
 
-        ce = ground_truth.binary_cross_entropy(pred, targets)
-        ci = ground_truth.cross_entropy_confidence_interval(ce)
+        ce = metrics.elementwise_binary_cross_entropy(pred, targets)
+        ci = metrics.cross_entropy_confidence_interval(ce)
         x_vals.append(n)
         y_vals.append(ci)
 

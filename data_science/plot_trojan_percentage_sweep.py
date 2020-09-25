@@ -13,7 +13,7 @@ import sklearn.metrics
 from collections import OrderedDict
 from matplotlib import pyplot as plt
 
-from actor_executor import ground_truth
+from actor_executor import metrics
 from data_science import utils
 
 
@@ -107,12 +107,12 @@ def plot_sweep(df, team_name, timestamp, output_fp, nb_reps):
             predictions[np.isnan(predictions)] = tgt_trojan_percentage
             predictions_guess[np.isnan(predictions_guess)] = tgt_trojan_percentage
 
-            elementwise_ce = ground_truth.binary_cross_entropy(predictions, targets)
+            elementwise_ce = metrics.elementwise_binary_cross_entropy(predictions, targets)
             ce = np.mean(elementwise_ce)
-            elementwise_ce_guess = ground_truth.binary_cross_entropy(predictions_guess, targets)
+            elementwise_ce_guess = metrics.elementwise_binary_cross_entropy(predictions_guess, targets)
             ce_guess = np.mean(elementwise_ce_guess)
 
-            TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = ground_truth.gen_confusion_matrix(targets, predictions)
+            TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
             roc_auc = sklearn.metrics.auc(FPR, TPR)
 
             trojan_percentage_list.append(tgt_trojan_percentage)
