@@ -380,6 +380,12 @@ class SubmissionManager(object):
         return len(self.__submissions.keys())
 
     def save_json(self, filepath: str) -> None:
+        # make copies of all the actors to ensure json file is human readable on disk
+        import copy
+        for actor_email in self.__submissions.keys():
+            submissions = self.__submissions[actor_email]
+            for submission in submissions:
+                submission.actor = copy.deepcopy(submission.actor)
         json_io.write(filepath, self)
 
     @staticmethod
