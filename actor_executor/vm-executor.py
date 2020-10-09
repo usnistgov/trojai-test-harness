@@ -245,6 +245,6 @@ if __name__ == "__main__":
             model_exec_time = float(file_contents)
             model_execution_time_dict[model_name] = model_exec_time
 
-    info_dict['model_execution_runtime'] = model_execution_time_dict
+    info_dict['model_execution_runtimes'] = model_execution_time_dict
     json_io.write(info_file, info_dict)
 

@@ -35,6 +35,7 @@ class Submission(object):
         self.roc_auc = None
         self.brier_score = None
         self.execution_runtime = None
+        self.model_execution_runtimes = None
         self.execution_epoch = None
         self.slurm_job_name = None
         self.slurm_output_filename = None
@@ -277,6 +278,11 @@ class Submission(object):
                     self.execution_runtime = np.nan
                 else:
                     self.execution_runtime = info_dict['execution_runtime']
+
+                if 'model_execution_runtimes' not in info_dict.keys():
+                    self.model_execution_runtimes = dict()
+                else:
+                    self.model_execution_runtimes = info_dict['model_execution_runtimes']
 
                 if 'errors' not in info_dict.keys():
                     logging.error("Missing 'errors' key in info file dictionary")
