@@ -224,5 +224,27 @@ if __name__ == "__main__":
     info_dict = dict()
     info_dict['execution_runtime'] = execution_time
     info_dict['errors'] = errors
+
+    model_execution_time_dict = dict()
+
+    # Build per model execution time dictionary
+    for model_execution_time_file_name in os.listdir(result_dir):
+
+        if not model_execution_time_file_name.endswith('-realtime.txt'):
+            continue
+
+        model_name = model_execution_time_file_name.split('-realtime')[0]
+
+        model_execution_time_filepath = os.path.join(result_dir, model_execution_time_file_name)
+
+        if not os.path.exists(model_execution_time_filepath):
+            continue
+
+        with open(model_execution_time_filepath) as execution_time_file:
+            file_contents = execution_time_file.readline().strip()
+            model_exec_time = float(file_contents)
+            model_execution_time_dict[model_name] = model_exec_time
+
+    info_dict['model_execution_runtime'] = model_execution_time_dict
     json_io.write(info_file, info_dict)
 

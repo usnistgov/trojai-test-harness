@@ -45,7 +45,7 @@ do
 				# Copy model to the active folder to obscure its name
 				cp -r $dir/* $ACTIVE_DIR
 
-				singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv $CONTAINER_EXEC --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data >> $RESULT_DIR/$CONTAINER_NAME.out 2>&1
+				/usr/bin/time -f "%e" -o $RESULT_DIR/$MODEL-realtime.txt singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv $CONTAINER_EXEC --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data >> $RESULT_DIR/$CONTAINER_NAME.out 2>&1
 				echo "Finished executing, returned status code: $?" >> $RESULT_DIR/$CONTAINER_NAME.out 2>&1
 
 				if [[ -f $ACTIVE_DIR/result.txt ]]; then
