@@ -17,7 +17,7 @@ def find_dirs(fp):
 
 
 def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
-    if server not in ['sts','es']:
+    if server not in ['sts','es','holdout']:
         raise RuntimeError('{} is an invalid server option, should be "sts" or "es"'.format(server))
     if not os.path.exists(metadata_filepath):
         raise RuntimeError('metadata_filepath = {} does not exist.'.format(metadata_filepath))

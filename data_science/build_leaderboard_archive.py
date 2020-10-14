@@ -24,7 +24,7 @@ def main(global_results_csv_filepath, queue, output_dirpath):
 
     # create output file
     with open(os.path.join(output_dirpath, '{}-leaderboard-summary.csv'.format(queue)), 'w') as fh:
-        fh.write('Team, CrossEntropyLoss, CrossEntropy95ConfidenceInterval, ROC-AUC, ExecutionTimeStamp\n')
+        fh.write('Team, ExecutionTimeStamp, CrossEntropyLoss, CrossEntropy95ConfidenceInterval, ROC-AUC\n')
 
         # get the unique set of teams
         teams = set(results_df['team_name'].to_list())
@@ -49,7 +49,7 @@ def main(global_results_csv_filepath, queue, output_dirpath):
                 TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
                 roc_auc = sklearn.metrics.auc(FPR, TPR)
 
-                fh.write('{}, {}, {}, {}, {}\n'.format(team, ce, ci, roc_auc, timestamp))
+                fh.write('{}, {}, {}, {}, {}\n'.format(team, timestamp, ce, ci, roc_auc))
 
 
 if __name__ == "__main__":
