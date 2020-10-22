@@ -11,7 +11,7 @@ import typing
 import logging
 import shutil
 
-#from actor_executor.submission import Submission
+import actor_executor.submission
 
 
 def truncate_log_file(filepath: str, byte_limit: int):
@@ -63,7 +63,7 @@ def write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR,
             fh.write('{}, {:d}, {:d}, {:d}, {:d}, {}, {}\n'.format(float(thresholds[i]), int(TP_counts[i]), int(FP_counts[i]), int(FN_counts[i]), int(TN_counts[i]), float(TPR[i]), float(FPR[i])))
 
 
-def load_results(ground_truth_dict: typing.OrderedDict[str, float], submission, time_str: str):
+def load_results(ground_truth_dict: typing.OrderedDict[str, float], submission: actor_executor.submission.Submission, time_str: str):
     # Dictionary storing results -- key = model name, value = prediction
     results = collections.OrderedDict()
 
