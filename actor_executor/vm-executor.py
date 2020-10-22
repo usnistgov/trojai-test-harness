@@ -22,7 +22,7 @@ def check_gpu(host):
 
 
 def copy_in_submission(host, submission_dir, submission_name):
-    child = subprocess.Popen(['scp', '-q', submission_dir + "/" + submission_name, 'trojai@'+host+':/mnt/scratch/' + submission_name])
+    child = subprocess.Popen(['scp', '-q', submission_dir + '/' + submission_name, 'trojai@'+host+':\"/mnt/scratch/' + submission_name + '\"'])
     return child.wait()
 
 
