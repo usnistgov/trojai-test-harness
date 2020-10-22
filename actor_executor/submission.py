@@ -440,31 +440,31 @@ class SubmissionManager(object):
                 scores.append(best_submission)
         return scores
 
-        def get_score_table(self):
-            # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
-            scores = []
+    def get_score_table(self):
+        # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
+        scores = []
 
-            for key in self.__submissions.keys():
-                submissions = self.__submissions[key]
-                for s in submissions:
-                    if s.execution_epoch == 0 or s.execution_epoch is None:
-                        execute_timestr = "None"
-                    else:
-                        execute_timestr = time_utils.convert_epoch_to_iso(s.execution_epoch)
-                    if s.file.modified_epoch == 0 or s.file.modified_epoch is None:
-                        file_timestr = "None"
-                    else:
-                        file_timestr = time_utils.convert_epoch_to_iso(s.file.modified_epoch)
+        for key in self.__submissions.keys():
+            submissions = self.__submissions[key]
+            for s in submissions:
+                if s.execution_epoch == 0 or s.execution_epoch is None:
+                    execute_timestr = "None"
+                else:
+                    execute_timestr = time_utils.convert_epoch_to_iso(s.execution_epoch)
+                if s.file.modified_epoch == 0 or s.file.modified_epoch is None:
+                    file_timestr = "None"
+                else:
+                    file_timestr = time_utils.convert_epoch_to_iso(s.file.modified_epoch)
 
-                    if len(s.web_display_execution_errors.strip()) == 0:
-                        s.web_display_execution_errors = "None"
+                if len(s.web_display_execution_errors.strip()) == 0:
+                    s.web_display_execution_errors = "None"
 
-                    if len(s.web_display_parse_errors.strip()) == 0:
-                        s.web_display_parse_errors = "None"
+                if len(s.web_display_parse_errors.strip()) == 0:
+                    s.web_display_parse_errors = "None"
 
-                    if s.cross_entropy is not None:
-                        scores.append(
-                            [s.actor.name, s.cross_entropy, s.cross_entropy_95_confidence_interval, s.brier_score,
-                             s.roc_auc, s.execution_runtime, execute_timestr, file_timestr, s.web_display_parse_errors,
-                             s.web_display_execution_errors])
-            return scores
+                if s.cross_entropy is not None:
+                    scores.append(
+                        [s.actor.name, s.cross_entropy, s.cross_entropy_95_confidence_interval, s.brier_score,
+                         s.roc_auc, s.execution_runtime, execute_timestr, file_timestr, s.web_display_parse_errors,
+                         s.web_display_execution_errors])
+        return scores
