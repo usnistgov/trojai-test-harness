@@ -19,7 +19,6 @@ from actor_executor import slurm
 from actor_executor.mail_io import TrojaiMail
 
 
-
 def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int,
                 job_table_name: str, result_table_name: str, push_html: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):
     lock_filepath = "/var/lock/htmlpush-lockfile"
@@ -65,6 +64,45 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
 
                 with open(html_dir + "/_includes/" + result_table_name + ".html", mode='w', encoding='utf-8') as f:
                     f.write(scoreTableHtml)
+
+                scores_unique = submission_manager.get_score_table_unique()
+
+                scoreUniqueWriter = HtmlTableWriter()
+                scoreUniqueWriter.headers = ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)",
+                                       "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
+                scoreUniqueWriter.value_matrix = scores_unique
+                scoreUniqueWriter.type_hints = [pytablewriter.String,  # Team
+                                          pytablewriter.RealNumber,  # Cross Entropy
+                                          pytablewriter.RealNumber,  # CE 95% CI
+                                          pytablewriter.RealNumber,  # Brier Score
+                                          pytablewriter.RealNumber,  # ROC-AUC
+                                          pytablewriter.Integer,  # Runtime
+                                          pytablewriter.String,  # Execution Timestamp
+                                          pytablewriter.String,  # File Timestamp
+                                          pytablewriter.String,  # arsing Errors
+                                          pytablewriter.String]  # Launch Errors
+                scoreUniqueTable = scoreUniqueWriter.dumps()
+
+                result_unique_table_name = result_table_name + "_unique"
+
+                for line in scoreUniqueTable.splitlines():
+                    if "<th>" in line:
+                        newLine = line.replace("<th>", "<th class=\"th-sm\">")
+                        scoreUniqueTable = scoreUniqueTable.replace(line, newLine)
+                    if "<table" in line:
+                        newLine = line.replace("<table",
+                                               "<table id=\"" + result_unique_table_name + "\" class=\"table table-striped table-bordered table-sm\" cellspacing=\"0\" width=\"100%\"")
+                        scoreUniqueTable = scoreUniqueTable.replace(line, newLine)
+
+                scoreUniqueTableHtml = """
+                                <!-- ******UNIQUE RESULTS****** -->    
+                                <div class="table-responsive">
+                                """ + scoreUniqueTable + """
+                                </div>   
+                                """
+
+                with open(html_dir + "/_includes/" + result_unique_table_name + ".html", mode='w', encoding='utf-8') as f:
+                    f.write(scoreUniqueTableHtml)
 
             if actor_manager is not None:
                 # Populate jobs table

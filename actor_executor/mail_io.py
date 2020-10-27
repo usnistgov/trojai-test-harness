@@ -45,8 +45,8 @@ class TrojaiMail(object):
                 mail_message = "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n\r\n{}".format(self.FROM, to, subject, message)
 
                 # Send the mail
-                server = smtplib.SMTP(self.SERVER)
-                server.sendmail(self.FROM, to, mail_message)
+                #server = smtplib.SMTP(self.SERVER)
+                #server.sendmail(self.FROM, to, mail_message)
                 server.quit()
 
                 current_epoch = time_utils.get_current_epoch()
