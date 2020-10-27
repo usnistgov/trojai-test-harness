@@ -27,10 +27,7 @@ def copy_in_submission(host, submission_dir, submission_name):
 
 
 def copy_in_models(host, models_dir):
-    # TODO Test this functionality
-    # append a /* to ensure we don't copy the parent folder into /mnt/scratch/models, just the contents of the source models folder
-    models_dir = models_dir + "/*"
-    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/mnt/scratch/models'])
+    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 

@@ -49,6 +49,15 @@ def add_actor(add_str, config):
     logging.info("Adding actor: " + str(add_str))
     items = add_str.split(',')
     team_name = items[0]
+    try:
+        team_name = team_name.encode("ascii")  # force team names to be ascii only
+    except:
+        raise RuntimeError('Team name needs to be ASCII only')
+
+    invalid_chars = [' ', '/', '>', '<', '|', ':', '&', ',', ';', '?', '\\', '*']
+    for char in invalid_chars:
+        if char in team_name:
+            raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
     team_email = items[1]
     poc_email = items[2]
     # add actor to Manger

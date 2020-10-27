@@ -139,7 +139,7 @@ class Submission(object):
         self.slurm_job_name = self.actor.name
         v100_slurm_queue = 'control'
         cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", self.slurm_queue, "--gres=gpu:1", "-J", self.slurm_job_name,"--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-        logging.info('launching sbatch command: "{}"'.format(' '.join(cmd_str_list)))
+        logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
         out = subprocess.Popen(cmd_str_list,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
