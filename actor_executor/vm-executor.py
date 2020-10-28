@@ -235,9 +235,14 @@ if __name__ == "__main__":
             continue
 
         try:
-            with open(model_execution_time_filepath) as execution_time_fh:
-                file_contents = execution_time_fh.readline().strip()
-                model_execution_time_dict[model_name] = float(file_contents)
+            with open(model_execution_time_filepath, 'r') as execution_time_fh:
+                line = execution_time_fh.readline().strip()
+                while line:
+                    if line.startswith('execution_time'):
+                        toks = line.split(' ')
+                        model_execution_time_dict[model_name] = float(toks[1])
+                    line = execution_time_fh.readline().strip()
+
         except:
             pass  # Do nothing if file fails to parse
         # delete the walltime file to avoid cluttering the output folder
@@ -258,7 +263,7 @@ if __name__ == "__main__":
             continue
 
         try:
-            with open(model_prediction_filepath) as prediction_fh:
+            with open(model_prediction_filepath, 'r') as prediction_fh:
                 file_contents = prediction_fh.readline().strip()
                 model_prediction_dict[model_name] = float(file_contents)
         except:
