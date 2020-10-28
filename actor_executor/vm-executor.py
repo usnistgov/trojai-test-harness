@@ -234,8 +234,8 @@ if __name__ == "__main__":
         if not os.path.exists(model_execution_time_filepath):
             continue
 
-        with open(model_execution_time_filepath) as execution_time_file:
-            file_contents = execution_time_file.readline().strip()
+        with open(model_execution_time_filepath) as execution_time_fh:
+            file_contents = execution_time_fh.readline().strip()
             model_execution_time_dict[model_name] = float(file_contents)
         # delete the walltime file to avoid cluttering the output folder
         os.remove(model_execution_time_filepath)
@@ -251,7 +251,7 @@ if __name__ == "__main__":
         model_name = model_prediction_file_name.replace('.txt', '')
         model_prediction_filepath = os.path.join(result_dir, model_prediction_file_name)
 
-        if not os.path.exists(model_prediction_file_name):
+        if not os.path.exists(model_prediction_filepath):
             continue
 
         with open(model_prediction_file_name) as prediction_fh:
