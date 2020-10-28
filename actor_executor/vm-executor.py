@@ -222,16 +222,13 @@ if __name__ == "__main__":
     info_dict['execution_runtime'] = execution_time
     info_dict['errors'] = errors
 
-    model_execution_time_dict = dict()
-
     # Build per model execution time dictionary
+    model_execution_time_dict = dict()
     for model_execution_time_file_name in os.listdir(result_dir):
-
         if not model_execution_time_file_name.endswith('-walltime.txt'):
             continue
 
         model_name = model_execution_time_file_name.split('-walltime')[0]
-
         model_execution_time_filepath = os.path.join(result_dir, model_execution_time_file_name)
 
         if not os.path.exists(model_execution_time_filepath):
@@ -239,9 +236,29 @@ if __name__ == "__main__":
 
         with open(model_execution_time_filepath) as execution_time_file:
             file_contents = execution_time_file.readline().strip()
-            model_exec_time = float(file_contents)
-            model_execution_time_dict[model_name] = model_exec_time
+            model_execution_time_dict[model_name] = float(file_contents)
+        # delete the walltime file to avoid cluttering the output folder
+        os.remove(model_execution_time_filepath)
+
+    # Build per model trojan prediction dictionary
+    model_prediction_dict = dict()
+    for model_prediction_file_name in os.listdir(result_dir):
+        if not model_prediction_file_name.startswith('id-'):
+            continue
+        if model_prediction_file_name.endswith('-walltime.txt'):
+            continue
+
+        model_name = model_prediction_file_name.replace('.txt', '')
+        model_prediction_filepath = os.path.join(result_dir, model_prediction_file_name)
+
+        if not os.path.exists(model_prediction_file_name):
+            continue
+
+        with open(model_prediction_file_name) as prediction_fh:
+            file_contents = prediction_fh.readline().strip()
+            model_prediction_dict[model_name] = float(file_contents)
 
     info_dict['model_execution_runtimes'] = model_execution_time_dict
+    info_dict['predictions'] = model_prediction_dict
     json_io.write(info_file, info_dict)
 
