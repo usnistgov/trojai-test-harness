@@ -1,11 +1,19 @@
+# NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+
+# NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
+
+# You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import os
 import subprocess
 import logging
 import traceback
+import time
 
-from drive_io import DriveIO
-from config import Config
-from mail_io import TrojaiMail
+from actor_executor.drive_io import DriveIO
+from actor_executor.config import Config
+from actor_executor.mail_io import TrojaiMail
+from actor_executor import json_io
 
 
 def check_gpu(host):
@@ -14,7 +22,12 @@ def check_gpu(host):
 
 
 def copy_in_submission(host, submission_dir, submission_name):
-    child = subprocess.Popen(['scp', '-q', submission_dir + "/" + submission_name, 'trojai@'+host+':\"/mnt/scratch/' + submission_name + '\"'])
+    child = subprocess.Popen(['scp', '-q', submission_dir + '/' + submission_name, 'trojai@'+host+':\"/mnt/scratch/' + submission_name + '\"'])
+    return child.wait()
+
+  
+def copy_in_models(host, models_dir):
+    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 
@@ -29,7 +42,7 @@ def update_perms_eval_script(host):
 
 
 def execute_submission(host, submission_name, queue_name, timeout='25h'):
-    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', submission_name, queue_name, '/home/trojai/data'])
+    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', submission_name, queue_name])
     return child.wait()
 
 
@@ -41,11 +54,6 @@ def cleanup_scratch(host):
 def copy_out_results(host, result_dir):
     child = subprocess.Popen(['scp', '-r', '-q', 'trojai@'+host+':/mnt/scratch/results/*', result_dir])
     return child.wait()
-
-
-def write_errors(file, errors):
-    with open(file, mode='w', encoding='utf-8') as f:
-        f.write(errors)
 
 
 if __name__ == "__main__":
@@ -62,8 +70,8 @@ if __name__ == "__main__":
     parser.add_argument('--team-email', type=str,
                         help='The team email',
                         required=True)
-    parser.add_argument('--submission-dir', type=str,
-                        help='The submission dir for the team',
+    parser.add_argument('--submission-filepath', type=str,
+                        help='The submission filepath. This is either the path to the teams submission directory, or the full file path to the existing container image.',
                         required=True)
     parser.add_argument('--result-dir', type=str,
                         help='The result dir for the team',
@@ -79,7 +87,7 @@ if __name__ == "__main__":
 
     team_name = args.team_name
     team_email = args.team_email
-    submission_dir = args.submission_dir
+    submission_filepath = args.submission_filepath
     result_dir = args.result_dir
     config_file = args.config_file
     vm_name = args.vm_name
@@ -97,6 +105,7 @@ if __name__ == "__main__":
     submission_metadata_file = os.path.join(result_dir, team_name + '.metadata.json')
     logging.info('Serializing executed file to "{}"'.format(submission_metadata_file))
     error_file = os.path.join(result_dir, 'errors.txt')
+    info_file = os.path.join(result_dir, 'info.json')
 
     errors = ""
 
@@ -104,10 +113,21 @@ if __name__ == "__main__":
 
     logging.info('Downloading file for "{}" from "{}"'.format(team_name, team_email))
 
-    g_drive = DriveIO(config.token_pickle_file)
-    g_drive_file = g_drive.submission_download(team_email, submission_dir, submission_metadata_file, sts)
-    submission_name = g_drive_file.name
-    logging.info('Download complete for "{}".'.format(submission_name))
+    # if the submission_filepath is a directory, download the submission from GDrive
+    if os.path.isdir(submission_filepath):
+        logging.info('submission_filepath = "{}" is a directory, starting download of container from GDrive.'.format(submission_filepath))
+        submission_dir = submission_filepath
+        g_drive = DriveIO(config.token_pickle_file)
+        g_drive_file = g_drive.submission_download(team_email, submission_dir, submission_metadata_file, sts)
+        submission_name = g_drive_file.name
+        logging.info('Download complete for "{}".'.format(submission_name))
+    elif os.path.isfile(submission_filepath):
+        logging.info('submission_filepath = "{}" is a normal file, assuming that file is a Singularity container for evaluation.'.format(submission_filepath))
+        # if the submission_filepath is a normal file, use that file for execution
+        submission_name = os.path.basename(submission_filepath)
+        submission_dir = os.path.dirname(submission_filepath)
+    else:
+        raise RuntimeError('submission_filepath = "{}" is neither a directory or a normal file. Expecting either a directory to download a container into from GDrive, or a singularity container to execute.' .format(submission_filepath))
 
     try:
         vmIp = config.vms[vm_name]
@@ -155,13 +175,23 @@ if __name__ == "__main__":
         msg = '"{}" Evaluate script update perms may have failed with status code "{}".'.format(vm_name, sc)
         logging.error(msg)
         errors += ":Copy in:"
-        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Updating Permissions of Evaluation Script Failed'.format(vm_name), message=msg)
 
+    logging.info('Copying in models: "{}"'.format(config.models_dir))
+    sc = copy_in_models(vmIp, config.models_dir)
+    if sc != 0:
+        msg = '"{}" Model copy in may have failed with status code "{}."'.format(vm_name, sc)
+        logging.error(msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Model Data Copy Into VM Failed'.format(vm_name), message=msg)
+
+    start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
     if sts:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="30m")
     else:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="25h")
+    execution_time = time.time() - start_time
+    logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 
     logging.info("Execute status = " + str(executeStatus))
     if executeStatus == -9:
@@ -187,5 +217,31 @@ if __name__ == "__main__":
     logging.info('Container Execution Complete for team: {}'.format(team_name))
     logging.info('**************************************************')
 
-    if errors != "":
-        write_errors(error_file, errors)
+    # build dictionary of info to transfer back to the command and control
+    info_dict = dict()
+    info_dict['execution_runtime'] = execution_time
+    info_dict['errors'] = errors
+
+    model_execution_time_dict = dict()
+
+    # Build per model execution time dictionary
+    for model_execution_time_file_name in os.listdir(result_dir):
+
+        if not model_execution_time_file_name.endswith('-realtime.txt'):
+            continue
+
+        model_name = model_execution_time_file_name.split('-realtime')[0]
+
+        model_execution_time_filepath = os.path.join(result_dir, model_execution_time_file_name)
+
+        if not os.path.exists(model_execution_time_filepath):
+            continue
+
+        with open(model_execution_time_filepath) as execution_time_file:
+            file_contents = execution_time_file.readline().strip()
+            model_exec_time = float(file_contents)
+            model_execution_time_dict[model_name] = model_exec_time
+
+    info_dict['model_execution_runtimes'] = model_execution_time_dict
+    json_io.write(info_file, info_dict)
+

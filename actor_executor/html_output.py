@@ -1,3 +1,9 @@
+# NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+
+# NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
+
+# You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import logging
 import pytablewriter
 import fcntl
@@ -6,12 +12,11 @@ from pytablewriter import HtmlTableWriter
 from git import Repo
 from git.exc import GitCommandError
 
-from actor import Actor, ActorManager
-from submission import Submission, SubmissionManager
-import time_utils
-import slurm
-from mail_io import TrojaiMail
-
+from actor_executor.actor import Actor, ActorManager
+from actor_executor.submission import Submission, SubmissionManager
+import actor_executor.time_utils
+from actor_executor import slurm
+from actor_executor.mail_io import TrojaiMail
 
 
 def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int,
@@ -26,9 +31,18 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
                 scores = submission_manager.get_score_table()
 
                 scoreWriter = HtmlTableWriter()
-                scoreWriter.headers = ["Team", "Loss (Cross Entropy)", "ROC-AUC", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
+                scoreWriter.headers = ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
                 scoreWriter.value_matrix = scores
-                scoreWriter.type_hints = [pytablewriter.String, pytablewriter.RealNumber, pytablewriter.RealNumber, pytablewriter.String, pytablewriter.String, pytablewriter.String, pytablewriter.String]
+                scoreWriter.type_hints = [pytablewriter.String, # Team
+                                          pytablewriter.RealNumber, # Cross Entropy
+                                          pytablewriter.RealNumber, # CE 95% CI
+                                          pytablewriter.RealNumber, # Brier Score
+                                          pytablewriter.RealNumber, # ROC-AUC
+                                          pytablewriter.Integer,  # Runtime
+                                          pytablewriter.String, # Execution Timestamp
+                                          pytablewriter.String, # File Timestamp
+                                          pytablewriter.String, # arsing Errors
+                                          pytablewriter.String]  # Launch Errors
                 scoreTable = scoreWriter.dumps()
 
 
@@ -50,6 +64,45 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
 
                 with open(html_dir + "/_includes/" + result_table_name + ".html", mode='w', encoding='utf-8') as f:
                     f.write(scoreTableHtml)
+
+                scores_unique = submission_manager.get_score_table_unique()
+
+                scoreUniqueWriter = HtmlTableWriter()
+                scoreUniqueWriter.headers = ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)",
+                                       "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
+                scoreUniqueWriter.value_matrix = scores_unique
+                scoreUniqueWriter.type_hints = [pytablewriter.String,  # Team
+                                          pytablewriter.RealNumber,  # Cross Entropy
+                                          pytablewriter.RealNumber,  # CE 95% CI
+                                          pytablewriter.RealNumber,  # Brier Score
+                                          pytablewriter.RealNumber,  # ROC-AUC
+                                          pytablewriter.Integer,  # Runtime
+                                          pytablewriter.String,  # Execution Timestamp
+                                          pytablewriter.String,  # File Timestamp
+                                          pytablewriter.String,  # arsing Errors
+                                          pytablewriter.String]  # Launch Errors
+                scoreUniqueTable = scoreUniqueWriter.dumps()
+
+                result_unique_table_name = result_table_name + "_unique"
+
+                for line in scoreUniqueTable.splitlines():
+                    if "<th>" in line:
+                        newLine = line.replace("<th>", "<th class=\"th-sm\">")
+                        scoreUniqueTable = scoreUniqueTable.replace(line, newLine)
+                    if "<table" in line:
+                        newLine = line.replace("<table",
+                                               "<table id=\"" + result_unique_table_name + "\" class=\"table table-striped table-bordered table-sm\" cellspacing=\"0\" width=\"100%\"")
+                        scoreUniqueTable = scoreUniqueTable.replace(line, newLine)
+
+                scoreUniqueTableHtml = """
+                                <!-- ******UNIQUE RESULTS****** -->    
+                                <div class="table-responsive">
+                                """ + scoreUniqueTable + """
+                                </div>   
+                                """
+
+                with open(html_dir + "/_includes/" + result_unique_table_name + ".html", mode='w', encoding='utf-8') as f:
+                    f.write(scoreUniqueTableHtml)
 
             if actor_manager is not None:
                 # Populate jobs table

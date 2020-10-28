@@ -1,3 +1,9 @@
+# NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+
+# NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
+
+# You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import os
 import io
 import pickle
@@ -10,7 +16,7 @@ from typing import List
 import socket
 socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
 
-from google_drive_file import GoogleDriveFile
+from actor_executor.google_drive_file import GoogleDriveFile
 
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
@@ -172,7 +178,10 @@ class DriveIO(object):
         logging.info('Uploading file: "{}" to Drive'.format(file_name))
         m_type = mimetypes.guess_type(file_name)[0]
 
-        # TODO ensure file_path is a file, and not a folder
+        # ensure file_path is a regular file
+        if not os.path.isfile(file_path):
+            logging.error('Upload file_path = "{}" is not a regular file, aborting upload.'.format(file_path))
+            raise RuntimeError('Upload file_path = "{}" is not a regular file, aborting upload.'.format(file_path))
 
         for retry_count in range(self.max_retry_count):
             try:
@@ -232,8 +241,31 @@ class DriveIO(object):
                         logging.error("Failed to share uploaded file '{}' with '{}'.".format(file_id, share_email))
                         raise
 
+    def remove_all_sharing_permissions(self, file_id: str) -> None:
+        permissions = self.service.permissions().list(fileId=file_id).execute()
+        permissions = permissions['permissions']
+
+        for permission in permissions:
+            if permission['role'] != 'owner':
+                for retry_count in range(self.max_retry_count):
+                    sleep_time = random.random() * 2 ** retry_count
+                    time.sleep(sleep_time)
+
+                    try:
+                        self.service.permissions().delete(fileId=file_id, permissionId=permission['id']).execute()
+                        logging.info("Successfully removed share permission '{}' from file {}.".format(permission, file_id))
+                        break  # break retry loop
+                    except:
+                        if retry_count <= 4:
+                            logging.info('Failed to modify permissions on try, performing random exponential backoff.')
+                        else:
+                            logging.error("Failed to remove share permission '{}' from file '{}'.".format(permission, file_id))
+                            raise
+
     def upload_and_share(self, file_path: str, share_email: str) -> None:
         file_id = self.upload(file_path)
+        # unshare to remove all permissions except for owner, to ensure that if the file is deleted on the receivers end, that they get a new copy of it.
+        self.remove_all_sharing_permissions(file_id)
         self.share(file_id, share_email)
 
     def submission_download(self, email: str, output_dirpath: str, metadata_filepath: str, sts: bool) -> GoogleDriveFile:

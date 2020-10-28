@@ -4,24 +4,31 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-from actor_executor import json_io
-from actor_executor import time_utils
+import numpy as np
 
+from actor_executor import metrics
 
-class GoogleDriveFile(object):
-    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str):
-        self.email = email
-        self.name = file_name
-        self.id = file_id
-        self.modified_epoch = time_utils.convert_to_epoch(modified_timestamp)
+x_vals = list()
+y_vals = list()
 
-    def __str__(self):
-        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}" '.format(self.id, self.name, self.modified_epoch, self.email)
-        return msg
+for n in range(10, 1001):
+    for k in range(10):
+        targets = (np.random.rand(n, 1) > 0.5).astype(np.float32)
+        pred = np.random.rand(n, 1)
 
-    def save_json(self, file_path: str):
-        json_io.write(file_path, self)
+        ce = metrics.elementwise_binary_cross_entropy(pred, targets)
+        ci = metrics.cross_entropy_confidence_interval(ce)
+        x_vals.append(n)
+        y_vals.append(ci)
 
-    @staticmethod
-    def load_json(file_path: str):
-        return json_io.read(file_path)
+from matplotlib import pyplot as plt
+fig = plt.figure(figsize=(16, 9), dpi=200)
+ax = plt.gca()
+x_vals = np.asarray(x_vals)
+y_vals = np.asarray(y_vals)
+ax.scatter(x_vals, y_vals, c='b', s=4, alpha=0.1)
+# ax.set_yscale('log')
+ax.set_xlabel('Number Data Points')
+ax.set_ylabel('Cross Entropy 95% Confidence Interval')
+plt.title('Cross Entropy 95% Confidence Interval as a Function of Data Size')
+plt.savefig('CE_95_CI.png')

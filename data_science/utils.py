@@ -4,24 +4,57 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-from actor_executor import json_io
-from actor_executor import time_utils
+import numpy as np
+import pandas as pd
 
 
-class GoogleDriveFile(object):
-    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str):
-        self.email = email
-        self.name = file_name
-        self.id = file_id
-        self.modified_epoch = time_utils.convert_to_epoch(modified_timestamp)
+def replace_invalid(df):
+    df.fillna(value=np.nan, inplace=True)
+    try:
+        df.replace(to_replace=[None], value=np.nan, inplace=True)
+    except:
+        pass
+    try:
+        df.replace(to_replace='None', value=np.nan, inplace=True)
+    except:
+        pass
+    return df
 
-    def __str__(self):
-        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}" '.format(self.id, self.name, self.modified_epoch, self.email)
-        return msg
 
-    def save_json(self, file_path: str):
-        json_io.write(file_path, self)
+def unique_non_null(s):
+    return np.asarray(s.dropna().unique())
 
-    @staticmethod
-    def load_json(file_path: str):
-        return json_io.read(file_path)
+
+def filter_dataframe_by_cross_entropy_threshold(data_frame, ce_threshold):
+    metric = 'cross_entropy'
+    primary_key = 'team_name'
+    secondary_key = 'execution_time_stamp'
+
+    teams = dict()
+
+    primary_key_vals = data_frame[primary_key].unique()
+    for pk in primary_key_vals:
+        primary_df = data_frame[data_frame[primary_key] == pk]
+        secondary_key_vals = primary_df[secondary_key].unique()
+        for sk in secondary_key_vals:
+            run_df = data_frame[data_frame[secondary_key] == sk]
+            team_name = run_df[primary_key].unique()[0]
+            col = run_df[metric]
+            ce = col.mean(axis=0)
+            if ce < ce_threshold:
+                if not team_name in teams.keys():
+                    teams[team_name] = list()
+                teams[team_name].append(run_df[secondary_key].unique()[0])
+
+    subset_df = None
+    for team in teams.keys():
+        primary_df = data_frame[data_frame[primary_key] == team]
+        for timestamp in teams[team]:
+            print('{} - {} '.format(team, timestamp))
+            run_df = primary_df[primary_df[secondary_key] == timestamp]
+            if subset_df is None:
+                subset_df = run_df
+            else:
+                subset_df = subset_df.append(run_df)
+
+    return subset_df

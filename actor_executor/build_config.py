@@ -1,7 +1,13 @@
+# NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+
+# NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
+
+# You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import argparse
 
-import time_utils
-from config import Config
+from actor_executor import time_utils
+from actor_executor.config import Config
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Construct a config.json file.')
@@ -37,6 +43,10 @@ if __name__ == "__main__":
                         help="The directory where results will be placed",
                         required=True)
 
+    parser.add_argument("--models-dir", type=str,
+                        help="The directory where results will be placed",
+                        required=True)
+
     parser.add_argument('--token-pickle-file', type=str,
                         help='Path token.pickle file holding the oauth keys. If token.pickle is missing, but credentials have been provided, token.pickle will be generated after opening a web-browser to have the user accept the app permissions',
                         default='token.pickle')
@@ -59,21 +69,20 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # with model copy in, the VMs do not need to be split between STS and ES
     vms = dict()
+    vms['gpu-vm-61'] = '192.168.200.4'
+    vms['gpu-vm-db'] = '192.168.200.7'
+    vms['gpu-vm-3b'] = '192.168.200.2'
+    vms['gpu-vm-60'] = '192.168.200.3'
+    vms['gpu-vm-86'] = '192.168.200.5'
+    vms['gpu-vm-da'] = '192.168.200.6'
 
     if args.sts:
-        vms['gpu-vm-61'] = '192.168.200.4'
-        vms['gpu-vm-db'] = '192.168.200.7'
-
         results_table_name = 'test-results'
         jobs_table_name = 'test-jobs'
         slurm_queue = 'sts'
     else:
-        vms['gpu-vm-3b'] = '192.168.200.2'
-        vms['gpu-vm-60'] = '192.168.200.3'
-        vms['gpu-vm-86'] = '192.168.200.5'
-        vms['gpu-vm-da'] = '192.168.200.6'
-
         results_table_name = 'results'
         jobs_table_name = 'jobs'
         slurm_queue = 'es'
@@ -81,9 +90,7 @@ if __name__ == "__main__":
     MB_limit = 1
     log_file_byte_limit = int(MB_limit * 1024 * 1024)
 
-    evaluate_script = args.evaluate_script
-
-    config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, log_file_byte_limit)
+    config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.models_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, args.evaluate_script)
 
     ofp = args.output_filepath
     if not ofp.endswith('.json'):

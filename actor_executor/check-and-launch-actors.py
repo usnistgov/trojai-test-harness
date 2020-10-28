@@ -1,16 +1,22 @@
+# NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+
+# NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
+
+# You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import traceback
 import logging
 import logging.handlers
 import os
 
 import fcntl
-from config import Config
+from actor_executor.config import Config
 
-from drive_io import DriveIO
-from actor import Actor, ActorManager
-from submission import Submission, SubmissionManager
-import html_output
-import time_utils
+from actor_executor.drive_io import DriveIO
+from actor_executor.actor import Actor, ActorManager
+from actor_executor.submission import Submission, SubmissionManager
+from actor_executor import html_output
+from actor_executor import time_utils
 
 
 def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submission_manager: SubmissionManager, config_filepath: str, cur_epoch: int) -> None:
@@ -27,7 +33,8 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
         actor.job_status = "Disabled"
         return
     elif actor.job_status == "Disabled":
-      actor.job_status = "None"
+        logging.info("{} was previously disabled, resetting job status back to None.".format(actor.name))
+        actor.job_status = "None"
 
     logging.info("Checking for new submissions from {}.".format(actor.name))
 
@@ -35,13 +42,13 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
     actor_file_list = g_drive.query_by_email(actor.email)
 
     # filter list based on file prefix
-    sts = config.slurm_queue == 'sts'
+    sts_flag = config.slurm_queue == 'sts'
 
     gdrive_file_list = list()
     for g_file in actor_file_list:
-        if sts and g_file.name.startswith('test'):
+        if sts_flag and g_file.name.startswith('test'):
             gdrive_file_list.append(g_file)
-        if not sts and not g_file.name.startswith('test'):
+        if not sts_flag and not g_file.name.startswith('test'):
             gdrive_file_list.append(g_file)
 
     # ensure submission is unique (one and only one possible submission file from a team email)
@@ -66,7 +73,7 @@ def process_new_submission(config: Config, g_drive: DriveIO, actor: Actor, submi
             actor.job_status = "Awaiting Timeout"
         else:
             if int(g_file.modified_epoch) != int(actor.last_file_epoch):
-                logging.info('Submission is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.last_file_epoch))
+                logging.info('Submission timestamp is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.last_file_epoch))
                 submission = Submission(g_file, actor, config.submission_dir, config.results_dir, config.ground_truth_dir, config.slurm_queue)
                 submission_manager.add_submission(submission)
                 logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.file.name, actor.email))
@@ -86,7 +93,7 @@ def process_team(config: Config, g_drive: DriveIO, actor: Actor, submission_mana
             # re link actor object which was lost on loading object from json serialization
             submission.actor = actor
             logging.info('Found live submission "{}" from "{}"'.format(submission.file.name, submission.actor.name))
-            submission.check_submission(g_drive, config.log_file_byte_limit)
+            submission.check(g_drive, config.log_file_byte_limit)
 
     # look for any new submissions
     # This might modify the SubmissionManager instance
