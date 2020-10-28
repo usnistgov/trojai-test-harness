@@ -254,7 +254,7 @@ if __name__ == "__main__":
         if not os.path.exists(model_prediction_filepath):
             continue
 
-        with open(model_prediction_file_name) as prediction_fh:
+        with open(model_prediction_filepath) as prediction_fh:
             file_contents = prediction_fh.readline().strip()
             model_prediction_dict[model_name] = float(file_contents)
 
