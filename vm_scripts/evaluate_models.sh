@@ -42,7 +42,7 @@ do
 				singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data
 				echo "Finished executing $dir, returned status code: $?"
 			else
-				/usr/bin/time -f "%e" -o $RESULT_DIR/$MODEL.realtime singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+				/usr/bin/time -f "%e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 			fi
 
