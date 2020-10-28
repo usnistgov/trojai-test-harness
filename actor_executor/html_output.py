@@ -192,6 +192,8 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
                         gitAddList.append(html_dir + "/_includes/" + job_table_name + ".html")
                     if submission_manager is not None:
                         gitAddList.append(html_dir + "/_includes/" + result_table_name + ".html")
+                        gitAddList.append(html_dir + "/_includes/" + result_table_name + "_unique" + ".html")
+
 
                     gitAddList.append(html_dir + "/js/time-updater.js")
                     gitAddList.append(html_dir + "/js/" + slurm_queue + "-submission.js")
