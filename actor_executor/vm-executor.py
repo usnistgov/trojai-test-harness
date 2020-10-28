@@ -246,7 +246,7 @@ if __name__ == "__main__":
         except:
             pass  # Do nothing if file fails to parse
         # delete the walltime file to avoid cluttering the output folder
-        # os.remove(model_execution_time_filepath)
+        os.remove(model_execution_time_filepath)
 
     # Build per model trojan prediction dictionary
     model_prediction_dict = dict()
