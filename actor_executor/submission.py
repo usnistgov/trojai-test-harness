@@ -163,7 +163,7 @@ class Submission(object):
         logging.info("Checking results for {}".format(self.actor.name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-        info_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, "info.json")
+        info_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, "info.json")  # TODO put this filename into a config
         slurm_log_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, self.slurm_output_filename)
 
         # truncate log file to N bytes
