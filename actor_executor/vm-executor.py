@@ -27,7 +27,7 @@ def copy_in_submission(host, submission_dir, submission_name):
 
   
 def copy_in_models(host, models_dir):
-    child = subprocess.Popen(['rsync', '-q', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
+    child = subprocess.Popen(['rsync', '-q', '--no-motd', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 
