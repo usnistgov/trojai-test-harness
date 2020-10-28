@@ -270,7 +270,6 @@ class Submission(object):
             if not os.path.exists(info_filepath):
                 logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
                 self.web_display_parse_errors += ":Info File Missing:"
-                # TODO add ":Info File Missing:" to the web display of errors
             else:
                 info_dict = json_io.read(info_filepath)
                 if 'execution_runtime' not in info_dict.keys():
