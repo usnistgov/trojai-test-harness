@@ -14,7 +14,7 @@ from git.exc import GitCommandError
 
 from actor_executor.actor import Actor, ActorManager
 from actor_executor.submission import Submission, SubmissionManager
-import actor_executor.time_utils
+from actor_executor import time_utils
 from actor_executor import slurm
 from actor_executor.mail_io import TrojaiMail
 
