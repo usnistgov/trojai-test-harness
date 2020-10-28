@@ -227,7 +227,7 @@ if __name__ == "__main__":
     # Build per model execution time dictionary
     for model_execution_time_file_name in os.listdir(result_dir):
 
-        if not model_execution_time_file_name.endswith('-realtime.txt'):
+        if not model_execution_time_file_name.endswith('.realtime'):
             continue
 
         model_name = model_execution_time_file_name.split('-realtime')[0]
