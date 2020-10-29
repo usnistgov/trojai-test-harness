@@ -42,7 +42,7 @@ def update_perms_eval_script(host):
     return child.wait()
 
 
-def execute_submission(host, submission_name, queue_name, timeout='25h'):
+def execute_submission(host, submission_name, queue_name, timeout='37h'):
     child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', "\"" + submission_name + "\"", queue_name])
     return child.wait()
 
