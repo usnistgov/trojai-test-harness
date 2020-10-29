@@ -42,7 +42,7 @@ def update_perms_eval_script(host):
     return child.wait()
 
 
-def execute_submission(host, submission_name, queue_name, timeout='37h'):
+def execute_submission(host, submission_name, queue_name, timeout):
     child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', "\"" + submission_name + "\"", queue_name])
     return child.wait()
 
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     if sts:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="30m")
     else:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="25h")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="37h")
     execution_time = time.time() - start_time
     logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 
