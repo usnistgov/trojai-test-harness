@@ -126,19 +126,24 @@ class Submission(object):
             logging.debug('Creating submission directory: {}'.format(submission_dirpath))
             os.makedirs(submission_dirpath)
 
-        # select which slurm queue to use
+        self.slurm_job_name = self.actor.name
+        v100_slurm_queue = 'control'
+
+        # select which slurm queue to use and build the command string list
         if self.slurm_queue == 'sts':
             self.slurm_output_filename = self.actor.name + ".sts.log.txt"
             self.confusion_output_filename = self.actor.name + ".sts.confusion.csv"
             slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+
+            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", self.slurm_queue, "--gres=gpu:1", "-J", self.slurm_job_name, "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
         else:
             self.slurm_output_filename = self.actor.name + ".es.log.txt"
             self.confusion_output_filename = self.actor.name + ".es.confusion.csv"
             slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
 
-        self.slurm_job_name = self.actor.name
-        v100_slurm_queue = 'control'
-        cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", self.slurm_queue, "--gres=gpu:1", "-J", self.slurm_job_name,"--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
+            # ES queue uses "--nice" option to reduce priority by 100, allowing the STS to run when the ES if full
+            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", self.slurm_queue, "--gres=gpu:1", "-J", self.slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
+
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
         out = subprocess.Popen(cmd_str_list,
             stdout=subprocess.PIPE,
