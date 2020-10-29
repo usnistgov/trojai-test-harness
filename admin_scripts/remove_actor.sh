@@ -8,7 +8,7 @@
 
 
 
-SRC_DIR=/mnt/isgnas/project/ai/trojai/trojai-test-harness/actor_executor
+SRC_DIR=/home/trojai/trojai-test-harness/actor_executor
 
 email=michael.majurski@nist.gov
 
