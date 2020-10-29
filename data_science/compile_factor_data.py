@@ -20,7 +20,7 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
     results_df['poisoned'] = results_df['poisoned'].astype('category')
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
 
     # modify dataframe to remove out certain nonsensical data
     idx = results_df['ground_truth'] == 0

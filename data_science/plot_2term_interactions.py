@@ -127,7 +127,7 @@ def main(factor_global_results_csv_filepath, output_dirpath):
             results_df[c] = results_df[c].astype('category')
             factors_list.append(c.replace('_level', ''))
 
-    # results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
 
     metric = "cross_entropy"
     if not os.path.exists(output_dirpath):
@@ -176,7 +176,7 @@ def main(factor_global_results_csv_filepath, output_dirpath):
             n_w, n_h = get_subplot_size(mean_effects_matrix.shape[1])
 
             # fig, ax_list = plt.subplots(1, n_w, figsize=(4 * n_w, 4), dpi=100)
-            fig, ax_list = plt.subplots(n_h, n_w, figsize=(4 * n_w, 4 * n_h), dpi=100)
+            fig, ax_list = plt.subplots(n_h, n_w, figsize=(4 * n_w, 4 * n_h), dpi=200)
             ax_list = ax_list.reshape(-1)  # make axis list 1d
             rotate_labels = False
             for i in range(mean_effects_matrix.shape[1]):

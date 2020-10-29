@@ -7,4 +7,4 @@
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-@daily cd /home/trojai && PYTHONPATH=/mnt/isgnas/project/ai/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /mnt/isgnas/project/ai/trojai/trojai-test-harness/admin_scripts/check_trojainas_usage.py
+@daily cd /home/trojai && PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/admin_scripts/check_trojainas_usage.py

@@ -16,5 +16,5 @@ email=$5
 #echo $SLURM_JOB_NODELIST_PACK_GROUP_0  # host
 #echo $SLURM_JOB_NODELIST_PACK_GROUP_1  # vm
 
-PYTHONPATH=/mnt/isgnas/project/ai/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /mnt/isgnas/project/ai/trojai/trojai-test-harness/actor_executor/vm-executor.py --team-name $teamName --submission-filepath $submissionFilepath --result-dir $resultDir --config-file $configFile --team-email $email --vm-name $SLURM_JOB_NODELIST_PACK_GROUP_1
+PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/vm-executor.py --team-name $teamName --submission-filepath $submissionFilepath --result-dir $resultDir --config-file $configFile --team-email $email --vm-name $SLURM_JOB_NODELIST_PACK_GROUP_1
 

@@ -112,7 +112,7 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     results_df = results_df.drop(columns=to_drop)
     results_df.reset_index(drop=True, inplace=True)
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
 
     # modify dataframe to null out certain nonsensical data
     idx = results_df['ground_truth'] == 0
@@ -168,7 +168,7 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     y_min -= 0.1 * delta
     y_max += 0.1 * delta
 
-    fig = plt.figure(figsize=(16, 9), dpi=100)
+    fig = plt.figure(figsize=(16, 9), dpi=200)
     for factor in features_list:
         plt.clf()
         if box_plot_flag:

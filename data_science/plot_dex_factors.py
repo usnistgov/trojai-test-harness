@@ -94,7 +94,7 @@ def main(global_results_csv, metric, output_dir):
     results_df = results_df.drop(columns=to_drop)
     results_df.reset_index(drop=True, inplace=True)
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
 
     # drop columns with only one unique value
     to_drop = list()
