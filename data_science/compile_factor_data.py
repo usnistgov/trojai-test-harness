@@ -20,7 +20,7 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
     results_df['poisoned'] = results_df['poisoned'].astype('category')
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
+    # results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
 
     # modify dataframe to remove out certain nonsensical data
     idx = results_df['ground_truth'] == 0
@@ -28,18 +28,18 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     results_df['triggered_fraction'][idx] = np.nan
 
     # split trigger_type_option into two columns
-    trigger_type = results_df['trigger_type']
-    trigger_type_option = results_df['trigger_type_option']
-    polygon_side_count = trigger_type_option.copy()
-    instagram_filter_type = trigger_type_option.copy()
-    polygon_side_count[trigger_type == 'instagram'] = np.nan
-    instagram_filter_type[trigger_type == 'polygon'] = np.nan
+    # trigger_type = results_df['trigger_type']
+    # trigger_type_option = results_df['trigger_type_option']
+    # polygon_side_count = trigger_type_option.copy()
+    # instagram_filter_type = trigger_type_option.copy()
+    # polygon_side_count[trigger_type == 'instagram'] = np.nan
+    # instagram_filter_type[trigger_type == 'polygon'] = np.nan
 
-    results_df.drop(columns=['trigger_type_option'])
-    results_df['polygon_side_count'] = polygon_side_count
-    results_df['polygon_side_count'] = results_df['polygon_side_count'].astype('float32')
-    results_df['instagram_filter_type'] = instagram_filter_type
-    results_df = results_df.drop(columns=['trigger_type_option'])
+    # results_df.drop(columns=['trigger_type_option'])
+    # results_df['polygon_side_count'] = polygon_side_count
+    # results_df['polygon_side_count'] = results_df['polygon_side_count'].astype('float32')
+    # results_df['instagram_filter_type'] = instagram_filter_type
+    # results_df = results_df.drop(columns=['trigger_type_option'])
 
     # drop columns with only one unique value, since they cannot meaningfully influence the trojan detector
     to_drop = list()
@@ -67,7 +67,7 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     to_drop.append('final_triggered_val_acc')
     to_drop.append('final_clean_data_test_acc')
     to_drop.append('final_triggered_data_test_acc')
-    to_drop.append('final_example_acc')
+    # to_drop.append('final_example_acc')
     to_drop.append('trigger_target_class')
     to_drop.append('trigger_behavior')
     to_drop.append('foreground_size_percentage_of_image_min')
@@ -80,6 +80,7 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     to_drop.append('final_triggered_val_loss')
     to_drop.append('training_wall_time_sec')
     to_drop.append('test_wall_time_sec')
+
 
     results_df = results_df.drop(columns=to_drop)
     results_df.reset_index(drop=True, inplace=True)
