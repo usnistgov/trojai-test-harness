@@ -184,7 +184,7 @@ if __name__ == "__main__":
             # Add the log message handler to the logger
             handler = logging.handlers.RotatingFileHandler(config.log_file, maxBytes=100*1e6, backupCount=10) # 100MB
             logging.basicConfig(level=logging.INFO,
-                                format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
+                                format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                                 handlers=[handler])
 
             logging.debug('PID file lock acquired in directory {}'.format(config.submission_dir))
