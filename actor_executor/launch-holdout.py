@@ -18,16 +18,24 @@ from actor_executor.submission import Submission, SubmissionManager
 
 def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
 
-    submission_manager = SubmissionManager.load_json(config.submissions_json_file)
-    logging.debug('Loaded submission_manager from filepath: {}'.format(config.submissions_json_file))
-    logging.debug(submission_manager)
-
     if not os.path.exists(config.results_dir):
         logging.info('Creating results directory: {}'.format(config.results_dir))
         os.makedirs(config.results_dir)
     if not os.path.exists(config.submission_dir):
         logging.info('Creating submission_dir directory: {}'.format(config.submission_dir))
         os.makedirs(config.submission_dir)
+
+    handler = logging.handlers.RotatingFileHandler(config.log_file, maxBytes=100 * 1e6, backupCount=10)  # 100MB
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
+                        handlers=[handler])
+
+    logging.info('Starting parsing for holdout execution')
+    logging.info(config)
+
+    submission_manager = SubmissionManager.load_json(config.submissions_json_file)
+    logging.debug('Loaded submission_manager from filepath: {}'.format(config.submissions_json_file))
+    logging.debug(submission_manager)
 
     # Gather submissions based on criteria
     # Key = actor email, value = list of submissions that meets min loss criteria
@@ -116,11 +124,4 @@ if __name__ == "__main__":
     config = Config.load_json(config_filepath)
     execute_team_name = args.execute_team_name
 
-    handler = logging.handlers.RotatingFileHandler(config.log_file, maxBytes=100*1e6, backupCount=10) # 100MB
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
-                        handlers=[handler])
-
-    logging.info('Starting parsing for holdout execution')
-    logging.info(config)
     main(config_filepath, config, execute_team_name)
