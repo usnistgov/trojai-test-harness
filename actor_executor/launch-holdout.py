@@ -102,9 +102,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Executes holdout data on actors that meet criteria")
 
-    parser.add_argument('--holdout-config-filepath', type=str,
+    parser.add_argument('--config-file', type=str,
                         help='Filepath to the JSON file that describes the holdout execution',
-                        default='holdout-config.json')
+                        default='config-holdout.json')
 
     parser.add_argument('--execute-team-name', type=str,
                         help='Executes the best model from team name. If None (or missing) all teams meeting the cross entropy requirement will be run.',
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config_filepath = args.holdout_config_filepath
+    config_filepath = args.config_filepath
     config = Config.load_json(config_filepath)
     execute_team_name = args.execute_team_name
 
