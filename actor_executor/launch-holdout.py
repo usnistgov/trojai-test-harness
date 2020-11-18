@@ -26,8 +26,8 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
         logging.info('Creating results directory: {}'.format(config.results_dir))
         os.makedirs(config.results_dir)
     if not os.path.exists(config.submission_dir):
-        logging.error('The required Submission directory is missing. It must exist to run the holdout evaluation.')
-        raise RuntimeError('The required Submission directory is missing.')
+        logging.info('Creating submission_dir directory: {}'.format(config.submission_dir))
+        os.makedirs(config.submission_dir)
 
     # Gather submissions based on criteria
     # Key = actor email, value = list of submissions that meets min loss criteria
@@ -39,7 +39,6 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
     for actor_email in holdout_execution_submissions.keys():
         # process list of submissions for the actor
         submissions = holdout_execution_submissions[actor_email]
-
         logging.info("Submitting {} submissions for actor email {}".format(len(submissions), actor_email))
 
         for submission in submissions:
@@ -76,7 +75,7 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
 
             v100_slurm_queue = 'control'
 
-            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", config.slurm_queue, "--gres=gpu:1", "-J", slurm_job_name, "--parsable", "-o", slurm_output_filepath, config.slurm_script_file, submission.actor.name, holdout_actor_submission_filepath, holdout_actor_results_dirpath, config_filepath, submission.actor.email, slurm_output_filepath]
+            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "-n", "1", ":", "--partition", config.slurm_queue, "--gres=gpu:1", "-J", slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, config.slurm_script_file, submission.actor.name, holdout_actor_submission_filepath, holdout_actor_results_dirpath, config_filepath, submission.actor.email, slurm_output_filepath]
             logging.info('launching sbatch command: "{}"'.format(' '.join(cmd_str_list)))
 
             logging.info('Launching holdout computation for actor: {}'.format(submission.actor.name))
