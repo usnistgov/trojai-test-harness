@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config_filepath = args.config_filepath
+    config_filepath = args.config_file
     config = Config.load_json(config_filepath)
     execute_team_name = args.execute_team_name
 
