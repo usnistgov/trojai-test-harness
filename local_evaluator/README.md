@@ -1,0 +1,1 @@
+Installing singularity 3.6.x: https://sylabs.io/guides/3.6/user-guide/quick_start.html#quick-installation-steps
