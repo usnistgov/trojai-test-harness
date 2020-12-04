@@ -8,18 +8,15 @@
 
 
 
-conda activate scripts
-cd /home/trojai/trojai-test-harness/actor_executor
-
 teamName=TestTeam
 email=
 poc=
 
 # add to the STS
-python actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round3/config-sts.json --log-file=/mnt/trojainas/round3/sts/actor-manager.log
+PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round3/config-sts.json --log-file=/mnt/trojainas/round3/sts/actor-manager.log
 
 # add to the ES
-python actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round3/config-es.json --log-file=/mnt/trojainas/round3/es/actor-manager.log
+PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round3/config-es.json --log-file=/mnt/trojainas/round3/es/actor-manager.log
 
 
 

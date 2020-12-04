@@ -54,7 +54,8 @@ def add_actor(add_str, config):
     except:
         raise RuntimeError('Team name needs to be ASCII only')
 
-    invalid_chars = [' ', '/', '>', '<', '|', ':', '&', ',', ';', '?', '\\', '*']
+    team_name = str(team_name)
+    invalid_chars = [" ", "/", ">", "<", "|", ":", "&", ",", ";", "?", "\\", "*"]
     for char in invalid_chars:
         if char in team_name:
             raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
