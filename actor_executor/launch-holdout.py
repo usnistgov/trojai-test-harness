@@ -62,6 +62,7 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
             holdout_actor_submission_filepath = os.path.join(holdout_container_submission_dir, submission.file.name)
             if os.path.exists(holdout_container_submission_dir):
                 # skip already computed holdout results
+                logging.info('Holdout results found at {}. Skipping to avoid re-computing the results.'.format(holdout_actor_submission_filepath))
                 continue
             if not os.path.exists(holdout_container_submission_dir):
                 logging.info('Creating directory to hold container image. {}'.format(holdout_container_submission_dir))
