@@ -44,6 +44,7 @@ def reset_actor(key, config):
 
 
 def add_actor(add_str, config):
+    # TODO debug the B'<name>' which gets added to the string when called from command line
     actors = ActorManager.load_json(config.actor_json_file)
 
     logging.info("Adding actor: " + str(add_str))

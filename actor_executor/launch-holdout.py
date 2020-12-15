@@ -60,6 +60,9 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
             # create a submissions directory to store a copy of the holdout containers. The containers run for holdout will be duplicated and stored in 2 places.
             holdout_container_submission_dir = os.path.join(config.submission_dir, submission.actor.name, time_str)
             holdout_actor_submission_filepath = os.path.join(holdout_container_submission_dir, submission.file.name)
+            if os.path.exists(holdout_container_submission_dir):
+                # skip already computed holdout results
+                continue
             if not os.path.exists(holdout_container_submission_dir):
                 logging.info('Creating directory to hold container image. {}'.format(holdout_container_submission_dir))
                 os.makedirs(holdout_container_submission_dir)
