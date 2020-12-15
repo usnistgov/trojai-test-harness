@@ -49,24 +49,42 @@ class Config(object):
 
     def __str__(self):
         msg = 'Config: (actor_json_file = "{}"\n'.format(self.actor_json_file)
-        msg += '\tsubmissions_json_file = "{}"\n'.format(self.submissions_json_file)
-        msg += '\tsubmission_dir = "{}"\n'.format(self.submission_dir)
-        msg += '\tlog_file = "{}"\n'.format(self.log_file)
-        msg += '\texecute_window = "{}"\n'.format(self.execute_window)
-        msg += '\tground_truth_dir = "{}"\n'.format(self.ground_truth_dir)
-        msg += '\thtml_repo_dir = "{}"\n'.format(self.html_repo_dir)
-        msg += '\tresults_dir = "{}"\n'.format(self.results_dir)
-        msg += '\tmodels_dir = "{}"\n'.format(self.models_dir)
-        msg += '\ttoken_pickle_file = "{}"\n'.format(self.token_pickle_file)
-        msg += '\tslurm_script_file = "{}"\n'.format(self.slurm_script_file)
-        msg += '\taccepting_submissions = "{}"\n'.format(self.accepting_submissions)
-        msg += '\tjob_table_name = "{}"\n'.format(self.job_table_name)
-        msg += '\tresult_table_name = "{}"\n'.format(self.result_table_name)
-        msg += '\tvms = "{}"\n'.format(self.vms)
-        msg += '\tslurm_queue = "{}"\n'.format(self.slurm_queue)
-        msg += '\tevaluate_script: = "{}"\n'.format(self.evaluate_script)
-        msg += '\tlog_file_byte_limit = "{}"\n'.format(self.log_file_byte_limit)
-        msg += '\tloss_criteria = "{}")'.format(self.loss_criteria)
+        if hasattr(self, 'submissions_json_file'):
+            msg += '\tsubmissions_json_file = "{}"\n'.format(self.submissions_json_file)
+        if hasattr(self, 'submission_dir'):
+            msg += '\tsubmission_dir = "{}"\n'.format(self.submission_dir)
+        if hasattr(self, 'log_file'):
+            msg += '\tlog_file = "{}"\n'.format(self.log_file)
+        if hasattr(self, 'execute_window'):
+            msg += '\texecute_window = "{}"\n'.format(self.execute_window)
+        if hasattr(self, 'ground_truth_dir'):
+            msg += '\tground_truth_dir = "{}"\n'.format(self.ground_truth_dir)
+        if hasattr(self, 'html_repo_dir'):
+            msg += '\thtml_repo_dir = "{}"\n'.format(self.html_repo_dir)
+        if hasattr(self, 'results_dir'):
+            msg += '\tresults_dir = "{}"\n'.format(self.results_dir)
+        if hasattr(self, 'models_dir'):
+            msg += '\tmodels_dir = "{}"\n'.format(self.models_dir)
+        if hasattr(self, 'token_pickle_file'):
+            msg += '\ttoken_pickle_file = "{}"\n'.format(self.token_pickle_file)
+        if hasattr(self, 'slurm_script_file'):
+            msg += '\tslurm_script_file = "{}"\n'.format(self.slurm_script_file)
+        if hasattr(self, 'accepting_submissions'):
+            msg += '\taccepting_submissions = "{}"\n'.format(self.accepting_submissions)
+        if hasattr(self, 'job_table_name'):
+            msg += '\tjob_table_name = "{}"\n'.format(self.job_table_name)
+        if hasattr(self, 'result_table_name'):
+            msg += '\tresult_table_name = "{}"\n'.format(self.result_table_name)
+        if hasattr(self, 'vms'):
+            msg += '\tvms = "{}"\n'.format(self.vms)
+        if hasattr(self, 'slurm_queue'):
+            msg += '\tslurm_queue = "{}"\n'.format(self.slurm_queue)
+        if hasattr(self, 'evaluate_script'):
+            msg += '\tevaluate_script: = "{}"\n'.format(self.evaluate_script)
+        if hasattr(self, 'log_file_byte_limit'):
+            msg += '\tlog_file_byte_limit = "{}"\n'.format(self.log_file_byte_limit)
+        if hasattr(self, 'loss_criteria'):
+            msg += '\tloss_criteria = "{}")'.format(self.loss_criteria)
         return msg
 
     def save_json(self, filepath: str):
@@ -75,49 +93,3 @@ class Config(object):
     @staticmethod
     def load_json(filepath: str):
         return json_io.read(filepath)
-
-#
-# class HoldoutConfig(object):
-#     def __init__(self,
-#                  log_file: str,
-#                  round_config_filepath: str,
-#                  model_dir: str,
-#                  slurm_queue: str,
-#                  min_loss_criteria: float,
-#                  results_dir: str,
-#                  evaluate_script: str,
-#                  slurm_script: str,
-#                  python_executor_script: str,
-#                  submission_dir: str
-#                  ):
-#         self.log_file = log_file
-#         self.round_config_filepath = round_config_filepath
-#         self.model_dir = model_dir
-#         self.slurm_queue = slurm_queue
-#         self.min_loss_criteria = min_loss_criteria
-#         self.results_dir = results_dir
-#         self.evaluate_script = evaluate_script
-#         self.slurm_script = slurm_script
-#         # TODO what are the differences between the python_executor script and the evaluate_script
-#         self.python_executor_script = python_executor_script
-#         self.submission_dir = submission_dir
-#
-#     def __str__(self):
-#         msg = 'HoldoutConfig: (log_file = "{}"\n'.format(self.log_file)
-#         msg += 'round_config_filepath: = "{}"\n'.format(self.round_config_filepath)
-#         msg += 'model_dir: = "{}"\n'.format(self.model_dir)
-#         msg += 'slurm_queue: = "{}"\n'.format(self.slurm_queue)
-#         msg += 'min_loss_criteria: = "{}"\n'.format(self.min_loss_criteria)
-#         msg += 'results_dir: = "{}"\n'.format(self.results_dir)
-#         msg += 'evaluate_script: = "{}"\n'.format(self.evaluate_script)
-#         msg += 'slurm_script: = "{}"\n'.format(self.slurm_script)
-#         msg += 'python_executor_script: = "{}"\n'.format(self.python_executor_script)
-#         msg += 'submission_dir: = "{}"\n'.format(self.submission_dir)
-#         return msg
-#
-#     def save_json(self, filepath: str):
-#         json_io.write(filepath, self)
-#
-#     @staticmethod
-#     def load_json(filepath:str):
-#         return json_io.read(filepath)
