@@ -16,30 +16,16 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
 
     results_df = pd.read_csv(global_results_csv_filepath)
     # treat two boolean columns categorically
-    results_df['trigger_target_class'] = results_df['trigger_target_class'].astype('category')
+
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
     results_df['poisoned'] = results_df['poisoned'].astype('category')
+
 
     # results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.4)
 
     # modify dataframe to remove out certain nonsensical data
-    idx = results_df['ground_truth'] == 0
-    results_df['number_triggered_classes'][idx] = np.nan
-    results_df['triggered_fraction'][idx] = np.nan
+    # idx = results_df['ground_truth'] == 0
 
-    # split trigger_type_option into two columns
-    # trigger_type = results_df['trigger_type']
-    # trigger_type_option = results_df['trigger_type_option']
-    # polygon_side_count = trigger_type_option.copy()
-    # instagram_filter_type = trigger_type_option.copy()
-    # polygon_side_count[trigger_type == 'instagram'] = np.nan
-    # instagram_filter_type[trigger_type == 'polygon'] = np.nan
-
-    # results_df.drop(columns=['trigger_type_option'])
-    # results_df['polygon_side_count'] = polygon_side_count
-    # results_df['polygon_side_count'] = results_df['polygon_side_count'].astype('float32')
-    # results_df['instagram_filter_type'] = instagram_filter_type
-    # results_df = results_df.drop(columns=['trigger_type_option'])
 
     # drop columns with only one unique value, since they cannot meaningfully influence the trojan detector
     to_drop = list()
@@ -54,32 +40,27 @@ def main(global_results_csv_filepath, output_dirpath, num_levels):
     # remove nonsensical columns
     to_drop.append('poisoned')
     to_drop.append('master_seed')
-    to_drop.append('triggered_classes')
-    to_drop.append('trigger_color')
-    to_drop.append('final_clean_data_n_total')
-    to_drop.append('final_triggered_data_n_total')
-    to_drop.append('optimizer_0')
-    to_drop.append('final_train_loss')
-    to_drop.append('final_train_acc')
-    to_drop.append('final_combined_val_acc')
-    to_drop.append('final_combined_val_loss')
-    to_drop.append('final_clean_val_acc')
-    to_drop.append('final_triggered_val_acc')
-    to_drop.append('final_clean_data_test_acc')
-    to_drop.append('final_triggered_data_test_acc')
-    # to_drop.append('final_example_acc')
-    to_drop.append('trigger_target_class')
-    to_drop.append('trigger_behavior')
+
+    for i in range(2):
+        to_drop.append('triggers_{}_source_class'.format(i))
+        to_drop.append('triggers_{}_target_class'.format(i))
+        to_drop.append('triggers_{}_behavior'.format(i))
+        to_drop.append('triggers_{}_size_percentage_of_foreground_min'.format(i))
+        to_drop.append('triggers_{}_size_percentage_of_foreground_max'.format(i))
+        to_drop.append('triggers_{}_color'.format(i))
+
     to_drop.append('foreground_size_percentage_of_image_min')
     to_drop.append('foreground_size_percentage_of_image_max')
     to_drop.append('foreground_size_pixels_min')
     to_drop.append('foreground_size_pixels_max')
-    to_drop.append('trigger_size_percentage_of_foreground_min')
-    to_drop.append('trigger_size_percentage_of_foreground_max')
     to_drop.append('final_clean_val_loss')
     to_drop.append('final_triggered_val_loss')
     to_drop.append('training_wall_time_sec')
     to_drop.append('test_wall_time_sec')
+
+    # for val in to_drop:
+    #     if val not in list(results_df.columns):
+    #         print('missing column {}'.format(val))
 
 
     results_df = results_df.drop(columns=to_drop)

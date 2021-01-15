@@ -29,6 +29,8 @@ def get_subplot_size(n):
 def compute_mean_effects_matrix(data_frame, factor1_name, factor2_name, metric_name, summary_statistic='mean'):
     numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
 
+    print('factor1: {} factor2: {}'.format(factor1_name, factor2_name))
+
     f1_is_numeric = str(data_frame[factor1_name].dtype) in numerics
     f2_is_numeric = str(data_frame[factor2_name].dtype) in numerics
 
@@ -147,6 +149,8 @@ def main(factor_global_results_csv_filepath, output_dirpath):
         for factor2 in factors_list:
             if factor1 == factor2:
                 continue
+
+            print('plotting factor {} against factor {}'.format(factor1, factor2))
             mean_effects_matrix, support_matrix, f1_vals, f2_vals = compute_mean_effects_matrix(results_df, factor1, factor2, metric, summary_statistic='mean')
             matrix_dict[factor1][factor2] = mean_effects_matrix
             support_dict[factor1][factor2] = support_matrix

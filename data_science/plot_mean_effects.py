@@ -66,7 +66,12 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
 
         for l in x_levels:
             tmp_x = x_vals[x_level_vals == l]
-            x = np.append(x, utils.unique_non_null(tmp_x))
+            tmp_x = utils.unique_non_null(tmp_x)
+            if len(tmp_x) == 0:
+                print('  x col {} is all null'.format(x_column_name))
+                # a level combination has no support, so keep a placeholder here
+                tmp_x = 'null'
+            x = np.append(x, tmp_x)
             tmp_y = y_vals[x_level_vals == l]
             tmp_y = tmp_y[np.isfinite(tmp_y)]
             support = np.append(support, tmp_y.size)
@@ -126,9 +131,9 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.45)
 
     # modify dataframe to null out certain nonsensical data
-    idx = results_df['ground_truth'] == 0
-    results_df['number_triggered_classes'][idx] = np.nan
-    results_df['triggered_fraction'][idx] = np.nan
+    # idx = results_df['ground_truth'] == 0
+    # results_df['number_triggered_classes'][idx] = np.nan
+    # results_df['triggered_fraction'][idx] = np.nan
 
     # drop columns with only one unique value
     to_drop = list()
