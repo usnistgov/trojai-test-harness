@@ -31,11 +31,17 @@ def copy_in_models(host, models_dir):
     child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
+def copy_in_embedding(host, embedding_dir):
+    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', embedding_dir, 'trojai@' + host + + ':/home/trojai/'])
+    return child.wait()
+
+def copy_in_tokenizer(host, tokenizer_dir):
+    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', tokenizer_dir, 'trojai@' + host + ':/home/trojai/'])
+    return child.wait()
 
 def copy_in_eval_script(host, eval_script_path):
     child = subprocess.Popen(['scp', '-q', eval_script_path, 'trojai@'+host+':/home/trojai/evaluate_models.sh'])
     return child.wait()
-
 
 def update_perms_eval_script(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/home/trojai/evaluate_models.sh'])
@@ -184,6 +190,20 @@ if __name__ == "__main__":
         msg = '"{}" Model copy in may have failed with status code "{}."'.format(vm_name, sc)
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Model Data Copy Into VM Failed'.format(vm_name), message=msg)
+
+    logging.info('Copying in embeddings: "{}"'.format(config.embedding_dir))
+    sc = copy_in_tokenizer(vmIp, config.embedding_dir)
+    if sc != 0:
+        msg = '"{}" Embedding copy in may have failed with status code "{}."'.format(vm_name, sc)
+        logging.error(msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Embedding Copy Into VM Failed'.format(vm_name), message=msg)
+
+    logging.info('Copying in tokenizers: "{}"'.format(config.tokenizer_dir))
+    sc = copy_in_tokenizer(vmIp, config.tokenizer_dir)
+    if sc != 0:
+        msg = '"{}" Tokenizer copy in may have failed with status code "{}."'.format(vm_name, sc)
+        logging.error(msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Tokenizer Copy Into VM Failed'.format(vm_name), message=msg)
 
     start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)

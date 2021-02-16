@@ -47,6 +47,14 @@ if __name__ == "__main__":
                         help="The directory where results will be placed",
                         required=True)
 
+    parser.add_argument('--embedding-dir', type=str,
+                        help='The directory where embeddings exist',
+                        required=True)
+
+    parser.add_argument('--tokenizer-dir', type=str,
+                        help='The directory where tokenizer exist',
+                        required=True)
+
     parser.add_argument('--token-pickle-file', type=str,
                         help='Path token.pickle file holding the oauth keys. If token.pickle is missing, but credentials have been provided, token.pickle will be generated after opening a web-browser to have the user accept the app permissions',
                         default='token.pickle')
@@ -90,7 +98,7 @@ if __name__ == "__main__":
     MB_limit = 1
     log_file_byte_limit = int(MB_limit * 1024 * 1024)
 
-    config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.models_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, args.evaluate_script)
+    config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.models_dir, args.embedding_dir, args.tokenizer_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, args.evaluate_script)
 
     ofp = args.output_filepath
     if not ofp.endswith('.json'):
