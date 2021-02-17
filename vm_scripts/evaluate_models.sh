@@ -45,7 +45,7 @@ do
       EMBEDDING_FILENAME=`cat $dir/embedding_name.txt`
       TOKENIZER_FILENAME=`cat $dir/tokenizer_name.txt`
       cls_token_is_first_flag=`cat $dir/cls_token_is_first.txt`
-      if [ $cls_token_is_first_flag = 1 ]; then
+      if [[ $cls_token_is_first_flag == 1 ]]; then
         CLS_TOKEN_IS_FIRST='--cls_token_is_first'
       else
         CLS_TOKEN_IS_FIRST=
