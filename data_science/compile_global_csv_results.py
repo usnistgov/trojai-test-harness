@@ -31,6 +31,9 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
     metadata.replace(to_replace=[None], value=np.nan, inplace=True)
     metadata.replace(to_replace='None', value=np.nan, inplace=True)
 
+    models = metadata['model_name'].to_list()
+    models.sort()
+
     columns = list(metadata.columns)
 
     # Prep the output csv file with the headers
@@ -54,8 +57,8 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
             for run in runs:
                 run_fp = os.path.join(team_fp, run)
 
-                models = [f.replace('.txt','') for f in os.listdir(run_fp) if f.startswith('id-')]
-                models.sort()
+                # models = [f.replace('.txt','') for f in os.listdir(run_fp) if f.startswith('id-')]
+                # models.sort()
 
                 for model in models:
                     row = metadata[metadata["model_name"] == model]

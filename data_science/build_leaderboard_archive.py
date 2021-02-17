@@ -42,9 +42,15 @@ def main(global_results_csv_filepath, queue, output_dirpath):
 
                 targets = run_df['ground_truth'].to_numpy(dtype=np.float32)
                 predictions = run_df['predicted'].to_numpy(dtype=np.float32)
-                ce = run_df['cross_entropy'].to_numpy(dtype=np.float32)
-                ci = metrics.cross_entropy_confidence_interval(ce)
-                ce = np.mean(ce)
+
+                if np.any(np.isnan(predictions)):
+                    default_result = 0.5
+                    predictions[np.isnan(predictions)] = default_result
+
+                elementwise_ce = metrics.elementwise_binary_cross_entropy(predictions, targets)
+                ce = float(np.mean(elementwise_ce))
+
+                ci = metrics.cross_entropy_confidence_interval(elementwise_ce)
 
                 TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
                 roc_auc = sklearn.metrics.auc(FPR, TPR)

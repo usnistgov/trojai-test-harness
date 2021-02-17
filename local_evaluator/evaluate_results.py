@@ -59,7 +59,6 @@ def process_results(output_directory, results_directory, ground_truth_directory,
 
         TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
         roc_auc = float(sklearn.metrics.auc(FPR, TPR))
-
         header = 'model name, target, prediction, cross entropy\n'
         with open(os.path.join(output_directory, '{}-{}-elementwise_ce.csv'.format(team_name, machine)), "w") as output_file:
             output_file.write(header)
@@ -103,12 +102,16 @@ if __name__ == "__main__":
     team_name = args.team_name
     machine = args.machine
 
+    if os.path.exists(output_directory):
+        import shutil
+        shutil.rmtree(output_directory)
+    os.makedirs(output_directory)
+
     # process_results(output_directory, results_directory, ground_truth_directory, team_name, machine)
 
-    machines = ['laura', 'a100', 'v100', 'threadripper']
+    machines = ['v100', 'nisaba', 'a100-vm', 'laura', 'v100-bare', 'v100-vm', '3090']
 
-    containers = ['ARM-UCSD-20201114T063002', 'ICSI-20201107T083001', 'Perspecta-PurdueRutgers-20201113T063001', 'PL-GIFT-20201202T141001', 'PL-GIFT-20201207T160002', 'TrinitySRITrojAI-20201115T100001']
-
-    for container in containers:
-        for machine in machines:
+    for machine in machines:
+        containers = [fn for fn in os.listdir(os.path.join(results_directory, machine)) if os.path.isdir(os.path.join(results_directory, machine, fn))]
+        for container in containers:
             process_results(output_directory, results_directory, ground_truth_directory, container, machine)
