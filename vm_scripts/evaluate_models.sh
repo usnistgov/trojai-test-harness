@@ -17,6 +17,9 @@ CONTAINER_EXEC="/mnt/scratch/$CONTAINER_NAME"
 RESULT_DIR=/mnt/scratch/results
 SCRATCH_DIR=/mnt/scratch/scratch
 
+EMBEDDING_DIR=/home/trojai/embeddings
+TOKENIZER_DIR=/home/trojai/tokenizers
+
 mkdir -p $RESULT_DIR
 mkdir -p $SCRATCH_DIR
 
@@ -38,11 +41,30 @@ do
 			# Copy model to the active folder to obscure its name
 			cp -r $dir/* $ACTIVE_DIR
 
+      # Determine which embedding, tokenizer, and cls to use
+      config_file=$dir/config.json
+      embedding=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['embedding'])"`
+      embedding_flavor=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['embedding_flavor'])"`
+      embedding_tokenizer_filename=$embedding-$embedding_flavor.pt
+      if [ "DistilBERT" = $embedding ]; then
+        CLS_TOKEN_IS_FIRST='--cls_token_is_first'
+      elif [ "BERT" = $embedding ]; then
+        CLS_TOKEN_IS_FIRST='--cls_token_is_first'
+      elif [ "GPT-2" = $embedding ]; then
+        CLS_TOKEN_IS_FIRST=
+      else
+        echo "ERROR: Unknown Embedding $embedding"
+      fi
+
+      TOKENIZER_FILEPATH=$TOKENIZER_DIR/$embedding_tokenizer_filename
+      EMBEDDING_FILEPATH=$EMBEDDING_DIR/$embedding_tokenizer_filename
+
+
 			if [[ "$QUEUE_NAME" == "sts" ]]; then
-				singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data
+				singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR -B $EMBEDDING_DIR -B $TOKENIZER_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embeding_filepath $EMBEDDING_FILEPATH
 				echo "Finished executing $dir, returned status code: $?"
 			else
-				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain -B /mnt/scratch -B $ACTIVE_DIR -B $EMBEDDING_DIR -B $TOKENIZER_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath  --tokenizer_filepath $TOKENIZER_FILEPATH --embeding_filepath $EMBEDDING_FILEPATH  >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 			fi
 

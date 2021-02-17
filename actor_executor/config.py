@@ -16,6 +16,8 @@ class Config(object):
                  ground_truth_dir: str,
                  html_repo_dir: str,
                  models_dir: str,
+                 embedding_dir: str,
+                 tokenizer_dir: str,
                  results_dir: str,
                  token_pickle_file: str,
                  slurm_script_file: str,
@@ -35,6 +37,8 @@ class Config(object):
         self.html_repo_dir = html_repo_dir
         self.results_dir = results_dir
         self.models_dir = models_dir
+        self.embedding_dir = embedding_dir
+        self.tokenizer_dir = tokenizer_dir
         self.token_pickle_file = token_pickle_file
         self.slurm_script_file = slurm_script_file
         self.accepting_submissions = True
@@ -63,6 +67,10 @@ class Config(object):
             msg += '\thtml_repo_dir = "{}"\n'.format(self.html_repo_dir)
         if hasattr(self, 'results_dir'):
             msg += '\tresults_dir = "{}"\n'.format(self.results_dir)
+        if hasattr(self, 'tokenizer_dir'):
+            msg += '\ttokenizer_dir = "{}"\n'.format(self.tokenizer_dir)
+        if hasattr(self, 'embedding_dir'):
+            msg += '\tembedding_dir = "{}"\n'.format(self.embedding_dir)
         if hasattr(self, 'models_dir'):
             msg += '\tmodels_dir = "{}"\n'.format(self.models_dir)
         if hasattr(self, 'token_pickle_file'):
