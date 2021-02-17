@@ -28,15 +28,15 @@ def copy_in_submission(host, submission_dir, submission_name):
   
 def copy_in_models(host, models_dir):
     # test rsync -e 'ssh -q' to suppress the banner
-    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 def copy_in_embedding(host, embedding_dir):
-    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', embedding_dir, 'trojai@' + host + + ':/home/trojai/'])
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', embedding_dir, 'trojai@' + host + + ':/home/trojai/'])
     return child.wait()
 
 def copy_in_tokenizer(host, tokenizer_dir):
-    child = subprocess.Popen(['rsync', '-ar', '--prune-empty-dirs', '--delete', tokenizer_dir, 'trojai@' + host + ':/home/trojai/'])
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', tokenizer_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 def copy_in_eval_script(host, eval_script_path):
