@@ -57,10 +57,10 @@ do
 
 
 			if [[ "$QUEUE_NAME" == "sts" ]]; then
-				singularity run --contain -B $ACTIVE_DIR -B $RESULT_DIR -B $SCRATCH_DIR -B $EMBEDDING_DIR -B $TOKENIZER_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embedding_filepath $EMBEDDING_FILEPATH
+				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $EMBEDDING_DIR:$EMBEDDING_DIR:ro --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embedding_filepath $EMBEDDING_FILEPATH
 				echo "Finished executing $dir, returned status code: $?"
 			else
-				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain -B $ACTIVE_DIR -B $SCRATCH_DIR -B $EMBEDDING_DIR -B $TOKENIZER_DIR --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embedding_filepath $EMBEDDING_FILEPATH >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $EMBEDDING_DIR:$EMBEDDING_DIR:ro --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embedding_filepath $EMBEDDING_FILEPATH >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 			fi
 
