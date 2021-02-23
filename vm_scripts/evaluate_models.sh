@@ -15,7 +15,7 @@ ACTIVE_DIR=/home/trojai/active
 
 CONTAINER_EXEC="/mnt/scratch/$CONTAINER_NAME"
 RESULT_DIR=/mnt/scratch/results
-SCRATCH_DIR=/mnt/scratch/scratch
+SCRATCH_DIR=/mnt/scratch/container-scratch
 
 EMBEDDING_DIR=/home/trojai/embeddings
 TOKENIZER_DIR=/home/trojai/tokenizers
