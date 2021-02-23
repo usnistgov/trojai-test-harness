@@ -35,24 +35,25 @@ do
 		MODEL="$(basename $dir)"
 
 		if [[ $MODEL == id* ]] ; then
-
+			# clean up scratch directory prior to running each model
+			rm -rf $SCRATCH_DIR/*
 			# pre-preemptively clean up the active directory
 			rm -rf $ACTIVE_DIR/*
 			# Copy model to the active folder to obscure its name
 			cp -r $dir/* $ACTIVE_DIR
 
-      # Determine which embedding, tokenizer, and cls to use
-      EMBEDDING_FILENAME=`cat $dir/embedding_name.txt`
-      TOKENIZER_FILENAME=`cat $dir/tokenizer_name.txt`
-      cls_token_is_first_flag=`cat $dir/cls_token_is_first.txt`
-      if [[ $cls_token_is_first_flag == 1 ]]; then
-        CLS_TOKEN_IS_FIRST='--cls_token_is_first'
-      else
-        CLS_TOKEN_IS_FIRST=
-      fi
+			# Determine which embedding, tokenizer, and cls to use
+		        EMBEDDING_FILENAME=`cat $dir/embedding_name.txt`
+		        TOKENIZER_FILENAME=`cat $dir/tokenizer_name.txt`
+		        cls_token_is_first_flag=`cat $dir/cls_token_is_first.txt`
+		        if [[ $cls_token_is_first_flag == 1 ]]; then
+			  CLS_TOKEN_IS_FIRST='--cls_token_is_first'
+		        else
+			  CLS_TOKEN_IS_FIRST=
+		        fi
 
-      TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
-      EMBEDDING_FILEPATH=$EMBEDDING_DIR/$EMBEDDING_FILENAME
+		        TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
+		        EMBEDDING_FILEPATH=$EMBEDDING_DIR/$EMBEDDING_FILENAME
 
 
 			if [[ "$QUEUE_NAME" == "sts" ]]; then
