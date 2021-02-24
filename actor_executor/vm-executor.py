@@ -31,7 +31,7 @@ def copy_in_models(host, models_dir):
     return child.wait()
 
 def copy_in_sentiment_classification(host, sentiment_classification_dir):
-    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', sentiment_classification_dir, 'trojai@' + host + + ':/home/trojai/'])
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', sentiment_classification_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 def copy_in_embedding(host, embedding_dir):
