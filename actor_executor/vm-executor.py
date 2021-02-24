@@ -24,11 +24,14 @@ def check_gpu(host):
 def copy_in_submission(host, submission_dir, submission_name):
     child = subprocess.Popen(['scp', '-q', submission_dir + '/' + submission_name, 'trojai@'+host+':\"/mnt/scratch/' + submission_name + '\"'])
     return child.wait()
-
   
 def copy_in_models(host, models_dir):
     # test rsync -e 'ssh -q' to suppress the banner
     child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
+    return child.wait()
+
+def copy_in_sentiment_classification(host, sentiment_classification_dir):
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', sentiment_classification_dir, 'trojai@' + host + + ':/home/trojai/'])
     return child.wait()
 
 def copy_in_embedding(host, embedding_dir):
@@ -204,6 +207,13 @@ if __name__ == "__main__":
         msg = '"{}" Tokenizer copy in may have failed with status code "{}."'.format(vm_name, sc)
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Tokenizer Copy Into VM Failed'.format(vm_name), message=msg)
+
+    logging.info('Copying in sentiment classification: "{}"'.format(config.sentiment_classification_dir))
+    sc = copy_in_sentiment_classification(vmIp, config.sentiment_classification_dir)
+    if sc != 0:
+        msg = '"{}" Sentiment classfication copy in may have failed with status code "{}."'.format(vm_name, sc)
+        logging.error(msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Sentiment Classification Copy Into VM Failed'.format(vm_name), message=msg)
 
     start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
