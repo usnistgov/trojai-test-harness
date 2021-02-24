@@ -47,7 +47,6 @@ do
 			EMBEDDING_FILENAME=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['embedding_filename'])"`
 			cls_token_is_first_flag=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['cls_token_is_first'])"`
 			TOKENIZER_FILENAME=$EMBEDDING_FILENAME
-			cls_token_is_first_flag=`cat $dir/cls_token_is_first.txt`
 			if [[ $cls_token_is_first_flag == true ]]; then
 			  CLS_TOKEN_IS_FIRST='--cls_token_is_first'
 			else
