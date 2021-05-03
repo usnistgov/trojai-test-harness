@@ -212,7 +212,7 @@ if __name__ == "__main__":
     start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
     if sts:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="30m")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="60m")
     else:
         executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="37h")
     execution_time = time.time() - start_time
