@@ -24,27 +24,28 @@ def check_gpu(host):
 def copy_in_submission(host, submission_dir, submission_name):
     child = subprocess.Popen(['scp', '-q', submission_dir + '/' + submission_name, 'trojai@'+host+':\"/mnt/scratch/' + submission_name + '\"'])
     return child.wait()
-  
+
+
 def copy_in_models(host, models_dir):
     # test rsync -e 'ssh -q' to suppress the banner
     child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', models_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
-def copy_in_sentiment_classification(host, sentiment_classification_dir):
-    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', sentiment_classification_dir, 'trojai@' + host + ':/home/trojai/'])
+
+def copy_in_source_data(host, source_data_dir):
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', source_data_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
-def copy_in_embedding(host, embedding_dir):
-    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', embedding_dir, 'trojai@' + host + + ':/home/trojai/'])
-    return child.wait()
 
 def copy_in_tokenizer(host, tokenizer_dir):
     child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', tokenizer_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
+
 def copy_in_eval_script(host, eval_script_path):
     child = subprocess.Popen(['scp', '-q', eval_script_path, 'trojai@'+host+':/home/trojai/evaluate_models.sh'])
     return child.wait()
+
 
 def update_perms_eval_script(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/home/trojai/evaluate_models.sh'])
@@ -194,13 +195,6 @@ if __name__ == "__main__":
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Model Data Copy Into VM Failed'.format(vm_name), message=msg)
 
-    logging.info('Copying in embeddings: "{}"'.format(config.embedding_dir))
-    sc = copy_in_tokenizer(vmIp, config.embedding_dir)
-    if sc != 0:
-        msg = '"{}" Embedding copy in may have failed with status code "{}."'.format(vm_name, sc)
-        logging.error(msg)
-        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Embedding Copy Into VM Failed'.format(vm_name), message=msg)
-
     logging.info('Copying in tokenizers: "{}"'.format(config.tokenizer_dir))
     sc = copy_in_tokenizer(vmIp, config.tokenizer_dir)
     if sc != 0:
@@ -208,12 +202,12 @@ if __name__ == "__main__":
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Tokenizer Copy Into VM Failed'.format(vm_name), message=msg)
 
-    logging.info('Copying in sentiment classification: "{}"'.format(config.sentiment_classification_dir))
-    sc = copy_in_sentiment_classification(vmIp, config.sentiment_classification_dir)
+    logging.info('Copying in ner source data: "{}"'.format(config.source_data_dir))
+    sc = copy_in_source_data(vmIp, config.source_data_dir)
     if sc != 0:
-        msg = '"{}" Sentiment classfication copy in may have failed with status code "{}."'.format(vm_name, sc)
+        msg = '"{}" Source Data copy in may have failed with status code "{}."'.format(vm_name, sc)
         logging.error(msg)
-        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Sentiment Classification Copy Into VM Failed'.format(vm_name), message=msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Source Data Copy Into VM Failed'.format(vm_name), message=msg)
 
     start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
