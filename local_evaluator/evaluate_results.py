@@ -6,8 +6,8 @@ import sklearn.metrics
 from actor_executor import metrics
 
 
-def process_results(output_directory, results_directory, ground_truth_directory, team_name, machine):
-    results_directory = os.path.join(results_directory, machine, team_name)
+def process_results(output_directory, results_directory, ground_truth_directory, team_name):
+    results_directory = os.path.join(results_directory, team_name)
 
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -60,7 +60,7 @@ def process_results(output_directory, results_directory, ground_truth_directory,
         TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
         roc_auc = float(sklearn.metrics.auc(FPR, TPR))
         header = 'model name, target, prediction, cross entropy\n'
-        with open(os.path.join(output_directory, '{}-{}-elementwise_ce.csv'.format(team_name, machine)), "w") as output_file:
+        with open(os.path.join(output_directory, '{}-elementwise_ce.csv'.format(team_name)), "w") as output_file:
             output_file.write(header)
 
             for i in range(len(models)):
@@ -68,50 +68,49 @@ def process_results(output_directory, results_directory, ground_truth_directory,
                 output_file.write(new_line)
 
         if not os.path.exists(os.path.join(output_directory, 'metrics.csv')):
-            header = 'machine, team name, cross entropy, cross entropy 95% CI, brier score, roc-auc\n'
+            header = 'team name, cross entropy, cross entropy 95% CI, brier score, roc-auc\n'
             with open(os.path.join(output_directory, 'metrics.csv'), "w") as output_file:
                 output_file.write(header)
 
         with open(os.path.join(output_directory, 'metrics.csv'), "a") as output_file:
-            new_line = "{}, {}, {}, {}, {}, {}\n".format(machine, team_name, ce, ce_95_ci, brier_score, roc_auc)
+            new_line = "{}, {}, {}, {}, {}\n".format(team_name, ce, ce_95_ci, brier_score, roc_auc)
             output_file.write(new_line)
 
 
 if __name__ == "__main__":
-    import argparse
+    # import argparse
+    #
+    # parser = argparse.ArgumentParser()
+    #
+    # parser.add_argument('--ground-truth-directory', type=str,
+    #                     help='Path to ground truth (if not set then will use models_directory)')
+    # parser.add_argument('--output-directory', type=str,
+    #                     help='The output file for outputting CSV results')
+    # parser.add_argument('--results-directory', type=str,
+    #                     help='Path to the results directory')
+    # parser.add_argument('--team-name', type=str, default=None)
+    #
+    # # add team name and container name
+    #
+    # args = parser.parse_args()
+    #
+    # # Load parameters
+    # output_directory = args.output_directory
+    # results_directory = args.results_directory
+    # ground_truth_directory = args.ground_truth_directory
+    # team_name = args.team_name
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--ground-truth-directory', type=str,
-                        help='Path to ground truth (if not set then will use models_directory)')
-    parser.add_argument('--output-directory', type=str,
-                        help='The output file for outputting CSV results')
-    parser.add_argument('--results-directory', type=str,
-                        help='Path to the results directory')
-    parser.add_argument('--team-name', type=str, default=None)
-    parser.add_argument('--machine', type=str, default=None)
-
-    # add team name and container name
-
-    args = parser.parse_args()
-
-    # Load parameters
-    output_directory = args.output_directory
-    results_directory = args.results_directory
-    ground_truth_directory = args.ground_truth_directory
-    team_name = args.team_name
-    machine = args.machine
+    output_directory = "/home/mmajurski/Downloads/peter/output"
+    results_directory = "/home/mmajurski/Downloads/peter/results"
+    ground_truth_directory = "/mnt/scratch/trojai/data/round6/test_server/es-dataset/groundtruth"
+    team_name = "trojan_detector_round6_testData"
 
     if os.path.exists(output_directory):
         import shutil
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
 
-    # process_results(output_directory, results_directory, ground_truth_directory, team_name, machine)
+    process_results(output_directory, results_directory, ground_truth_directory, team_name)
 
-    machines = ['v100', 'nisaba', 'a100-vm', 'laura', 'v100-bare', 'v100-vm', '3090']
-
-    for machine in machines:
-        containers = [fn for fn in os.listdir(os.path.join(results_directory, machine)) if os.path.isdir(os.path.join(results_directory, machine, fn))]
-        for container in containers:
-            process_results(output_directory, results_directory, ground_truth_directory, container, machine)
+    team_name = "trojan_detector_round6_trainData"
+    process_results(output_directory, results_directory, ground_truth_directory, team_name)

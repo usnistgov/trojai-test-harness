@@ -211,10 +211,11 @@ if __name__ == "__main__":
 
     start_time = time.time()
     logging.info('Starting Execution of ' + submission_name)
+    # defined as 10min/model (adding 15min for VM boot and model download)
     if sts:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="60m")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="115m")
     else:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="37h")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="3615m")
     execution_time = time.time() - start_time
     logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 

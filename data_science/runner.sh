@@ -6,7 +6,7 @@
 
 
 clear
-ROUND_NAME=round6
+ROUND_NAME=round7
 
 # *******************************
 # ES
@@ -65,9 +65,6 @@ python compile_global_csv_results.py --test-harness-dirpath=${TEST_HARNESS_DIR} 
 
 echo "Building leaderboard archive csv file"
 python build_leaderboard_archive.py --global-results-csv-filepath=${OUTPUT_DIR}/holdout-global-results.csv --queue=holdout --output-dirpath=${OUTPUT_DIR}
-
-
-
 
 
 

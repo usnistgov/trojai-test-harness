@@ -7,7 +7,6 @@
 import os
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
 from matplotlib import pyplot as plt
 
 from data_science import utils
@@ -115,7 +114,7 @@ def plotter(x, y, support, x_column_name, y_column_name, y_min, y_max):
     for s_idx in range(len(support)):
         s_x = x[s_idx]
         s_y = y[s_idx]
-        ax.text(s_x, s_y, '{}'.format(int(support[s_idx])), horizontalalignment='center', verticalalignment='center', fontsize=6, color='w')
+        ax.text(s_x, s_y, '{}'.format(int(support[s_idx])), horizontalalignment='center', verticalalignment='center', fontsize=6, color='w', weight="bold")
 
     if len(x) >= 4:
         plt.xticks(rotation=45)
@@ -128,7 +127,7 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     # treat two boolean columns categorically
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.45)
+    # results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.45)
 
     # modify dataframe to null out certain nonsensical data
     # idx = results_df['ground_truth'] == 0
@@ -191,7 +190,8 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     y_min -= 0.1 * delta
     y_max += 0.1 * delta
 
-    fig = plt.figure(figsize=(16, 9), dpi=200)
+    # fig = plt.figure(figsize=(16, 9), dpi=200)
+    fig = plt.figure(figsize=(4, 3), dpi=400)
     for factor in features_list:
         print('Plotting mean effects for {}'.format(factor))
         plt.clf()
