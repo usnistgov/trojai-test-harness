@@ -202,7 +202,7 @@ if __name__ == "__main__":
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Tokenizer Copy Into VM Failed'.format(vm_name), message=msg)
 
-    logging.info('Copying in ner source data: "{}"'.format(config.source_data_dir))
+    logging.info('Copying in source data: "{}"'.format(config.source_data_dir))
     sc = copy_in_source_data(vmIp, config.source_data_dir)
     if sc != 0:
         msg = '"{}" Source Data copy in may have failed with status code "{}."'.format(vm_name, sc)

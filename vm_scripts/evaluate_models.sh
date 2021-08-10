@@ -47,10 +47,10 @@ do
 			TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
 
 			if [[ "$QUEUE_NAME" == "sts" ]]; then
-				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH
+				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example-data.json --tokenizer_filepath $TOKENIZER_FILEPATH
 				echo "Finished executing $dir, returned status code: $?"
 			else
-				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example-data.json --tokenizer_filepath $TOKENIZER_FILEPATH >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 			fi
 
