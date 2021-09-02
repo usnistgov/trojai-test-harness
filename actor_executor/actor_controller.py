@@ -44,7 +44,6 @@ def reset_actor(key, config):
 
 
 def add_actor(add_str, config):
-    # TODO debug the B'<name>' which gets added to the string when called from command line
     actors = ActorManager.load_json(config.actor_json_file)
 
     logging.info("Adding actor: " + str(add_str))
@@ -54,6 +53,7 @@ def add_actor(add_str, config):
         team_name = team_name.encode("ascii")  # force team names to be ascii only
     except:
         raise RuntimeError('Team name needs to be ASCII only')
+    team_name = team_name.decode()
 
     team_name = str(team_name)
     invalid_chars = [" ", "/", ">", "<", "|", ":", "&", ",", ";", "?", "\\", "*"]
