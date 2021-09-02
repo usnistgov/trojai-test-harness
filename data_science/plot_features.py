@@ -8,6 +8,7 @@ import os
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+import seaborn
 
 from data_science import utils
 
@@ -19,15 +20,23 @@ def plot_two_columns(ax, results_df, x_column_name, y_column_name, y_axis_logsca
     x_vals = results_df[x_column_name].copy()
     y_vals = utils.replace_invalid(y_vals)
     y_vals = y_vals.astype(float).to_numpy()
+    y_lim = np.percentile(y_vals[np.isfinite(y_vals)], 95)
     x_vals = utils.replace_invalid(x_vals)
+
+    idx = y_vals < y_lim
+    y_vals = y_vals[idx]
+    x_vals = x_vals[idx]
 
     if str(x_vals.dtype) in numerics:
         x_vals = x_vals.astype(float).to_numpy()
         if y_axis_logscale:
             ax.set_yscale('log')
-        ax.scatter(x_vals, y_vals, c='b', s=2)
+        # alpha = 500 * (1.0 / float(len(y_vals)))
+        # ax.scatter(x_vals, y_vals, c='b', s=4, alpha=alpha)
+        ax.hexbin(x_vals, y_vals, gridsize=100)
         ax.set_xlabel(x_column_name)
         ax.set_ylabel(y_column_name)
+        # plt.ylim(0, y_lim)
         # ax.set_title(x_column_name)
     else:
         # categories = x_vals.unique()
@@ -39,21 +48,33 @@ def plot_two_columns(ax, results_df, x_column_name, y_column_name, y_axis_logsca
             x.append(vals)
         if y_axis_logscale:
             ax.set_yscale('log')
+        idx = 0
+        categories = categories.tolist()
+        while idx < len(categories):
+            if len(x[idx]) == 0:
+                del categories[idx]
+                del x[idx]
+            else:
+                idx += 1
         ax.boxplot(x)
+        # ax.violinplot(x)
         ax.set_xlabel(x_column_name)
         ax.set_xticklabels(categories)
         ax.set_ylabel(y_column_name)
+        # plt.ylim(0, y_lim)
         if len(categories) > 4:
             plt.xticks(rotation=45)
         # ax.set_title(x_column_name)
 
 
-def main(global_results_csv, metric, output_dir):
+def main(global_results_csv, metric, output_dir, log_scale):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     results_df = pd.read_csv(global_results_csv)
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
+
+    # TODO update this with the new level information
 
     to_drop = [fn for fn in list(results_df.columns) if fn.endswith('_level')]
     results_df = results_df.drop(columns=to_drop)
@@ -75,11 +96,12 @@ def main(global_results_csv, metric, output_dir):
     if metric not in features_list:
         raise RuntimeError('Selected metric "{}" is not a valid column in the csv file'.format(metric))
     features_list.remove(metric)
-    fig = plt.figure(figsize=(16, 9), dpi=200)
+    # fig = plt.figure(figsize=(16, 9), dpi=200)
+    fig = plt.figure(figsize=(4, 3), dpi=400)
     for name in features_list:
         plt.clf()
         ax = plt.gca()
-        plot_two_columns(ax, results_df, name, metric)
+        plot_two_columns(ax, results_df, name, metric, y_axis_logscale=log_scale)
         plt.savefig(os.path.join(output_dir, '{}.png'.format(name)))
     plt.close(fig)
 
@@ -92,7 +114,8 @@ if __name__ == "__main__":
                         help='The csv filepath holding the global results data.')
     parser.add_argument('--metric', type=str, default='cross_entropy', help='Which column to use as the y-axis')
     parser.add_argument('--output-dirpath', type=str, required=True)
+    parser.add_argument('--log-scale', action='store_true')
 
     args = parser.parse_args()
-    main(args.global_results_csv_filepath, args.metric, args.output_dirpath)
+    main(args.global_results_csv_filepath, args.metric, args.output_dirpath, args.log_scale)
 

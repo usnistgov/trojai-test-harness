@@ -16,8 +16,8 @@ ACTIVE_DIR=/home/trojai/active
 CONTAINER_EXEC="/mnt/scratch/$CONTAINER_NAME"
 RESULT_DIR=/mnt/scratch/results
 SCRATCH_DIR=/mnt/scratch/container-scratch
+SOURCE_DATA_DIR=/home/trojai/source_data
 
-EMBEDDING_DIR=/home/trojai/embeddings
 TOKENIZER_DIR=/home/trojai/tokenizers
 
 mkdir -p $RESULT_DIR
@@ -43,24 +43,14 @@ do
 			cp -r $dir/* $ACTIVE_DIR
 
 			# Determine which embedding, tokenizer, and cls to use
-		        EMBEDDING_FILENAME=`cat $dir/embedding_name.txt`
-		        TOKENIZER_FILENAME=`cat $dir/tokenizer_name.txt`
-		        cls_token_is_first_flag=`cat $dir/cls_token_is_first.txt`
-		        if [[ $cls_token_is_first_flag == 1 ]]; then
-			  CLS_TOKEN_IS_FIRST='--cls_token_is_first'
-		        else
-			  CLS_TOKEN_IS_FIRST=
-		        fi
-
-		        TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
-		        EMBEDDING_FILEPATH=$EMBEDDING_DIR/$EMBEDDING_FILENAME
-
+			TOKENIZER_FILENAME=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['tokenizer_filename'])"`
+			TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
 
 			if [[ "$QUEUE_NAME" == "sts" ]]; then
-				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $EMBEDDING_DIR:$EMBEDDING_DIR:ro --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embedding_filepath $EMBEDDING_FILEPATH
+				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH
 				echo "Finished executing $dir, returned status code: $?"
 			else
-				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $EMBEDDING_DIR:$EMBEDDING_DIR:ro --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data $CLS_TOKEN_IS_FIRST --tokenizer_filepath $TOKENIZER_FILEPATH --embedding_filepath $EMBEDDING_FILEPATH >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 			fi
 

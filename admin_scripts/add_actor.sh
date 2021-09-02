@@ -11,12 +11,13 @@
 teamName=TestTeam
 email=
 poc=
+round=8
 
 # add to the STS
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round3/config-sts.json --log-file=/mnt/trojainas/round3/sts/actor-manager.log
+PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round$round/config-sts.json --log-file=/mnt/trojainas/round$round/sts/actor-manager.log
 
 # add to the ES
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round3/config-es.json --log-file=/mnt/trojainas/round3/es/actor-manager.log
+PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round$round/config-es.json --log-file=/mnt/trojainas/round$round/es/actor-manager.log
 
 
 
