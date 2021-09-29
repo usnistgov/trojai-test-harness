@@ -165,7 +165,7 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
                     msg = '{} SLURM Node(s) Down in queue {}'.format(str(downNodes), slurm_queue)
                     TrojaiMail().send('trojai@nist.gov', msg, msg)
 
-                webDownNodes = downNodes # "down" should include down and drained
+                webDownNodes = downNodes + drainedNodes
 
                 acceptingSubmissionsUpdate = """
                 var """ + slurm_queue + """AcceptingSubmission = """ + str(accepting_submissions).lower() + """;
