@@ -154,10 +154,11 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
                     with open(html_dir + "/js/time-updater.js", mode='w', encoding='utf-8') as f:
                         f.write(timestampUpdate)
 
+                allocatedNodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
                 idleNodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
                 mixNodes = int(slurm.sinfo_node_query(slurm_queue, "mix"))
                 drainingNodes = int(slurm.sinfo_node_query(slurm_queue, "draining"))
-                runningNodes = mixNodes + drainingNodes
+                runningNodes = allocatedNodes # "alloc" should include mix and draining
                 downNodes = int(slurm.sinfo_node_query(slurm_queue, "down"))
                 drainedNodes = int(slurm.sinfo_node_query(slurm_queue, "drained"))
                 if downNodes > 0:
