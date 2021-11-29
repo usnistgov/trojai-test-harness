@@ -53,7 +53,7 @@ def update_perms_eval_script(host):
 
 
 def execute_submission(host, submission_name, queue_name, timeout):
-    child = subprocess.Popen(['timeout', '-s', 'SIGKILL', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', "\"" + submission_name + "\"", queue_name])
+    child = subprocess.Popen(['timeout', '-s', 'SIGTERM', '-k', '30', timeout, 'ssh', '-q', 'trojai@'+host, '/home/trojai/evaluate_models.sh', "\"" + submission_name + "\"", queue_name])
     return child.wait()
 
 
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 
     logging.info("Execute status = " + str(executeStatus))
-    if executeStatus == -9:
+    if executeStatus == -9 or executeStatus == 124 or executeStatus == (128+9):
         logging.error('VM "{}" Execute submission "{}" timed out'.format(vm_name, submission_name))
         errors += ":Timeout:"
     elif executeStatus != 0:
