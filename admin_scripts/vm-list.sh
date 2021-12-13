@@ -8,5 +8,4 @@
 
 
 
-VM_LIST="3b 60 61 86 da db"
-#VM_LIST="3b 61"
+VM_LIST="01 41 81 c1"
