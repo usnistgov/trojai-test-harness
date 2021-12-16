@@ -15,6 +15,7 @@ class Config(object):
                  execute_window: int,
                  ground_truth_dir: str,
                  html_repo_dir: str,
+                 round_training_dataset_dir: str,
                  models_dir: str,
                  embedding_dir: str,
                  tokenizer_dir: str,
@@ -37,6 +38,7 @@ class Config(object):
         self.ground_truth_dir = ground_truth_dir
         self.html_repo_dir = html_repo_dir
         self.results_dir = results_dir
+        self.round_training_dataset_dir = round_training_dataset_dir,
         self.models_dir = models_dir
         self.embedding_dir = embedding_dir
         self.tokenizer_dir = tokenizer_dir
@@ -75,6 +77,8 @@ class Config(object):
             msg += '\tembedding_dir = "{}"\n'.format(self.embedding_dir)
         if hasattr(self, 'sentiment_classification_dir'):
             msg += '\tsentiment_classification_dir = "{}"\n'.format(self.sentiment_classification_dir)
+        if hasattr(self, 'round_training_dataset_dir'):
+            msg += '\tround_training_dataset_dir = "{}"\n'.format(self.round_training_dataset_dir)
         if hasattr(self, 'models_dir'):
             msg += '\tmodels_dir = "{}"\n'.format(self.models_dir)
         if hasattr(self, 'token_pickle_file'):
