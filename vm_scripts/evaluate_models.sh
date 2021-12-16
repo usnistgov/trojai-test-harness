@@ -20,6 +20,8 @@ SOURCE_DATA_DIR=/home/trojai/source_data
 
 TOKENIZER_DIR=/home/trojai/tokenizers
 
+ROUND_TRAINING_DATASET_DIR=/home/trojai/round_training_dataset
+
 METAPARAMETERS_FILE=/metaparameters.json
 METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
 LEARNED_PARAMETERS_DIR=/learned_parameters
@@ -51,10 +53,10 @@ do
 			TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
 
 			if [[ "$QUEUE_NAME" == "sts" ]]; then
-				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH --metaparameters_filepath=$METAPARAMETERS_FILE --schema_filepath=$METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath=$LEARNED_PARAMETERS_DIR
+				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath=$METAPARAMETERS_FILE --schema_filepath=$METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath=$LEARNED_PARAMETERS_DIR
 				echo "Finished executing $dir, returned status code: $?"
 			else
-				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH --metaparameters_filepath=$METAPARAMETERS_FILE --schema_filepath=$METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath=$LEARNED_PARAMETERS_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath=$METAPARAMETERS_FILE --schema_filepath=$METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath=$LEARNED_PARAMETERS_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 			fi
 
