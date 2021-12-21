@@ -23,13 +23,13 @@ def check_gpu(host):
 
 def check_file_in_container(submission_dir, submission_name, filepath_in_container):
     submission_filepath = os.path.join(submission_dir, submission_name)
-    child = subprocess.Popen(['singularity', 'exec', submission_filepath, 'test -f ' + filepath_in_container]
+    child = subprocess.Popen(['singularity', 'exec', submission_filepath, 'test -f ' + filepath_in_container])
     return child.wait()
 
 
 def check_dir_in_container(submission_dir, submission_name, dirpath_in_container):
     submission_filepath = os.path.join(submission_dir, submission_name)
-    child = subprocess.Popen(['singularity', 'exec', submission_filepath, 'test -d ' + dirpath_in_container]
+    child = subprocess.Popen(['singularity', 'exec', submission_filepath, 'test -d ' + dirpath_in_container])
     return child.wait()
 
 
@@ -188,9 +188,9 @@ if __name__ == "__main__":
     if sc != 0:
         logging.error('Metaparameters schema file "{}" not found in container'.format(metaparameters_schema_filepath))
         errors += ":Container Parameters:"
-    sc = check_dir_in_container(submission_dir, submission_name, learned_paramaters_dirpath)
+    sc = check_dir_in_container(submission_dir, submission_name, learned_parameters_dirpath)
     if sc != 0:
-        logging.error('Learned parameters directory "{}" not found in container'.format(learned_paramaters_dirpath))
+        logging.error('Learned parameters directory "{}" not found in container'.format(learned_parameters_dirpath))
         errors += ":Container Parameters:"
 
     logging.info('Performing Preventative Cleaning of the VM')
