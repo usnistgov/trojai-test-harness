@@ -183,15 +183,15 @@ if __name__ == "__main__":
     sc = check_file_in_container(submission_dir, submission_name, metaparameters_filepath)
     if sc != 0:
         logging.error('Metaparameters file "{}" not found in container'.format(metaparameters_filepath))
-        errors += ":Parameters:"
+        errors += ":Container Parameters:"
     sc = check_file_in_container(submission_dir, submission_name, metaparameters_schema_filepath)
     if sc != 0:
         logging.error('Metaparameters schema file "{}" not found in container'.format(metaparameters_schema_filepath))
-        errors += ":Parameters:"
+        errors += ":Container Parameters:"
     sc = check_dir_in_container(submission_dir, submission_name, learned_paramaters_dirpath)
     if sc != 0:
         logging.error('Learned parameters directory "{}" not found in container'.format(learned_paramaters_dirpath))
-        errors += ":Parameters:"
+        errors += ":Container Parameters:"
 
     logging.info('Performing Preventative Cleaning of the VM')
     sc = cleanup_scratch(vmIp)
