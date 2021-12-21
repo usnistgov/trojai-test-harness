@@ -16,12 +16,10 @@ do
 
    virsh start gpu-vm-$vm
 
-   if [ $vm == "3b" ]; then ip=2; fi
-   if [ $vm == "60" ]; then ip=3; fi
-   if [ $vm == "61" ]; then ip=4; fi
-   if [ $vm == "86" ]; then ip=5; fi
-   if [ $vm == "da" ]; then ip=6; fi
-   if [ $vm == "db" ]; then ip=7; fi
+   if [ $vm == "01" ]; then ip=2; fi
+   if [ $vm == "41" ]; then ip=3; fi
+   if [ $vm == "81" ]; then ip=4; fi
+   if [ $vm == "c1" ]; then ip=5; fi
 
    for (( ; ; ))
    do

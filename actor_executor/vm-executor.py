@@ -21,8 +21,25 @@ def check_gpu(host):
     return child.wait()
 
 
+def check_file_in_container(submission_dir, submission_name, filepath_in_container):
+    submission_filepath = os.path.join(submission_dir, submission_name)
+    child = subprocess.Popen(['singularity', 'exec', submission_filepath, 'test -f ' + filepath_in_container]
+    return child.wait()
+
+
+def check_dir_in_container(submission_dir, submission_name, dirpath_in_container):
+    submission_filepath = os.path.join(submission_dir, submission_name)
+    child = subprocess.Popen(['singularity', 'exec', submission_filepath, 'test -d ' + dirpath_in_container]
+    return child.wait()
+
+
 def copy_in_submission(host, submission_dir, submission_name):
     child = subprocess.Popen(['scp', '-q', submission_dir + '/' + submission_name, 'trojai@'+host+':\"/mnt/scratch/' + submission_name + '\"'])
+    return child.wait()
+
+
+def copy_in_round_training_dataset(host, round_training_dataset_dir):
+    child = subprocess.Popen(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete', round_training_dataset_dir, 'trojai@' + host + ':/home/trojai/'])
     return child.wait()
 
 
@@ -103,6 +120,10 @@ if __name__ == "__main__":
     config_file = args.config_file
     vm_name = args.vm_name
 
+    metaparameters_filepath = '/metaparameters.json'
+    metaparameters_schema_filepath = '/metaparameters_schema.json'
+    learned_parameters_dirpath = '/learned_parameters'
+
     logging.info('**************************************************')
     logging.info('Executing Container within VM for team: {} within VM: {}'.format(team_name, vm_name))
     logging.info('**************************************************')
@@ -158,6 +179,20 @@ if __name__ == "__main__":
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" GPU May be Offline'.format(vm_name), message=msg)
 
+    logging.info('Checking for parameters in container')
+    sc = check_file_in_container(submission_dir, submission_name, metaparameters_filepath)
+    if sc != 0:
+        logging.error('Metaparameters file "{}" not found in container'.format(metaparameters_filepath))
+        errors += ":Container Parameters:"
+    sc = check_file_in_container(submission_dir, submission_name, metaparameters_schema_filepath)
+    if sc != 0:
+        logging.error('Metaparameters schema file "{}" not found in container'.format(metaparameters_schema_filepath))
+        errors += ":Container Parameters:"
+    sc = check_dir_in_container(submission_dir, submission_name, learned_paramaters_dirpath)
+    if sc != 0:
+        logging.error('Learned parameters directory "{}" not found in container'.format(learned_paramaters_dirpath))
+        errors += ":Container Parameters:"
+
     logging.info('Performing Preventative Cleaning of the VM')
     sc = cleanup_scratch(vmIp)
     if sc != 0:
@@ -187,6 +222,13 @@ if __name__ == "__main__":
         logging.error(msg)
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Updating Permissions of Evaluation Script Failed'.format(vm_name), message=msg)
+
+    logging.info('Copying in round training dataset: "{}"'.format(config.round_training_dataset_dir))
+    sc = copy_in_round_training_dataset(vmIp, config.round_training_dataset_dir)
+    if sc != 0:
+        msg = '"{}" Round training dataset copy in may have failed with status code "{}."'.format(vm_name, sc)
+        logging.error(msg)
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Round Training Data Copy Into VM Failed'.format(vm_name), message=msg)
 
     logging.info('Copying in models: "{}"'.format(config.models_dir))
     sc = copy_in_models(vmIp, config.models_dir)
