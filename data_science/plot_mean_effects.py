@@ -39,10 +39,12 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
 
         y = np.zeros(0, dtype=np.float64)
         support = np.zeros(0, dtype=np.float64)
+        variance = np.zeros(0, dtype=np.float64)
         for l in x_levels:
             tmp_y = y_vals[x_level_vals == l]
             tmp_y = tmp_y[np.isfinite(tmp_y)]
             support = np.append(support, tmp_y.size)
+            variance = np.append(variance, np.std(tmp_y))
             if summary_statistic is 'mean':
                 y = np.append(y, np.mean(tmp_y))
             elif summary_statistic is 'median':
@@ -62,6 +64,7 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
         x = np.zeros(0, dtype=np.float64)
         y = np.zeros(0, dtype=np.float64)
         support = np.zeros(0, dtype=np.float64)
+        variance = np.zeros(0, dtype=np.float64)
 
         for l in x_levels:
             tmp_x = x_vals[x_level_vals == l]
@@ -74,6 +77,7 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
             tmp_y = y_vals[x_level_vals == l]
             tmp_y = tmp_y[np.isfinite(tmp_y)]
             support = np.append(support, tmp_y.size)
+            variance = np.append(variance, np.std(tmp_y))
 
             if summary_statistic is 'mean':
                 y = np.append(y, np.mean(tmp_y))
@@ -86,7 +90,7 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
             else:
                 raise RuntimeError('Invalid summary statistic: {}'.format(summary_statistic))
 
-    return x, y, support
+    return x, y, support, variance
 
 
 def box_plotter(x, y, support, x_column_name, y_column_name, y_min, y_max):
@@ -102,9 +106,12 @@ def box_plotter(x, y, support, x_column_name, y_column_name, y_min, y_max):
     plt.tight_layout()
 
 
-def plotter(x, y, support, x_column_name, y_column_name, y_min, y_max):
+def plotter(x, y, support, x_column_name, y_column_name, y_min, y_max, y_variance):
     ax = plt.gca()
-    ax.plot(x, y, 'o-', markersize=18, linewidth=2)
+    if y_variance is None:
+        ax.plot(x, y, 'o-', markersize=18, linewidth=2)
+    else:
+        ax.errorbar(x, y, fmt='o-', markersize=18, linewidth=2, yerr=y_variance, elinewidth=1, capsize=12)
     ax.set_xlabel(x_column_name)
     if x.dtype == np.object:
         ax.set_xticklabels(x)
@@ -121,7 +128,10 @@ def plotter(x, y, support, x_column_name, y_column_name, y_min, y_max):
     plt.tight_layout()
 
 
-def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
+def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plot_variance_flag):
+    ts = box_plot_flag + plot_variance_flag
+    if ts > 1:
+        raise RuntimeError("Conflicting plot type selections.")
 
     results_df = pd.read_csv(global_results_csv_filepath)
     # treat two boolean columns categorically
@@ -165,19 +175,21 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     x_dict = dict()
     y_dict = dict()
     support_dict = dict()
+    var_dict = dict()
     summary_stat = 'mean'
     if box_plot_flag:
         summary_stat = 'none'
 
     for factor in features_list:
         print('Computing mean effects for {}'.format(factor))
-        x, y, support = compute_mean_effects(results_df, factor, metric, summary_statistic=summary_stat)
+        x, y, support, variance = compute_mean_effects(results_df, factor, metric, summary_statistic=summary_stat)
         x_dict[factor] = x
         y_dict[factor] = y
         support_dict[factor] = support
+        var_dict[factor] = variance
         if type(y) == np.ndarray:
-            y_min = min(y_min, np.min(y))
-            y_max = max(y_max, np.max(y))
+            y_min = min(y_min, np.min(y - variance))
+            y_max = max(y_max, np.max(y + variance))
         elif type(y) == list:
             for ty in y:
                 y_min = min(y_min, np.min(ty))
@@ -191,14 +203,17 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag):
     y_max += 0.1 * delta
 
     # fig = plt.figure(figsize=(16, 9), dpi=200)
-    fig = plt.figure(figsize=(4, 3), dpi=400)
+    fig = plt.figure(figsize=(8, 6), dpi=400)
     for factor in features_list:
         print('Plotting mean effects for {}'.format(factor))
         plt.clf()
         if box_plot_flag:
             box_plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max)
         else:
-            plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max)
+            if plot_variance_flag:
+                plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max, var_dict[factor])
+            else:
+                plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max, None)
         plt.savefig(os.path.join(output_dirpath, '{}.png'.format(factor)))
     plt.close(fig)
 
@@ -211,8 +226,9 @@ if __name__ == "__main__":
                         help='The csv filepath holding the global results data.')
     parser.add_argument('--metric', type=str, default='cross_entropy', help='Which column to use as the y-axis')
     parser.add_argument('--box-plot', action='store_true')
+    parser.add_argument('--var', action='store_true')
     parser.add_argument('--output-dirpath', type=str, required=True)
 
     args = parser.parse_args()
-    main(args.global_results_csv_filepath, args.metric, args.output_dirpath, args.box_plot)
+    main(args.global_results_csv_filepath, args.metric, args.output_dirpath, args.box_plot, args.var)
 

@@ -6,7 +6,7 @@
 
 
 clear
-ROUND_NAME=round7
+ROUND_NAME=round8
 
 # *******************************
 # ES
@@ -41,6 +41,8 @@ python plot_features.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-re
 
 echo "Plotting mean effects for every other column against the selected one"
 python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots #--box-plot
+
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots-sigma --var
 
 
 
