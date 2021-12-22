@@ -180,18 +180,24 @@ if __name__ == "__main__":
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" GPU May be Offline'.format(vm_name), message=msg)
 
     logging.info('Checking for parameters in container')
+    found_all_params = True
     sc = check_file_in_container(submission_dir, submission_name, metaparameters_filepath)
     if sc != 0:
         logging.error('Metaparameters file "{}" not found in container'.format(metaparameters_filepath))
         errors += ":Container Parameters:"
+        found_all_params = False
     sc = check_file_in_container(submission_dir, submission_name, metaparameters_schema_filepath)
     if sc != 0:
         logging.error('Metaparameters schema file "{}" not found in container'.format(metaparameters_schema_filepath))
         errors += ":Container Parameters:"
+        found_all_params = False
     sc = check_dir_in_container(submission_dir, submission_name, learned_parameters_dirpath)
     if sc != 0:
         logging.error('Learned parameters directory "{}" not found in container'.format(learned_parameters_dirpath))
         errors += ":Container Parameters:"
+        found_all_params = False
+    if found_all_params:
+        logging.info('Success: All parameters found within the container.')
 
     logging.info('Performing Preventative Cleaning of the VM')
     sc = cleanup_scratch(vmIp)
