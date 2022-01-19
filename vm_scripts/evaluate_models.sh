@@ -11,26 +11,14 @@ CONTAINER_NAME=$1
 QUEUE_NAME=$2
 
 MODEL_DIR=/home/trojai/models
-ACTIVE_DIR=/home/trojai/active
 
-CONTAINER_EXEC="/mnt/scratch/$CONTAINER_NAME"
-RESULT_DIR=/mnt/scratch/results
-SCRATCH_DIR=/mnt/scratch/container-scratch
-SOURCE_DATA_DIR=/home/trojai/source_data
+NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
 
-TOKENIZER_DIR=/home/trojai/tokenizers
-
-ROUND_TRAINING_DATASET_DIR=/home/trojai/round_training_dataset
-
-METAPARAMETERS_FILE=/metaparameters.json
-METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
-LEARNED_PARAMETERS_DIR=/learned_parameters
-
-mkdir -p $RESULT_DIR
-mkdir -p $SCRATCH_DIR
-
-# create the active dir
-mkdir -p $ACTIVE_DIR
+# initialize process ids
+for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
+do
+	PROCESS_IDS[$GPU_ID]=0
+done
 
 # find all the 'id-' model files and shuffle their iteration order
 for dir in `find $MODEL_DIR -maxdepth 1 -type d | shuf`
@@ -41,29 +29,24 @@ do
 		MODEL="$(basename $dir)"
 
 		if [[ $MODEL == id* ]] ; then
-			# clean up scratch directory prior to running each model
-			rm -rf $SCRATCH_DIR/*
-			# pre-preemptively clean up the active directory
-			rm -rf $ACTIVE_DIR/*
-			# Copy model to the active folder to obscure its name
-			cp -r $dir/* $ACTIVE_DIR
+			# find a free GPU
+			FREE_GPU_ID=-1
+			until [ $FREE_GPU_ID != -1 ]
+			do
+				for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
+				do
+					# check if GPU's process is no longer running
+					if [ ! -d /proc/${PROCESS_IDS[$GPU_ID]} ]; then
+						FREE_GPU_ID=$GPU_ID
+					fi
+				done
 
-			# Determine which embedding, tokenizer, and cls to use
-			TOKENIZER_FILENAME=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['tokenizer_filename'])"`
-			TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
+				sleep 10s
+			done
 
-			if [[ "$QUEUE_NAME" == "sts" ]]; then
-				singularity run --contain --bind $ACTIVE_DIR --bind $RESULT_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $RESULT_DIR/$MODEL.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR
-				echo "Finished executing $dir, returned status code: $?"
-			else
-				/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-				echo "Finished executing, returned status code: $?" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-			fi
-
-			# copy result back to real output filename based on model name
-			if [[ -f $ACTIVE_DIR/result.txt ]]; then
-				cp $ACTIVE_DIR/result.txt  $RESULT_DIR/$MODEL.txt
-			fi
+			# launch the job
+			./evaluate_model.sh $CONTAINER_NAME $QUEUE_NAME $dir $FREE_GPU_ID &
+			PROCESS_IDS[$FREE_GPU_ID]=$!
 		fi
 	fi
 done
