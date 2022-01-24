@@ -64,8 +64,13 @@ def copy_in_eval_script(host, eval_script_path):
     return child.wait()
 
 
+def copy_in_eval_single_model_script(host, eval_single_model_script_path):
+    child = subprocess.Popen(['scp', '-q', eval_single_model_script_path, 'trojai@'+host+':/home/trojai/evaluate_model.sh'])
+    return child.wait()
+
+
 def update_perms_eval_script(host):
-    child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/home/trojai/evaluate_models.sh'])
+    child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'chmod', 'u+rwx', '/home/trojai/evaluate_models.sh', '/home/trojai/evaluate_model.sh'])
     return child.wait()
 
 
@@ -221,7 +226,15 @@ if __name__ == "__main__":
         errors += ":Copy in:"
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
 
-    logging.info('Updating eval permissions in "{}"'.format(config.evaluate_script))
+    logging.info('Copying in "{}"'.format(config.evaluate_single_model_script))
+    sc = copy_in_eval_single_model_script(vmIp, config.evaluate_single_model_script)
+    if sc != 0:
+        msg = '"{}" Evaluate single model script copy in may have failed with status code "{}".'.format(vm_name, sc)
+        logging.error(msg)
+        errors += ":Copy in:"
+        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Holdout Copy In Failed'.format(vm_name), message=msg)
+
+    logging.info('Updating eval permissions in "{}" and "{}"'.format(config.evaluate_script, config.evaluate_single_model_script))
     sc = update_perms_eval_script(vmIp)
     if sc != 0:
         msg = '"{}" Evaluate script update perms may have failed with status code "{}".'.format(vm_name, sc)

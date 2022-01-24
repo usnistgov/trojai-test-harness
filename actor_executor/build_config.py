@@ -68,6 +68,11 @@ if __name__ == "__main__":
                         default='/mnt/isgnas/project/ai/trojai/trojai-test-harness/vm_scripts/evaluate_models.sh'
                         )
 
+    parser.add_argument('--evaluate-single-model-script', type=str,
+                        help='The evaluation script that executes a single model on the VM',
+                        default='/mnt/isgnas/project/ai/trojai/trojai-test-harness/vm_scripts/evaluate_model.sh'
+                        )
+
     parser.add_argument('--sts', action='store_true')
     parser.add_argument('--accepting-submissions', action='store_true')
 
@@ -96,7 +101,7 @@ if __name__ == "__main__":
     MB_limit = 1
     log_file_byte_limit = int(MB_limit * 1024 * 1024)
 
-    config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.models_dir, args.embedding_dir, args.tokenizer_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, args.evaluate_script)
+    config = Config(args.actor_json_file, args.submissions_json_file, args.log_file, args.submission_dir, args.execute_window, args.ground_truth_dir, args.html_repo_dir, args.models_dir, args.embedding_dir, args.tokenizer_dir, args.results_dir, args.token_pickle_file, args.slurm_script, jobs_table_name, results_table_name, vms, slurm_queue, args.evaluate_script, args.evaluate_single_model_script)
 
     ofp = args.output_filepath
     if not ofp.endswith('.json'):

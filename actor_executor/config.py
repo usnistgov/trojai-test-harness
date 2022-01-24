@@ -28,6 +28,7 @@ class Config(object):
                  vms: dict,
                  slurm_queue: str,
                  evaluate_script: str,
+                 evaluate_single_model_script: str,
                  log_file_byte_limit: int = None,
                  loss_criteria: float = None):
         self.actor_json_file = actor_json_file
@@ -50,6 +51,7 @@ class Config(object):
         self.result_table_name = result_table_name
         self.vms = vms
         self.evaluate_script = evaluate_script
+        self.evaluate_single_model_script = evaluate_single_model_script
         self.slurm_queue = slurm_queue
         # TODO log file byte limit should be set to None by default, and it should be supported by the codebase (its currently commented out)
         self.log_file_byte_limit = log_file_byte_limit
@@ -97,6 +99,8 @@ class Config(object):
             msg += '\tslurm_queue = "{}"\n'.format(self.slurm_queue)
         if hasattr(self, 'evaluate_script'):
             msg += '\tevaluate_script: = "{}"\n'.format(self.evaluate_script)
+        if hasattr(self, 'evaluate_single_model_script'):
+            msg += '\tevaluate_single_model_script: = "{}"\n'.format(self.evaluate_single_model_script)
         if hasattr(self, 'log_file_byte_limit'):
             msg += '\tlog_file_byte_limit = "{}"\n'.format(self.log_file_byte_limit)
         if hasattr(self, 'loss_criteria'):
