@@ -79,12 +79,10 @@ if __name__ == "__main__":
 
     # with model copy in, the VMs do not need to be split between STS and ES
     vms = dict()
-    vms['gpu-vm-61'] = '192.168.200.4'
-    vms['gpu-vm-db'] = '192.168.200.7'
-    vms['gpu-vm-3b'] = '192.168.200.2'
-    vms['gpu-vm-60'] = '192.168.200.3'
-    vms['gpu-vm-86'] = '192.168.200.5'
-    vms['gpu-vm-da'] = '192.168.200.6'
+    vms['gpu-vm-01'] = '192.168.200.2'
+    vms['gpu-vm-41'] = '192.168.200.3'
+    vms['gpu-vm-81'] = '192.168.200.4'
+    vms['gpu-vm-c1'] = '192.168.200.5'
 
     if args.sts:
         results_table_name = 'test-results'
