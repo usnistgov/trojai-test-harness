@@ -20,6 +20,7 @@ do
    if [ $vm == "41" ]; then ip=3; fi
    if [ $vm == "81" ]; then ip=4; fi
    if [ $vm == "c1" ]; then ip=5; fi
+   if [ $vm == "01-41-81" ]; then ip=6; fi
 
    for (( ; ; ))
    do
