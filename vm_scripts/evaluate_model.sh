@@ -29,7 +29,7 @@ LEARNED_PARAMETERS_DIR=/learned_parameters
 
 MODEL="$(basename $dir)"
 
-CUDA_VISIBLE_DEVICES=$GPU_ID
+export SINGULARITYENV_CUDA_VISIBLE_DEVICES=$GPU_ID
 
 mkdir -p $RESULT_DIR
 mkdir -p $SCRATCH_DIR
