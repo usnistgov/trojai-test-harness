@@ -41,7 +41,7 @@ do
 					fi
 				done
 
-				sleep 10s
+				sleep 1s
 			done
 
 			# launch the job
