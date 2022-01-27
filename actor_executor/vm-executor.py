@@ -274,9 +274,9 @@ if __name__ == "__main__":
     logging.info('Starting Execution of ' + submission_name)
     # defined as 10min/model (adding 15min for VM boot and model download)
     if sts:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="300m")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="330m")
     else:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="3210m")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="2120m")  #6360 / 3 (420 models * 15m per model / num GPUs)
     execution_time = time.time() - start_time
     logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 
