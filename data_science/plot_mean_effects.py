@@ -5,14 +5,16 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
 import os
+import copy
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+import matplotlib.ticker
 
 from data_science import utils
 
 
-def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_statistic='mean'):
+def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_statistic='mean', clip_flag=False):
     numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
 
     y_vals = data_frame[y_column_name].copy()
@@ -22,6 +24,14 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
     x_vals = utils.replace_invalid(x_vals)
 
     x_level_vals = data_frame[x_column_name + '_level'].copy().astype(float).to_numpy()
+
+    if clip_flag:
+        y_lim = np.percentile(y_vals[np.isfinite(y_vals)], 95)
+
+        idx = y_vals < y_lim
+        y_vals = y_vals[idx]
+        x_vals = x_vals[idx]
+        x_level_vals = x_level_vals[idx]
 
     if str(x_vals.dtype) in numerics:
         x_vals = x_vals.astype(float).to_numpy()
@@ -38,6 +48,7 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
             x = np.append(x, np.mean(x_vals[idx]))
 
         y = np.zeros(0, dtype=np.float64)
+        y_full = np.zeros(0, dtype=np.float64)
         support = np.zeros(0, dtype=np.float64)
         variance = np.zeros(0, dtype=np.float64)
         for l in x_levels:
@@ -45,6 +56,11 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
             tmp_y = tmp_y[np.isfinite(tmp_y)]
             support = np.append(support, tmp_y.size)
             variance = np.append(variance, np.std(tmp_y))
+
+            if type(y_full) == np.ndarray:
+                y_full = list()
+            y_full.append(np.asarray(tmp_y))
+
             if summary_statistic is 'mean':
                 y = np.append(y, np.mean(tmp_y))
             elif summary_statistic is 'median':
@@ -63,6 +79,7 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
 
         x = np.zeros(0, dtype=np.float64)
         y = np.zeros(0, dtype=np.float64)
+        y_full = np.zeros(0, dtype=np.float64)
         support = np.zeros(0, dtype=np.float64)
         variance = np.zeros(0, dtype=np.float64)
 
@@ -79,6 +96,10 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
             support = np.append(support, tmp_y.size)
             variance = np.append(variance, np.std(tmp_y))
 
+            if type(y_full) == np.ndarray:
+                y_full = list()
+            y_full.append(np.asarray(tmp_y))
+
             if summary_statistic is 'mean':
                 y = np.append(y, np.mean(tmp_y))
             elif summary_statistic is 'median':
@@ -90,16 +111,64 @@ def compute_mean_effects(data_frame, x_column_name, y_column_name, summary_stati
             else:
                 raise RuntimeError('Invalid summary statistic: {}'.format(summary_statistic))
 
-    return x, y, support, variance
+    return x, y_full, y, support, variance
+
+
+def violin_plotter(x, y, y_summary, support, x_column_name, y_column_name, y_min, y_max):
+    ax = plt.gca()
+
+    ax.violinplot(y)
+    x_offset = list(range(1, len(x)+1))
+    ax.plot(x_offset, y_summary, '_', color='k', markersize=12, linewidth=2)
+
+    for i in range(len(y_summary)):
+        s_x = x_offset[i]
+        s_y = y_summary[i]
+
+        #ax.text(s_x, s_y, '{0:.3f}'.format(y_summary[i]), horizontalalignment='left', verticalalignment='bottom', fontsize=5, color='k')
+        #ax.text(s_x, s_y, ' \u03BC={0:.3f}'.format(y_summary[i]), horizontalalignment='left', verticalalignment='bottom', fontsize=5, color='k')
+        ax.text(s_x, s_y, r' $\bar x$={0:.3f}'.format(y_summary[i]), horizontalalignment='left', verticalalignment='bottom', fontsize=8, color='k')
+
+    ax.set_xlabel(x_column_name)
+    ax.set_xticks(list(range(1, len(x) + 1)))
+
+    if np.issubdtype(x.dtype, np.number):
+        x_labels = [str(round(float(label), 2)) for label in x]
+        ax.set_xticklabels(x_labels)
+    else:
+        ax.set_xticklabels(x)
+
+
+    ax.set_ylabel(y_column_name)
+    # ax.legend(['Mean Value', 'Distribution'])
+
+    #if y_min is not None and y_max is not None:
+    plt.ylim([y_min, y_max])
+
+    # ax.set_yscale('log')
+
+    if len(x) >= 4:
+        plt.xticks(rotation=45)
+    plt.tight_layout()
 
 
 def box_plotter(x, y, support, x_column_name, y_column_name, y_min, y_max):
     ax = plt.gca()
     ax.boxplot(y)
     ax.set_xlabel(x_column_name)
-    ax.set_xticklabels(x)
+
+    if np.issubdtype(x.dtype, np.number):
+        x_labels = [str(round(float(label), 2)) for label in x]
+        ax.set_xticklabels(x_labels)
+    else:
+        ax.set_xticklabels(x)
+
     ax.set_ylabel(y_column_name)
+
+    #if y_min is not None and y_max is not None:
     plt.ylim([y_min, y_max])
+
+    # ax.set_yscale('log')
 
     if len(x) >= 4:
         plt.xticks(rotation=45)
@@ -113,9 +182,12 @@ def plotter(x, y, support, x_column_name, y_column_name, y_min, y_max, y_varianc
     else:
         ax.errorbar(x, y, fmt='o-', markersize=18, linewidth=2, yerr=y_variance, elinewidth=1, capsize=12)
     ax.set_xlabel(x_column_name)
+
     if x.dtype == np.object:
-        ax.set_xticklabels(x)
+         ax.set_xticklabels(x)
     ax.set_ylabel(y_column_name)
+
+    #if y_min is not None and y_max is not None:
     plt.ylim([y_min, y_max])
 
     for s_idx in range(len(support)):
@@ -123,17 +195,21 @@ def plotter(x, y, support, x_column_name, y_column_name, y_min, y_max, y_varianc
         s_y = y[s_idx]
         ax.text(s_x, s_y, '{}'.format(int(support[s_idx])), horizontalalignment='center', verticalalignment='center', fontsize=6, color='w', weight="bold")
 
+    # ax.set_yscale('log')
+
     if len(x) >= 4:
         plt.xticks(rotation=45)
     plt.tight_layout()
 
 
-def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plot_variance_flag):
+def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plot_variance_flag, clip_flag, violin_flag, truncate, autoscale):
     ts = box_plot_flag + plot_variance_flag
     if ts > 1:
         raise RuntimeError("Conflicting plot type selections.")
 
     results_df = pd.read_csv(global_results_csv_filepath)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, (0.3465 + 0.1))
+
     # treat two boolean columns categorically
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
 
@@ -174,6 +250,7 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plo
     y_max = -np.inf
     x_dict = dict()
     y_dict = dict()
+    y_full_dict = dict()
     support_dict = dict()
     var_dict = dict()
     summary_stat = 'mean'
@@ -182,9 +259,10 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plo
 
     for factor in features_list:
         print('Computing mean effects for {}'.format(factor))
-        x, y, support, variance = compute_mean_effects(results_df, factor, metric, summary_statistic=summary_stat)
+        x, y_full, y, support, variance = compute_mean_effects(results_df, factor, metric, summary_statistic=summary_stat, clip_flag=clip_flag)
         x_dict[factor] = x
         y_dict[factor] = y
+        y_full_dict[factor] = y_full
         support_dict[factor] = support
         var_dict[factor] = variance
         if type(y) == np.ndarray:
@@ -197,25 +275,60 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plo
         else:
             raise RuntimeError('Unexpected y value container type')
 
-    # stretch y range by 10%
+    # stretch y range by 5%
     delta = y_max - y_min
-    y_min -= 0.1 * delta
-    y_max += 0.1 * delta
+    y_min -= 0.05 * delta
+    y_min = max(0, y_min)
+    y_max += 0.05 * delta
 
-    # fig = plt.figure(figsize=(16, 9), dpi=200)
-    fig = plt.figure(figsize=(8, 6), dpi=400)
-    for factor in features_list:
-        print('Plotting mean effects for {}'.format(factor))
-        plt.clf()
-        if box_plot_flag:
-            box_plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max)
-        else:
-            if plot_variance_flag:
-                plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max, var_dict[factor])
-            else:
-                plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max, None)
-        plt.savefig(os.path.join(output_dirpath, '{}.png'.format(factor)))
-    plt.close(fig)
+    if truncate > 0:
+        y_max = truncate
+
+    if autoscale:
+        y_min = 0
+        y_max = None
+
+    plot_succeeded = False
+
+    if violin_flag:
+        fig = plt.figure(figsize=(6, 4.5), dpi=300)
+        for factor in features_list:
+            print('Plotting violin plot for {}'.format(factor))
+            plt.clf()
+            try:
+                violin_plotter(x_dict[factor], y_full_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max)
+
+                plt.savefig(os.path.join(output_dirpath, '{}.png'.format(factor)))
+                plot_succeeded = True
+            except:
+                print("Factor: {} failed to plot".format(factor))
+                pass
+        plt.close(fig)
+
+    else:
+
+        fig = plt.figure(figsize=(6, 4.5), dpi=300)
+        for factor in features_list:
+            print('Plotting mean effects for {}'.format(factor))
+            plt.clf()
+            try:
+                if box_plot_flag:
+                    box_plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max)
+                else:
+                    if plot_variance_flag:
+                        plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max, var_dict[factor])
+                    else:
+                        plotter(x_dict[factor], y_dict[factor], support_dict[factor], factor, metric, y_min, y_max, None)
+                plt.savefig(os.path.join(output_dirpath, '{}.png'.format(factor)))
+                plot_succeeded = True
+            except:
+                print("Factor: {} failed to plot".format(factor))
+                pass
+        plt.close(fig)
+
+    if not plot_succeeded:
+        import shutil
+        shutil.rmtree(output_dirpath)
 
 
 if __name__ == "__main__":
@@ -227,8 +340,12 @@ if __name__ == "__main__":
     parser.add_argument('--metric', type=str, default='cross_entropy', help='Which column to use as the y-axis')
     parser.add_argument('--box-plot', action='store_true')
     parser.add_argument('--var', action='store_true')
+    parser.add_argument('--clip', action='store_true')
+    parser.add_argument('--violin', action='store_true')
+    parser.add_argument('--truncate', type=float, default=-1)
+    parser.add_argument('--autoscale', action='store_true')
     parser.add_argument('--output-dirpath', type=str, required=True)
 
     args = parser.parse_args()
-    main(args.global_results_csv_filepath, args.metric, args.output_dirpath, args.box_plot, args.var)
+    main(args.global_results_csv_filepath, args.metric, args.output_dirpath, args.box_plot, args.var, args.clip, args.violin, args.truncate, args.autoscale)
 

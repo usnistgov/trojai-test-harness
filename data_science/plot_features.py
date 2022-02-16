@@ -31,9 +31,10 @@ def plot_two_columns(ax, results_df, x_column_name, y_column_name, y_axis_logsca
         x_vals = x_vals.astype(float).to_numpy()
         if y_axis_logscale:
             ax.set_yscale('log')
-        # alpha = 500 * (1.0 / float(len(y_vals)))
-        # ax.scatter(x_vals, y_vals, c='b', s=4, alpha=alpha)
-        ax.hexbin(x_vals, y_vals, gridsize=100)
+        alpha = 500 * (1.0 / float(len(y_vals)))
+        ax.scatter(x_vals, y_vals, c='b', s=4, alpha=alpha)
+        # ax.hexbin(x_vals, y_vals, gridsize=100)
+
         ax.set_xlabel(x_column_name)
         ax.set_ylabel(y_column_name)
         # plt.ylim(0, y_lim)
@@ -62,9 +63,11 @@ def plot_two_columns(ax, results_df, x_column_name, y_column_name, y_axis_logsca
         ax.set_xticklabels(categories)
         ax.set_ylabel(y_column_name)
         # plt.ylim(0, y_lim)
-        if len(categories) > 4:
-            plt.xticks(rotation=45)
+        plt.xticks(rotation=45)
+        # if len(categories) >= 3:
+        #     plt.xticks(rotation=45)
         # ax.set_title(x_column_name)
+    plt.tight_layout()
 
 
 def main(global_results_csv, metric, output_dir, log_scale):
@@ -72,6 +75,7 @@ def main(global_results_csv, metric, output_dir, log_scale):
         os.makedirs(output_dir)
 
     results_df = pd.read_csv(global_results_csv)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, (0.3465 + 0.1))
     results_df['ground_truth'] = results_df['ground_truth'].astype('category')
 
     # TODO update this with the new level information
@@ -96,13 +100,16 @@ def main(global_results_csv, metric, output_dir, log_scale):
     if metric not in features_list:
         raise RuntimeError('Selected metric "{}" is not a valid column in the csv file'.format(metric))
     features_list.remove(metric)
-    # fig = plt.figure(figsize=(16, 9), dpi=200)
-    fig = plt.figure(figsize=(4, 3), dpi=400)
+    fig = plt.figure(figsize=(6, 4.5), dpi=300)
     for name in features_list:
         plt.clf()
         ax = plt.gca()
-        plot_two_columns(ax, results_df, name, metric, y_axis_logscale=log_scale)
-        plt.savefig(os.path.join(output_dir, '{}.png'.format(name)))
+        try:
+            plot_two_columns(ax, results_df, name, metric, y_axis_logscale=log_scale)
+            plt.savefig(os.path.join(output_dir, '{}.png'.format(name)))
+        except:
+            print("Factor: {} failed to plot".format(name))
+            pass
     plt.close(fig)
 
 

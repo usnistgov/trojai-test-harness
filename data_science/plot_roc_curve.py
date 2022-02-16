@@ -32,7 +32,7 @@ def generate_roc_image(df, team_name, timestamp, output_fp):
     TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
     roc_auc = sklearn.metrics.auc(FPR, TPR)
 
-    fig = plt.figure(figsize=(5, 4), dpi=100)
+    fig = plt.figure(figsize=(6, 4.5), dpi=300)
     plt.clf()
     lw = 2
     # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
@@ -59,7 +59,7 @@ def main(global_results_csv_filepath, output_dirpath):
     results_df.replace(to_replace=[None], value=np.nan, inplace=True)
     results_df.replace(to_replace='None', value=np.nan, inplace=True)
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, (0.3465 + 0.1))
 
     # get the unique set of teams
     teams = set(results_df['team_name'].to_list())

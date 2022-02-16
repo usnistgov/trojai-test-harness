@@ -24,12 +24,12 @@ def main(global_results_csv_filepath, output_dirpath):
     results_df.replace(to_replace=[None], value=np.nan, inplace=True)
     results_df.replace(to_replace='None', value=np.nan, inplace=True)
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, (0.3465 + 0.1))
 
     # get the unique set of teams
     teams = set(results_df['team_name'].to_list())
 
-    fig = plt.figure(figsize=(5, 4), dpi=100)
+    fig = plt.figure(figsize=(6, 4.5), dpi=300)
 
     for team in teams:
         # get sub dataframe for this team

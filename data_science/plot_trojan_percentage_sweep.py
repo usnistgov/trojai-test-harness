@@ -127,7 +127,7 @@ def plot_sweep(df, team_name, timestamp, output_fp, nb_reps):
     if not os.path.exists(os.path.join(output_fp, 'roc-auc-sweep')):
         os.makedirs(os.path.join(output_fp, 'roc-auc-sweep'))
 
-    fig = plt.figure(figsize=(16, 9), dpi=100)
+    fig = plt.figure(figsize=(6, 4.5), dpi=300)
     x = np.asarray(trojan_percentage_list)
 
     y1 = np.asarray(ce_loss_list)
@@ -135,10 +135,10 @@ def plot_sweep(df, team_name, timestamp, output_fp, nb_reps):
     y3 = y2 / 2
     ax = plt.gca()
     plt.cla()
-    h1 = ax.scatter(x, y1)
-    h2 = ax.scatter(x, y2)
-    h3 = ax.scatter(x, y3)
-    plt.title('CE-Loss as a function of Poisoning Percentage for {}-{}'.format(team_name, timestamp))
+    h1 = ax.scatter(x, y1, s=6)
+    h2 = ax.scatter(x, y2, s=6)
+    h3 = ax.scatter(x, y3, s=6)
+    plt.title('CE-Loss as a function of Poisoning Percentage\nfor {}-{}'.format(team_name, timestamp))
     plt.xlabel('Trojan Percentage')
     plt.ylabel('CE-Loss')
     plt.legend(handles=[h1, h2, h3], labels=['CE-Loss', 'Guessing-BaseRate', 'Success'])
@@ -147,8 +147,8 @@ def plot_sweep(df, team_name, timestamp, output_fp, nb_reps):
     y = np.asarray(roc_auc_list)
     ax = plt.gca()
     plt.cla()
-    ax.scatter(x, y)
-    plt.title('ROC-AUC as a function of Poisoning Percentage for {}-{}'.format(team_name, timestamp))
+    ax.scatter(x, y, s=6)
+    plt.title('ROC-AUC as a function of Poisoning Percentage\nfor {}-{}'.format(team_name, timestamp))
     plt.xlabel('Trojan Percentage')
     plt.ylabel('ROC-AUC')
     plt.savefig(os.path.join(output_fp, 'roc-auc-sweep', '{}-{}-roc-auc-sweep.png'.format(team_name, timestamp)))
@@ -163,7 +163,7 @@ def main(global_results_csv_filepath, nb_reps, output_dirpath):
     results_df.replace(to_replace=[None], value=np.nan, inplace=True)
     results_df.replace(to_replace='None', value=np.nan, inplace=True)
 
-    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, 0.5)
+    results_df = utils.filter_dataframe_by_cross_entropy_threshold(results_df, (0.3465 + 0.1))
 
     # get the unique set of teams
     teams = set(results_df['team_name'].to_list())
