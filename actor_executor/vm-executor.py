@@ -189,17 +189,17 @@ if __name__ == "__main__":
     sc = check_file_in_container(submission_dir, submission_name, metaparameters_filepath)
     if sc != 0:
         logging.error('Metaparameters file "{}" not found in container'.format(metaparameters_filepath))
-        errors += ":Container Parameters:"
+        errors += ":Container Parameters (metaparameters):"
         found_all_params = False
     sc = check_file_in_container(submission_dir, submission_name, metaparameters_schema_filepath)
     if sc != 0:
         logging.error('Metaparameters schema file "{}" not found in container'.format(metaparameters_schema_filepath))
-        errors += ":Container Parameters:"
+        errors += ":Container Parameters (metaparameters schema):"
         found_all_params = False
     sc = check_dir_in_container(submission_dir, submission_name, learned_parameters_dirpath)
     if sc != 0:
         logging.error('Learned parameters directory "{}" not found in container'.format(learned_parameters_dirpath))
-        errors += ":Container Parameters:"
+        errors += ":Container Parameters (learned parameters):"
         found_all_params = False
     if found_all_params:
         logging.info('Success: All parameters found within the container.')
