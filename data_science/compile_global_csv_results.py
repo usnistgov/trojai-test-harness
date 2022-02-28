@@ -35,6 +35,7 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
     models.sort()
 
     columns = list(metadata.columns)
+    columns.remove('trigger.trigger_executor.trigger_text_list')
 
     # Prep the output csv file with the headers
     global_results_csv_fp = os.path.join(output_dirpath, '{}-global-results.csv'.format(server))
@@ -56,9 +57,6 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
 
             for run in runs:
                 run_fp = os.path.join(team_fp, run)
-
-                # models = [f.replace('.txt','') for f in os.listdir(run_fp) if f.startswith('id-')]
-                # models.sort()
 
                 for model in models:
                     row = metadata[metadata["model_name"] == model]
