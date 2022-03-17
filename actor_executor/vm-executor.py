@@ -15,6 +15,7 @@ from actor_executor.config import Config
 from actor_executor.mail_io import TrojaiMail
 from actor_executor import json_io
 
+from . import jsonschema_checker
 
 def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
@@ -203,6 +204,11 @@ if __name__ == "__main__":
         found_all_params = False
     if found_all_params:
         logging.info('Success: All parameters found within the container.')
+
+    logging.info('Running checks on jsonschema')
+    if not jsonschema_checker.is_container_configuration_valid(os.path.join(submission_dir, submission_name)):
+        logging.error('Jsonschema contained errors.')
+        errors += ':Container Jsonschema:'
 
     logging.info('Performing Preventative Cleaning of the VM')
     sc = cleanup_scratch(vmIp)
