@@ -21,6 +21,8 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
             sign = 1.0
         else:
             sign = -1.0
+    else:
+        sign = 1.0
 
     if 'enum' in canonicalized_param:
         # sample from all enums
