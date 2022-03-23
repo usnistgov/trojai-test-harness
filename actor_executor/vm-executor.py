@@ -208,7 +208,7 @@ if __name__ == "__main__":
     logging.info('Running checks on jsonschema')
     if not jsonschema_checker.is_container_configuration_valid(os.path.join(submission_dir, submission_name)):
         logging.error('Jsonschema contained errors.')
-        errors += ':Container Jsonschema:'
+        errors += ':Container Parameters (jsonschema checker):'
 
     logging.info('Performing Preventative Cleaning of the VM')
     sc = cleanup_scratch(vmIp)
