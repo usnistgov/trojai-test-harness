@@ -27,6 +27,9 @@ parser.add_argument('--output-filepath', type=str,
 parser.add_argument('--model-directory', type=str,
                     help='Path to the directory that contains all models to execute',
                     required=True)
+parser.add_argument('--example-subdirectory', type=str,
+                    help='Name of the subdirectory containing the example data',
+                    default='example_data')
 parser.add_argument('--scratch-directory', type=str,
                     help='Path to the scratch directory',
                     default='./scratch')
@@ -47,6 +50,7 @@ args = parser.parse_args()
 # Load parameters
 singularity_container = args.singularity_container
 models_directory = args.model_directory
+example_subdirectory = args.example_subdirectory
 scratch_directory = args.scratch_directory
 results_directory = args.results_directory
 output_filepath = args.output_filepath
@@ -103,7 +107,7 @@ if run_singularity_container:
 
         if os.path.isdir(model_dirpath):
             model_file_path = os.path.join(model_dirpath, 'model.pt')
-            example_data_dirpath = os.path.join(model_dirpath, 'example_data')
+            example_data_dirpath = os.path.join(model_dirpath, example_subdirectory)
             result_filepath = os.path.join(results_directory, model_dir_name + ".txt")
 
             # Make sure the model file and example data exists
