@@ -10,13 +10,12 @@
 CONTAINER_NAME=$1
 QUEUE_NAME=$2
 dir=$3
-GPU_ID=$4
 
-ACTIVE_DIR="/home/trojai/active_$GPU_ID"
+ACTIVE_DIR="/home/trojai/active_$SLURM_JOB_ID"
 
 CONTAINER_EXEC="/mnt/scratch/$CONTAINER_NAME"
 RESULT_DIR=/mnt/scratch/results
-SCRATCH_DIR="/mnt/scratch/container-scratch_$GPU_ID"
+SCRATCH_DIR="/mnt/scratch/container-scratch_$SLURM_JOB_ID"
 SOURCE_DATA_DIR=/home/trojai/source_data
 
 TOKENIZER_DIR=/home/trojai/tokenizers
@@ -29,18 +28,15 @@ LEARNED_PARAMETERS_DIR=/learned_parameters
 
 MODEL="$(basename $dir)"
 
-export SINGULARITYENV_CUDA_VISIBLE_DEVICES=$GPU_ID
-
+# create needed directories if they do not exist
 mkdir -p $RESULT_DIR
 mkdir -p $SCRATCH_DIR
-
-# create the active dir
 mkdir -p $ACTIVE_DIR
 
-# clean up scratch directory prior to running each model
+# theoretically these should be empty, but clean them anyway in case there is something leftover from an old run
 rm -rf $SCRATCH_DIR/*
-# pre-preemptively clean up the active directory
 rm -rf $ACTIVE_DIR/*
+
 # Copy model to the active folder to obscure its name
 cp -r $dir/* $ACTIVE_DIR
 
@@ -66,3 +62,7 @@ fi
 if [[ -f $ACTIVE_DIR/result.txt ]]; then
 	cp $ACTIVE_DIR/result.txt  $RESULT_DIR/$MODEL.txt
 fi
+
+# remove directories used for this run
+rm -rf $SCRATCH_DIR
+rm -rf $ACTIVE_DIR

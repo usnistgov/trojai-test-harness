@@ -9,16 +9,11 @@
 
 CONTAINER_NAME=$1
 QUEUE_NAME=$2
+TIMEOUT=$3
 
 MODEL_DIR=/home/trojai/models
 
-NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
-
-# initialize process ids
-for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
-do
-	PROCESS_IDS[$GPU_ID]=0
-done
+CHILD_JOB_NAME="child_$SLURM_JOB_ID"
 
 # find all the 'id-' model files and shuffle their iteration order
 for dir in `find $MODEL_DIR -maxdepth 1 -type d | shuf`
@@ -29,24 +24,25 @@ do
 		MODEL="$(basename $dir)"
 
 		if [[ $MODEL == id* ]] ; then
-			# find a free GPU
-			FREE_GPU_ID=-1
-			until [ $FREE_GPU_ID != -1 ]
-			do
-				for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
-				do
-					# check if GPU's process is no longer running
-					if [ ! -d /proc/${PROCESS_IDS[$GPU_ID]} ]; then
-						FREE_GPU_ID=$GPU_ID
-					fi
-				done
-
-				sleep 1s
-			done
-
 			# launch the job
-			./evaluate_model.sh $CONTAINER_NAME $QUEUE_NAME $dir $FREE_GPU_ID &
-			PROCESS_IDS[$FREE_GPU_ID]=$!
+			sbatch --cpus-per-task=30 --gres=gpu:1 --job-name=$CHILD_JOB_NAME --partition=$QUEUE_NAME ./evaluate_model.sh $CONTAINER_NAME $QUEUE_NAME $dir
 		fi
 	fi
+done
+
+# wait until timeout is reached or all jobs are finished
+while :
+do
+  # timeout was reached
+  if [ $SECONDS -ge $TIMEOUT ] ; then
+    scancel --jobname=$CHILD_JOB_NAME
+    exit 9
+  fi
+
+  # all jobs finished
+  if [ `squeue --name=$CHILD_JOB_NAME --noheader | wc -l` = 0 ] ; then
+    exit 0
+  fi
+
+  sleep 1m
 done
