@@ -7,8 +7,8 @@
 clear
 ROUND_NAME=round9
 
-#pushd /mnt/scratch/trojai/v100/
-#rsync -avr --exclude=*.simg mmajursk@129.6.18.180:/mnt/trojainas/round9 ./
+#pushd /scratch/trojai/v100/
+#rsync -avr --exclude='*.simg' --exclude='*.sigm' --exclude='*.out' mmajursk@129.6.18.180:/mnt/trojainas/round9 ./
 #popd
 
 
@@ -23,11 +23,11 @@ ROUND_NAME=round9
 # *******************************
 
 # TEST_HARNESS_DIR is the location of a copy of the data from the test server. This should contain the subfolders for each queue on the test server
-TEST_HARNESS_DIR=/mnt/scratch/trojai/v100/${ROUND_NAME}
+TEST_HARNESS_DIR=/scratch/trojai/v100/${ROUND_NAME}
 # DATA_DIR is the directory containing the dataset. I.e. the test dataset if working against the ES queue on the test server
-DATA_DIR=/mnt/scratch/trojai/data/${ROUND_NAME}/${ROUND_NAME}-test-dataset
+DATA_DIR=/scratch/trojai/data/${ROUND_NAME}/${ROUND_NAME}-test-dataset
 # OUTPUT_DIR this is the parent output directory all plots and csv files will be saved under
-OUTPUT_DIR=/mnt/scratch/trojai/v100/${ROUND_NAME}/es/data-science
+OUTPUT_DIR=/scratch/trojai/v100/${ROUND_NAME}/es/data-science
 
 export PYTHONPATH="$PYTHONPATH:/home/mmajurski/usnistgov/trojai-test-harness/"
 
@@ -39,30 +39,30 @@ python build_leaderboard_archive.py --global-results-csv-filepath=${OUTPUT_DIR}/
 
 
 
-#echo "Plotting CE and ROC-AUC as a function of trojan percentage sweep"
-#python plot_trojan_percentage_sweep.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --nb-reps=10 --output-dirpath=${OUTPUT_DIR}/trojan-percentage
-#
-#echo "Plotting ROC Curves"
-#python plot_roc_curve.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}/roc-curves
-#
-#echo "Plotting Per-Model CE Histograms"
-#python plot_per_model_ce_histogram.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}/ce-hist
-#
+echo "Plotting CE and ROC-AUC as a function of trojan percentage sweep"
+python plot_trojan_percentage_sweep.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --nb-reps=10 --output-dirpath=${OUTPUT_DIR}/trojan-percentage
+
+echo "Plotting ROC Curves"
+python plot_roc_curve.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}/roc-curves
+
+echo "Plotting Per-Model CE Histograms"
+python plot_per_model_ce_histogram.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --output-dirpath=${OUTPUT_DIR}/ce-hist
+
 #echo "Plotting every other column against the selected one"
 #python plot_features.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/feature-plots
-#
-#echo "Plotting mean effects for every other column against the selected one"
-#python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots --truncate=0.67
-#
-#python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots-1sigma --var
-#
-#python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/violin-plots --violin
-#
-#python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/violin-plots-short --violin --truncate=0.67
-#
-#python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/box-plots-short --box-plot --truncate=0.67
-#
-#python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/box-plots --box-plot
+
+echo "Plotting mean effects for every other column against the selected one"
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots --truncate=0.67
+
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/mean-effects-plots-1sigma --var
+
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/violin-plots --violin
+
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/violin-plots-short --violin --truncate=0.67
+
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/box-plots-short --box-plot --truncate=0.67
+
+python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-global-results.csv --metric="cross_entropy" --output-dirpath=${OUTPUT_DIR}/box-plots --box-plot
 
 
 
