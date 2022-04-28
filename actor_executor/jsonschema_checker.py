@@ -30,6 +30,12 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
         return random.choice(enum_param)
     elif 'const' in canonicalized_param:
         return canonicalized_param['const']
+    elif 'oneOf' in canonicalized_param:
+        print('Processing oneOf for param {}'.format(param_name))
+        selected_param = random.choice(canonicalized_param['oneOf'])
+        value = build_json_config(selected_param, base_value, print_warnings=print_warnings)
+        print('')
+        return value
     elif 'number' in type_name:
         min_value, max_value, _, _ = _canonicalise.get_number_bounds(canonicalized_param)
         if min_value is None:
@@ -274,8 +280,16 @@ def is_schema_configuration_valid(json_schema, config):
     except jsonschema.exceptions.ValidationError as ex:
         print(ex)
         num_issues += 1
+    except Exception as exc:
+        print(exc)
+        num_issues += 1
 
-    build_json_config(json_schema, config, print_warnings=True)
+    try:
+        build_json_config(json_schema, config, print_warnings=True)
+    except Exception as e:
+        print('There was an issue parsing your schema. We may not have support for one of your options, please send us your schema to check.\nException: {}'.format(e))
+        num_issues += 1
+
 
     print('There were {} issues while parsing your jsonschema.'.format(num_issues))
 

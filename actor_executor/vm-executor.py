@@ -15,7 +15,7 @@ from actor_executor.config import Config
 from actor_executor.mail_io import TrojaiMail
 from actor_executor import json_io
 
-from . import jsonschema_checker
+from actor_executor import jsonschema_checker
 
 def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
