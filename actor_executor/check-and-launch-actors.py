@@ -15,7 +15,6 @@ from actor_executor.config import Config
 from actor_executor.drive_io import DriveIO
 from actor_executor.actor import Actor, ActorManager
 from actor_executor.submission import Submission, SubmissionManager
-from actor_executor import html_output
 from actor_executor import time_utils
 
 
