@@ -101,7 +101,7 @@ def process_team(config: Config, g_drive: DriveIO, actor: Actor, submission_mana
     process_new_submission(config, g_drive, actor, submission_manager, config_filepath, cur_epoch)
 
 
-def main(config: Config, push_html: bool, config_filepath: str) -> None:
+def main(config: Config, config_filepath: str) -> None:
     cur_epoch = time_utils.get_current_epoch()
 
     if config.slurm_queue == 'sts':
@@ -143,9 +143,6 @@ def main(config: Config, push_html: bool, config_filepath: str) -> None:
     logging.debug('Serializing updated submission_manager back to json.')
     submission_manager.save_json(config.submissions_json_file)
 
-    logging.debug('Updating website.')
-    html_output.update_html(config.html_repo_dir, actor_manager, submission_manager, config.execute_window, config.job_table_name, config.result_table_name, push_html, cur_epoch, config.accepting_submissions, config.slurm_queue)
-
     if config.slurm_queue == 'sts':
         logging.info('STS -  Finished Check and Launch Actors')
     else:
@@ -159,12 +156,6 @@ if __name__ == "__main__":
     parser.add_argument('--config-file', type=str,
                         help='The JSON file that describes all actors',
                         default='config.json')
-
-    parser.add_argument("--no-push-html", dest='push_html',
-                        help="Disables pushing the html web content to the Internet",
-                        action='store_false')
-
-    parser.set_defaults(push_html=True)
 
     args = parser.parse_args()
 
@@ -188,7 +179,7 @@ if __name__ == "__main__":
                                 handlers=[handler])
 
             logging.debug('PID file lock acquired in directory {}'.format(config.submission_dir))
-            main(config, args.push_html, args.config_file)
+            main(config, args.config_file)
         except OSError as e:
             print('Server "{}", check-and-launch was already running when called.'.format(config.slurm_queue))
         finally:
