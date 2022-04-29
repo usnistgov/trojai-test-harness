@@ -8,6 +8,4 @@
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-* * * * * trojai cd /home/trojai && PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/check-and-launch-actors.py --config-file /mnt/trojainas/config-es.json
-
-* * * * * trojai cd /home/trojai && PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/check-and-launch-actors.py --config-file /mnt/trojainas/config-sts.json
+*/10 * * * * trojai cd /home/trojai && /home/trojai/trojai-test-harness/admin_scripts/execute_round.sh
