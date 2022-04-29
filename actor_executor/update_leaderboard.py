@@ -9,7 +9,7 @@ from actor_executor.actor import Actor, ActorManager
 from actor_executor.submission import Submission, SubmissionManager
 from actor_executor import time_utils
 
-def main(config: Config, push_html: bool):
+def main(config: Config, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
 
     # load the instance of ActorManager from the serialized json file
@@ -24,22 +24,22 @@ def main(config: Config, push_html: bool):
 
     # Update web-site
     logging.debug('Updating website.')
-    html_output.update_html(config.html_repo_dir, actor_manager, submission_manager, config.execute_window, config.job_table_name, config.result_table_name, push_html, cur_epoch, config.accepting_submissions, config.slurm_queue)
+    html_output.update_html(config.html_repo_dir, actor_manager, submission_manager, config.execute_window, config.job_table_name, config.result_table_name, commit_and_push, cur_epoch, config.accepting_submissions, config.slurm_queue)
     logging.debug('Finished updating website.')
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Applies updates to the front-end web-site.')
+    parser = argparse.ArgumentParser(description='Applies updates to the leaderboard web-site.')
     parser.add_argument('--config-file', type=str,
                         help='The JSON file that describes all actors',
                         default='config.json')
 
-    parser.add_argument("--no-push-html", dest='push_html',
+    parser.add_argument("--no-commit-and-push", dest='commit_and_push',
                         help="Disables pushing the html web content to the Internet",
                         action='store_false')
 
-    parser.set_defaults(push_html=True)
+    parser.set_defaults(commit_and_push=True)
     args = parser.parse_args()
 
     config = Config.load_json(args.config_file)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
                                 handlers=[handler])
 
             logging.debug('PID file lock acquired in directory {}'.format(config.submission_dir))
-            main(config, args.push_html)
+            main(config, args.commit_and_push)
         except OSError as e:
             print('Server "{}", check-and-launch was already running when called.'.format(config.slurm_queue))
         finally:

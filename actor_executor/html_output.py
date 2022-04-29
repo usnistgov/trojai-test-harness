@@ -20,7 +20,7 @@ from actor_executor.mail_io import TrojaiMail
 
 
 def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int,
-                job_table_name: str, result_table_name: str, push_html: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):
+                job_table_name: str, result_table_name: str, commit_and_push: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):
     lock_filepath = "/var/lock/htmlpush-lockfile"
     with open(lock_filepath, mode='w') as fh_lock:
         try:
@@ -136,82 +136,80 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
                     f.write(jobTableHtml)
 
             # Push the HTML to the web
-            if push_html:
-                repo = Repo(html_dir)
-                if repo.is_dirty() or not accepting_submissions:
+            repo = Repo(html_dir)
+            if repo.is_dirty() or not accepting_submissions:
 
-                    timestampUpdate = """
-                    var uploadTimestamp = """ + str(cur_epoch) + """;
-                    var d = new Date(0);
-                    d.setUTCSeconds(uploadTimestamp);
-                    var acceptingSubmissions = """ + str(accepting_submissions).lower() + """; 
-                    
-                    $(document).ready(function () {
-                        $('#timestamp').text(d.toISOString().split('.')[0] );
-                    });
-                    """
-
-                    with open(html_dir + "/js/time-updater.js", mode='w', encoding='utf-8') as f:
-                        f.write(timestampUpdate)
-
-                allocatedNodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
-                idleNodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
-                mixNodes = int(slurm.sinfo_node_query(slurm_queue, "mix"))
-                drainingNodes = int(slurm.sinfo_node_query(slurm_queue, "draining"))
-                runningNodes = allocatedNodes # "alloc" should include mix and draining
-                downNodes = int(slurm.sinfo_node_query(slurm_queue, "down"))
-                drainedNodes = int(slurm.sinfo_node_query(slurm_queue, "drained"))
-                if downNodes > 0:
-                    msg = '{} SLURM Node(s) Down in queue {}'.format(str(downNodes), slurm_queue)
-                    TrojaiMail().send('trojai@nist.gov', msg, msg)
-
-                webDownNodes = downNodes + drainedNodes
-
-                acceptingSubmissionsUpdate = """
-                var """ + slurm_queue + """AcceptingSubmission = """ + str(accepting_submissions).lower() + """;
-                var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
-                var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
-                var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
+                timestampUpdate = """
+                var uploadTimestamp = """ + str(cur_epoch) + """;
+                var d = new Date(0);
+                d.setUTCSeconds(uploadTimestamp);
+                var acceptingSubmissions = """ + str(accepting_submissions).lower() + """; 
                 
-                 $(document).ready(function () {
-                        $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
-                        $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
-                        $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
-                        $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
-                    });
+                $(document).ready(function () {
+                    $('#timestamp').text(d.toISOString().split('.')[0] );
+                });
                 """
 
-                with open(html_dir + "/js/" + slurm_queue + "-submission.js", mode='w', encoding='utf-8') as f:
-                    f.write(acceptingSubmissionsUpdate)
+                with open(html_dir + "/js/time-updater.js", mode='w', encoding='utf-8') as f:
+                    f.write(timestampUpdate)
 
-                git = repo.git()
-                try:
-                    git.pull()
+            allocatedNodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
+            idleNodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
+            mixNodes = int(slurm.sinfo_node_query(slurm_queue, "mix"))
+            drainingNodes = int(slurm.sinfo_node_query(slurm_queue, "draining"))
+            runningNodes = allocatedNodes # "alloc" should include mix and draining
+            downNodes = int(slurm.sinfo_node_query(slurm_queue, "down"))
+            drainedNodes = int(slurm.sinfo_node_query(slurm_queue, "drained"))
+            if downNodes > 0:
+                msg = '{} SLURM Node(s) Down in queue {}'.format(str(downNodes), slurm_queue)
+                TrojaiMail().send('trojai@nist.gov', msg, msg)
 
-                    gitAddList = list()
-                    if actor_manager is not None:
-                        gitAddList.append(html_dir + "/_includes/" + job_table_name + ".html")
-                    if submission_manager is not None:
-                        gitAddList.append(html_dir + "/_includes/" + result_table_name + ".html")
-                        gitAddList.append(html_dir + "/_includes/" + result_table_name + "_unique" + ".html")
+            webDownNodes = downNodes + drainedNodes
+
+            acceptingSubmissionsUpdate = """
+            var """ + slurm_queue + """AcceptingSubmission = """ + str(accepting_submissions).lower() + """;
+            var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
+            var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
+            var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
+            
+             $(document).ready(function () {
+                    $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
+                    $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
+                    $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
+                    $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
+                });
+            """
+
+            with open(html_dir + "/js/" + slurm_queue + "-submission.js", mode='w', encoding='utf-8') as f:
+                f.write(acceptingSubmissionsUpdate)
+
+            git = repo.git()
+            try:
+                git.pull()
+
+                gitAddList = list()
+                if actor_manager is not None:
+                    gitAddList.append(html_dir + "/_includes/" + job_table_name + ".html")
+                if submission_manager is not None:
+                    gitAddList.append(html_dir + "/_includes/" + result_table_name + ".html")
+                    gitAddList.append(html_dir + "/_includes/" + result_table_name + "_unique" + ".html")
 
 
-                    gitAddList.append(html_dir + "/js/time-updater.js")
-                    gitAddList.append(html_dir + "/js/" + slurm_queue + "-submission.js")
+                gitAddList.append(html_dir + "/js/time-updater.js")
+                gitAddList.append(html_dir + "/js/" + slurm_queue + "-submission.js")
 
-                    git.add(gitAddList)
-                    git.commit("-m", "Actor update {}".format(
-                        time_utils.convert_epoch_to_psudo_iso(cur_epoch)))
+                git.add(gitAddList)
 
+                if commit_and_push:
+                    git.commit("-m", "Actor update {}".format(time_utils.convert_epoch_to_psudo_iso(cur_epoch)))
                     git.push()
                     logging.info("Web-site content has been pushed.")
-                except GitCommandError as ex:
-                    if "nothing to commit" not in str(ex):
-                        logging.error("Git had errors when trying to commit and push: " + str(ex))
-                    else:
-                        logging.info("Commit to repo not pushed, no changes found")
-            else:
-                logging.info("Web push disabled")
+            except GitCommandError as ex:
+                if "nothing to commit" not in str(ex):
+                    logging.error("Git had errors when trying to commit and push: " + str(ex))
+                else:
+                    logging.info("Commit to repo not pushed, no changes found")
+
 
         except:
             msg = 'html_output threw an exception, releasing file lock "{}" regardless.{}'.format(lock_filepath, traceback.format_exc())
