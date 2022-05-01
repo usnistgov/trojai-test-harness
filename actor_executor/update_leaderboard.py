@@ -44,10 +44,10 @@ if __name__ == "__main__":
                         default='config.json')
 
     parser.add_argument("--commit-and-push", dest='commit_and_push',
+                        default=False,
                         help="Enables pushing the html web content to the Internet",
                         action='store_true')
 
-    parser.set_defaults(commit_and_push=True)
     args = parser.parse_args()
 
     config = Config.load_json(args.config_file)
