@@ -38,14 +38,21 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
         return value
     elif 'number' in type_name:
         min_value, max_value, _, _ = _canonicalise.get_number_bounds(canonicalized_param)
+
+        if 'suggested_minimum' in canonicalized_param:
+            min_value = canonicalized_param['suggested_minimum']
+
+        if 'suggested_maximum' in canonicalized_param:
+            max_value = canonicalized_param['suggested_maximum']
+
         if min_value is None:
             if print_warnings:
-                print('Warning: min value for param "{}" is missing.'.format(param_name))
+                print('Warning: min value or suggested_minimum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             min_value = sys.float_info.min
         if max_value is None:
             if print_warnings:
-                print('Warning: max value for param "{}" is missing.'.format(param_name))
+                print('Warning: max value or suggested_maximum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             max_value = sys.float_info.max
 
@@ -76,14 +83,21 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
 
     elif 'integer' in type_name:
         min_value, max_value = _canonicalise.get_integer_bounds(canonicalized_param)
+
+        if 'suggested_minimum' in canonicalized_param:
+            min_value = canonicalized_param['suggested_minimum']
+
+        if 'suggested_maximum' in canonicalized_param:
+            max_value = canonicalized_param['suggested_maximum']
+
         if min_value is None:
             if print_warnings:
-                print('Warning: min value for param "{}" is missing.'.format(param_name))
+                print('Warning: min value or suggested_minimum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             min_value = -2147483647
         if max_value is None:
             if print_warnings:
-                print('Warning: max value for param "{}" is missing.'.format(param_name))
+                print('Warning: max value or suggested_maximum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             max_value = 2147483647
 
@@ -140,7 +154,6 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
         num_issues += 1
 
     return base_value
-
 
 def build_json_config(json_schema, json_original_config, randomly_perturb_param=False, perturb_param_chance=0.5,
                       variation_amount=0.05, random_variation_sign=True, random_from_min_max=False, print_warnings=True):
@@ -333,6 +346,10 @@ if __name__ == "__main__":
         if json_schema is None or json_original_config is None:
             print('Failed to load schema and configuration files.')
             exit(1)
+
+        # param_lookup = create_param_lookup(json_schema)
+        # new_config = perturb_config(param_lookup, json_original_config)
+        print('Done')
 
         if not is_schema_configuration_valid(json_schema, json_original_config):
             exit(1)
