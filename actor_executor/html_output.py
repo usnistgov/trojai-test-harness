@@ -19,8 +19,7 @@ from actor_executor import slurm
 from actor_executor.mail_io import TrojaiMail
 
 
-def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int,
-                job_table_name: str, result_table_name: str, commit_and_push: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):
+def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int, job_table_name: str, result_table_name: str, commit_and_push: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):
     lock_filepath = "/var/lock/htmlpush-lockfile"
     with open(lock_filepath, mode='w') as fh_lock:
         try:
