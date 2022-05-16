@@ -31,10 +31,20 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
     elif 'const' in canonicalized_param:
         return canonicalized_param['const']
     elif 'oneOf' in canonicalized_param:
-        print('Processing oneOf for param {}'.format(param_name))
+        if isinstance(base_value, dict):
+            if 'name' in base_value:
+                oneOf_name = base_value['name']
+
+                for canon_param in canonicalized_param['oneOf']:
+                    if isinstance(canon_param, dict):
+                        if 'name' in canon_param:
+                            if oneOf_name == canon_param['name']:
+                                value = build_json_config(canon_param, base_value, print_warnings=print_warnings)
+                                return value
+
         selected_param = random.choice(canonicalized_param['oneOf'])
         value = build_json_config(selected_param, base_value, print_warnings=print_warnings)
-        print('')
+
         return value
     elif 'number' in type_name:
         min_value, max_value, _, _ = _canonicalise.get_number_bounds(canonicalized_param)
