@@ -51,7 +51,7 @@ def parse_dataset_mapping(values):
             result[key] = value
     return result
 
-def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, metadata_filename='METADATA.csv', ground_truth_filename='ground_truth.csv', skip_leftovers=False):
+def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, metadata_filename='METADATA.csv', ground_truth_filename='ground_truth.csv', skip_leftovers=True):
 
     round_name = os.path.basename(round_dataset_dirpath)
 
@@ -120,8 +120,29 @@ def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, metadata_file
         all_df_list.append(new_df)
 
     all_df = pd.concat(all_df_list)
+
+    # Rearrange columns slightly
+    columns = list(all_df.columns.values)
+    column_order = ['model_name', 'ground_truth', 'data_split']
+    remove_columns = ['converged', 'nonconverged_reason']
+
+    # Remove columns
+    for column_name in remove_columns:
+        if column_name in columns:
+            columns.remove(column_name)
+
+    # Reorder columns
+    index = 0
+    for column_name in column_order:
+        if column_name in columns:
+            columns.remove(column_name)
+            columns.insert(index, column_name)
+            index += 1
+
+    all_df = all_df[columns]
+
     output_filepath = os.path.join(output_dirpath, '{}_METADATA.csv'.format(round_name))
-    all_df.to_csv(output_filepath)
+    all_df.to_csv(output_filepath, index=False)
     print('Finished writing round metadata to {}'.format(output_filepath))
 
     return all_df
@@ -184,9 +205,11 @@ def build_round_results(df, round_results_dirpath, output_dirpath, result_datase
     result_df = pd.concat(all_dfs)
 
     output_filepath = os.path.join(output_dirpath, '{}_RESULTS.csv'.format(round_name))
-    result_df.to_csv(output_filepath)
+    result_df.to_csv(output_filepath, index=False)
 
     print('Finished writing round results to {}'.format(output_filepath))
+
+    return result_df
 
 def main(round_dataset_dirpath, round_results_dirpath, output_dirpath, result_dataset_mapping):
 
@@ -194,7 +217,7 @@ def main(round_dataset_dirpath, round_results_dirpath, output_dirpath, result_da
         os.makedirs(output_dirpath)
 
     # Build the round CSV
-    round_df = build_round_dataset_csv(round_dataset_dirpath, output_dirpath, skip_leftovers=True)
+    round_df = build_round_dataset_csv(round_dataset_dirpath, output_dirpath)
 
     # Build round results
     build_round_results(round_df, round_results_dirpath, output_dirpath, result_dataset_mapping)
