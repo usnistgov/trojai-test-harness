@@ -51,9 +51,14 @@ def parse_dataset_mapping(values):
             result[key] = value
     return result
 
-def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, metadata_filename='METADATA.csv', ground_truth_filename='ground_truth.csv', skip_leftovers=True):
+def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, overwrite_csv=True, metadata_filename='METADATA.csv', ground_truth_filename='ground_truth.csv', skip_leftovers=True):
 
     round_name = os.path.basename(round_dataset_dirpath)
+    output_filepath = os.path.join(output_dirpath, '{}_METADATA.csv'.format(round_name))
+
+    if os.path.exists(output_filepath) and not overwrite_csv:
+        print('Skipping building round metadata: {} already exists and overwrite is disabled.'.format(output_filepath))
+        return pd.read_csv(output_filepath)
 
     all_df_list = []
 
@@ -62,7 +67,7 @@ def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, metadata_file
         round_dirpath = os.path.join(round_dataset_dirpath, dir)
 
         if skip_leftovers:
-            if 'leftovers' in dir:
+            if 'leftover' in dir:
                 print('Skipping leftovers: {}'.format(round_dirpath))
                 continue
 
@@ -141,14 +146,18 @@ def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, metadata_file
 
     all_df = all_df[columns]
 
-    output_filepath = os.path.join(output_dirpath, '{}_METADATA.csv'.format(round_name))
     all_df.to_csv(output_filepath, index=False)
     print('Finished writing round metadata to {}'.format(output_filepath))
 
     return all_df
 
-def build_round_results(df, round_results_dirpath, output_dirpath, result_dataset_mapping):
+def build_round_results(df, round_results_dirpath, output_dirpath, result_dataset_mapping, overwrite_csv=True):
     round_name = os.path.basename(round_results_dirpath)
+    output_filepath = os.path.join(output_dirpath, '{}_RESULTS.csv'.format(round_name))
+
+    if os.path.exists(output_filepath) and not overwrite_csv:
+        print('Skipping building round results: {} already exists and overwrite is disabled.'.format(output_filepath))
+        return pd.read_csv(output_filepath)
 
     all_dfs = []
 
@@ -173,7 +182,12 @@ def build_round_results(df, round_results_dirpath, output_dirpath, result_datase
                         with open(os.path.join(team_timestamp_result_dirpath, result_file), 'r') as f:
                             data = f.read()
                             model_id = result_file.split('.')[0]
-                            team_results[model_id] = float(data)
+                            if data == '':
+                                data = float('nan')
+                            try:
+                                team_results[model_id] = float(data)
+                            except ValueError:
+                                team_results[model_id] = float('nan')
 
                 # Gather corresponding results
                 all_model_ids = list(df.loc[df['data_split'] == data_split_str, 'model_name'].unique())
@@ -204,23 +218,22 @@ def build_round_results(df, round_results_dirpath, output_dirpath, result_datase
 
     result_df = pd.concat(all_dfs)
 
-    output_filepath = os.path.join(output_dirpath, '{}_RESULTS.csv'.format(round_name))
     result_df.to_csv(output_filepath, index=False)
 
     print('Finished writing round results to {}'.format(output_filepath))
 
     return result_df
 
-def main(round_dataset_dirpath, round_results_dirpath, output_dirpath, result_dataset_mapping):
+def build_round_csvs(round_dataset_dirpath, round_results_dirpath, output_dirpath, result_dataset_mapping, overwrite_csv=True):
 
     if not os.path.exists(output_dirpath):
         os.makedirs(output_dirpath)
 
     # Build the round CSV
-    round_df = build_round_dataset_csv(round_dataset_dirpath, output_dirpath)
+    round_df = build_round_dataset_csv(round_dataset_dirpath, output_dirpath, overwrite_csv=overwrite_csv)
 
     # Build round results
-    build_round_results(round_df, round_results_dirpath, output_dirpath, result_dataset_mapping)
+    build_round_results(round_df, round_results_dirpath, output_dirpath, result_dataset_mapping, overwrite_csv=overwrite_csv)
 
 
 
@@ -246,4 +259,4 @@ if __name__ == '__main__':
     if args.save_config_filepath is not None:
         parser.write_config_file(args, [args.save_config_filepath])
 
-    main(args.round_dataset_dirpath, args.round_results_dirpath, args.output_dirpath, parse_dataset_mapping(args.result_dataset_mapping))
+    build_round_csvs(args.round_dataset_dirpath, args.round_results_dirpath, args.output_dirpath, parse_dataset_mapping(args.result_dataset_mapping))
