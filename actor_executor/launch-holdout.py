@@ -30,6 +30,8 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                         handlers=[handler])
 
+    logging.getLogger().addHandler(logging.StreamHandler())
+
     logging.info('Starting parsing for holdout execution')
     logging.info(config)
 
