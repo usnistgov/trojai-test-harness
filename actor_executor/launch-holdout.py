@@ -87,7 +87,7 @@ def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
 
             v100_slurm_queue = 'control'
 
-            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", config.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "10", "--gres=gpu:1", "-J", slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, config.slurm_script_file, submission.actor.name, holdout_actor_submission_filepath, holdout_actor_results_dirpath, config_filepath, submission.actor.email, slurm_output_filepath]
+            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", config.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "30", "--gres=gpu:3", "-J", slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, config.slurm_script_file, submission.actor.name, holdout_actor_submission_filepath, holdout_actor_results_dirpath, config_filepath, submission.actor.email, slurm_output_filepath]
             logging.info('launching sbatch command: "{}"'.format(' '.join(cmd_str_list)))
 
             logging.info('Launching holdout computation for actor: {}'.format(submission.actor.name))
