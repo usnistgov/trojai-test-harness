@@ -10,35 +10,57 @@ from typing import KeysView
 from actor_executor import json_io
 from actor_executor import slurm
 from actor_executor import time_utils
+from actor_executor.leaderboard import Leaderboard
+from actor_executor.trojai_config import TrojaiConfig
 
 
 class Actor(object):
-    def __init__(self, email: str, name: str, poc_email: str):
+    def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str):
         self.email = email
         self.name = name
         self.poc_email = poc_email
-        self.last_execution_epoch = 0
-        self.last_file_epoch = 0
-        self.job_status = "None"
-        self.file_status = "None"
+
+        self.last_execution_epochs = {}
+        self.last_file_epochs = {}
+
+        self.job_statuses = {}
+        self.file_statuses = {}
+
+        for leaderboard_name in trojai_config.active_leaderboard_names:
+            for dataset_split_name in Leaderboard.SUBMISSION_DATASET_SPLIT_NAMES:
+                self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
+
         self.disabled = False
 
+    def get_leaderboard_key(self, leaderboard_name, dataset_split_name):
+        return '{}_{}'.format(leaderboard_name, dataset_split_name)
+
+    def _has_leaderboard_metadata(self, leaderboard_name, dataset_split_name):
+        leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+        return leaderboard_key in self.last_file_epochs and leaderboard_key in self.last_execution_epochs \
+               and leaderboard_key in self.job_statuses and leaderboard_key in self.file_statuses
+
+    def reset_leaderboard_submission(self, leaderboard_name, dataset_split_name):
+        print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, dataset_split_name))
+        leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+        self.last_execution_epochs[leaderboard_key] = 0
+        self.last_file_epochs[leaderboard_key] = 0
+        self.job_statuses[leaderboard_key] = 'None'
+        self.file_statuses[leaderboard_key] = 'None'
+
     def __str__(self):
-        msg = "(name: {} email: {} poc: {} last_execution_epoch: {} last_file_epoch: {} job_status: {} file_status: {} disabled: {})".format(self.name, self.email, self.poc_email, self.last_execution_epoch, self.last_file_epoch, self.job_status, self.file_status, self.disabled)
+        msg = 'Actor: (\n'
+        for key, value in self.__dict__.items():
+            msg += '\t{} = {}\n'.format(key, value)
+        msg += ')'
         return msg
 
     def save_json(self, filepath: str) -> None:
         json_io.write(filepath, self)
 
     @staticmethod
-    def load_json(filepath: str):
+    def load_json(filepath: str) -> 'Actor':
         return json_io.read(filepath)
-
-    def reset(self) -> None:
-        self.last_execution_epoch = 0
-        self.last_file_epoch = 0
-        self.file_status = "None"
-        self.job_status = "Reset"
 
     def in_queue(self, queue_name) -> bool:
         stdout, stderr = slurm.squeue(self.name, queue_name)
@@ -48,84 +70,202 @@ class Actor(object):
     def is_disabled(self):
         return self.disabled
 
-    def can_submit_timewindow(self, execute_window_seconds, cur_epoch) -> bool:
+    def can_submit_time_window(self, leaderboard_name, dataset_split_name, execute_window_seconds, cur_epoch) -> bool:
         # Check if the actor is allowed to execute again or not
-        if self.last_execution_epoch + execute_window_seconds <= cur_epoch:
+        last_execution_epoch = self.last_execution_epochs[self.get_leaderboard_key(leaderboard_name, dataset_split_name)]
+        if last_execution_epoch + execute_window_seconds <= cur_epoch:
             return True
         return False
 
-    def get_jobs_table_entry(self, execute_window, current_epoch: int):
+    def get_jobs_table_entry(self, leaderboard_name, dataset_split_name, execute_window, current_epoch: int):
+
+        leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+
+        # Check if this is the first time we've encountered this leaderboard
+        if not self._has_leaderboard_metadata(leaderboard_name, dataset_split_name):
+            self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
 
         remaining_time = 0
-        if self.last_execution_epoch + execute_window > current_epoch:
-            remaining_time = (self.last_execution_epoch + execute_window) - current_epoch
+        if self.last_execution_epochs[leaderboard_key] + execute_window > current_epoch:
+            remaining_time = (self.last_execution_epochs[leaderboard_key] + execute_window) - current_epoch
 
         days, hours, minutes, seconds = time_utils.convert_seconds_to_dhms(remaining_time)
         time_str = "{} d, {} h, {} m, {} s".format(days, hours, minutes, seconds)
 
-        if self.last_file_epoch == 0:
+        if self.last_file_epochs[leaderboard_key] == 0:
             last_file_timestamp = "None"
         else:
-            last_file_timestamp = time_utils.convert_epoch_to_iso(self.last_file_epoch)
-        if self.last_execution_epoch == 0:
+            last_file_timestamp = time_utils.convert_epoch_to_iso(self.last_file_epochs[leaderboard_key])
+        if self.last_execution_epochs[leaderboard_key] == 0:
             last_execution_timestamp = "None"
         else:
-            last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epoch)
+            last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epochs[leaderboard_key])
 
-        return [self.name, last_execution_timestamp, self.job_status, self.file_status, last_file_timestamp, time_str]
+        return [self.name, last_execution_timestamp, self.job_statuses[leaderboard_key], self.file_statuses[leaderboard_key], last_file_timestamp, time_str]
 
 
 class ActorManager(object):
     def __init__(self):
-        self.__actors = dict()
+        self.actors = dict()
 
     def __str__(self):
         msg = "Actors: \n"
-        for actor in self.__actors:
+        for actor in self.actors:
             msg = msg + "  " + actor.__str__() + "\n"
         return msg
 
     def get_keys(self) -> KeysView:
-        return self.__actors.keys()
+        return self.actors.keys()
 
-    def add_actor(self, email: str, name: str, poc_email: str) -> None:
-        if email in self.__actors.keys():
-            raise RuntimeError("Actor already exists in ActorManager")
-        for key in self.__actors.keys():
-            if name == self.__actors[key].name:
-                raise RuntimeError("Actor Name already exists in ActorManager")
-        self.__actors[email] = Actor(email, name, poc_email)
+    def add_actor(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str) -> None:
+        if email in self.actors.keys():
+            raise RuntimeError("Actor already exists in ActorManager: {}".format(email))
+        for key in self.actors.keys():
+            if name == self.actors[key].name:
+                raise RuntimeError("Actor Name already exists in ActorManager: {}".format(name))
+        created_actor = Actor(trojai_config, email, name, poc_email)
+        self.actors[email] = created_actor
+        print('Created: {}'.format(created_actor))
 
     def remove_actor(self, email) -> None:
-        if email in self.__actors:
-            del self.__actors[email]
+        if email in self.actors.keys():
+            del self.actors[email]
+            print('Removed {} from actor manager'.format(email))
+        else:
+            raise RuntimeError('Invalid key in ActorManager: {}'.format(email))
 
     def get(self, email) -> Actor:
-        if email in self.__actors:
-            return self.__actors[email]
+        if email in self.actors:
+            return self.actors[email]
         else:
-            raise RuntimeError('Invalid key in ActorManager')
+            raise RuntimeError('Invalid key in ActorManager: {}'.format(email))
 
-    def save_json(self, filepath: str) -> None:
-        json_io.write(filepath, self)
+    def save_json(self, trojai_config: TrojaiConfig) -> None:
+        json_io.write(trojai_config.actors_filepath, self)
 
     @staticmethod
-    def init_file(filepath: str) -> None:
+    def init_file(trojai_config: TrojaiConfig) -> None:
         # Create the json file if it does not exist already
-        if not os.path.exists(filepath):
+        if not os.path.exists(trojai_config.actors_filepath):
             actor_dict = ActorManager()
-            actor_dict.save_json(filepath)
+            actor_dict.save_json(trojai_config)
 
     @staticmethod
-    def load_json(filepath: str):
+    def load_json(trojai_config: TrojaiConfig) -> 'ActorManager':
         # make sure the file exists
-        ActorManager.init_file(filepath)
-        return json_io.read(filepath)
+        ActorManager.init_file(trojai_config)
+        return json_io.read(trojai_config.actors_filepath)
 
-    def get_jobs_table(self, execute_window, cur_epoch: int):
+    def get_jobs_table(self, leaderboard_name, dataset_split_name, execute_window, cur_epoch: int):
         jobs_table = list()
-        for key in self.__actors.keys():
-            jobs_table.append(self.__actors[key].get_jobs_table_entry(execute_window, cur_epoch))
+        for actor in self.actors.values():
+            jobs_table.append(actor.get_jobs_table_entry(leaderboard_name, dataset_split_name, execute_window, cur_epoch))
         return jobs_table
+
+    def convert_to_csv(self, output_file):
+        write_header = True
+
+        with open(output_file, 'w') as file:
+            for actorKey in self.get_keys():
+                actor = self.get(actorKey)
+                if write_header:
+                    for key in actor.__dict__.keys():
+                        file.write(key + ',')
+                    file.write('\n')
+                    write_header = False
+
+                for key in actor.__dict__.keys():
+                    file.write(str(actor.__dict__[key]) + ',')
+                file.write('\n')
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Creates an actor, and adds it to the actors.json')
+    parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+
+    parser.add_argument('--add-actor', type=str,
+                        help='Adds an actor in CSV "ActorTeamName,ActorTeamEmail,PocEmail", this will exit after adding the actor',
+                        default=None)
+    parser.add_argument("--remove-actor", type=str,
+                        help='Removes an actor (based on actor team name), this will exit after removing the actor (the repo that is owned by the actor will not be deleted)',
+                        default=None)
+    parser.add_argument("--reset-actor", type=str,
+                        help='Resets a team to allow them to resubmit in CSV '
+                             '"ActorTeamEmail,leaderboard_name,data_split_name", '
+                             'or "ActorTeamEmail,leaderboard_name" for all data split in leaderboard, '
+                             'or "ActorTeamEmail for all leaderboards and data splits',
+                        default=None)
+    parser.add_argument('--convert-to-csv', type=str,
+                        help='The file to save actors to CSV (converts json to CSV)',
+                        default=None)
+
+    args = parser.parse_args()
+
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+
+    if args.add_actor is not None:
+        items = args.add_actor.split(',')
+        if len(items) != 3:
+            raise RuntimeError('Invalid number of CSV arguments for add-actor')
+
+        team_name = items[0]
+        email = items[1]
+        poc_email = items[2]
+
+        try:
+            team_name = team_name.encode('ascii')
+        except:
+            raise RuntimeError('Team name must be ASCII only')
+
+        team_name = team_name.decode()
+        team_name = str(team_name)
+        invalid_chars = [" ", "/", ">", "<", "|", ":", "&", ",", ";", "?", "\\", "*"]
+        for char in invalid_chars:
+            if char in team_name:
+                raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
+
+        actor_manager.add_actor(trojai_config, args.email, args.name, args.poc_email)
+
+
+    elif args.reset_actor is not None:
+        items = args.reset_actor.split(',')
+
+        data_splits = []
+        leaderboards = []
+
+        if len(items) == 3:
+            email = items[0]
+            leaderboards.append(items[1])
+            data_splits.append(items[2])
+        elif len(items) == 2:
+            email = items[0]
+            leaderboards.append(items[1])
+            data_splits.extend(Leaderboard.SUBMISSION_DATASET_SPLIT_NAMES)
+        elif len(items) == 1:
+            email = items[0]
+            leaderboards.extend(trojai_config.active_leaderboard_names)
+            data_splits.extend(Leaderboard.SUBMISSION_DATASET_SPLIT_NAMES)
+        else:
+            raise RuntimeError('Invalid number of CSV arguments for reset-actor')
+
+        actor = actor_manager.get(email)
+
+        for leaderboard_name in leaderboards:
+            for data_split_name in data_splits:
+                actor.reset_leaderboard_submission(leaderboard_name, data_split_name)
+
+    elif args.remove_actor is not None:
+        actor_manager.remove_actor(args.remove_actor)
+    elif args.convert_to_csv is not None:
+        actor_manager.convert_to_csv(args.convert_to_csv)
+        exit(0)
+
+
+    actor_manager.save_json(trojai_config)
+
+
 
 
