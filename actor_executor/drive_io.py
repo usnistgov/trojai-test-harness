@@ -268,16 +268,24 @@ class DriveIO(object):
         self.remove_all_sharing_permissions(file_id)
         self.share(file_id, share_email)
 
-    def submission_download(self, email: str, output_dirpath: str, metadata_filepath: str, sts: bool) -> GoogleDriveFile:
+    def submission_download(self, email: str, output_dirpath: str, metadata_filepath: str, requested_leaderboard_name: str, requested_data_split_name) -> GoogleDriveFile:
         actor_file_list = self.query_by_email(email)
 
         # filter list based on file prefix
         gdrive_file_list = list()
         for g_file in actor_file_list:
-            if sts and g_file.name.startswith('test'):
+            filename = g_file.name
+            filename_split = filename.split('_')
+
+            if len(filename_split) <= 2:
+                continue
+
+            leaderboard_name = filename_split[0]
+            data_split_name = filename_split[1]
+
+            if leaderboard_name == requested_leaderboard_name and data_split_name == requested_data_split_name:
                 gdrive_file_list.append(g_file)
-            if not sts and not g_file.name.startswith('test'):
-                gdrive_file_list.append(g_file)
+
 
         # ensure submission is unique (one and only one possible submission file from a team email)
         if len(gdrive_file_list) < 1:

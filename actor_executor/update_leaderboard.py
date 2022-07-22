@@ -10,14 +10,15 @@ import logging.handlers
 import fcntl
 import os
 
-from actor_executor.config import Config
+from actor_executor.trojai_config import TrojaiConfig
 from actor_executor import html_output
 from actor_executor.actor import ActorManager
 from actor_executor.submission import SubmissionManager
 from actor_executor import time_utils
 
 
-def main(config: Config, commit_and_push: bool):
+def main(trojai_config: TrojaiConfig, commit_and_push: bool):
+    # TODO: Update
     cur_epoch = time_utils.get_current_epoch()
 
     # load the instance of ActorManager from the serialized json file
@@ -50,7 +51,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = Config.load_json(args.config_file)
+    config = TrojaiConfig.load_json(args.config_file)
 
     # PidFile ensures that this script is only running once
     print('Attempting to acquire PID file lock.')

@@ -23,26 +23,59 @@ class Actor(object):
         self.last_execution_epochs = {}
         self.last_file_epochs = {}
 
+        self.general_file_status = 'None'
+
         self.job_statuses = {}
         self.file_statuses = {}
 
         for leaderboard_name in trojai_config.active_leaderboard_names:
-            for dataset_split_name in Leaderboard.SUBMISSION_DATASET_SPLIT_NAMES:
+            for dataset_split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
                 self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
 
         self.disabled = False
 
-    def get_leaderboard_key(self, leaderboard_name, dataset_split_name):
-        return '{}_{}'.format(leaderboard_name, dataset_split_name)
+    def update_all_job_status(self, value, check_value=None):
+        for key, value in self.job_statuses.items():
+            if check_value is None:
+                self.job_statuses[key] = value
+            elif check_value == value:
+                self.job_statuses[key] = value
 
-    def _has_leaderboard_metadata(self, leaderboard_name, dataset_split_name):
-        leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+    def has_job_status(self, check_value):
+        for value in self.job_statuses.values():
+            if check_value == value:
+                return True
+        return False
+
+    def get_last_file_epoch(self, leaderboard_name, data_split_name):
+        return self.last_file_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)]
+
+    def get_last_execution_epoch(self, leaderboard_name, data_split_name):
+        return self.last_execution_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)]
+
+    def update_job_status(self, leaderboard_name, data_split_name, value):
+        self.job_statuses[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
+
+    def update_file_status(self, leaderboard_name, data_split_name, value):
+        self.file_statuses[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
+
+    def update_last_execution_epoch(self, leaderboard_name, data_split_name, value):
+        self.last_execution_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
+
+    def update_last_file_epoch(self, leaderboard_name, data_split_name, value):
+        self.last_file_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
+
+    def get_leaderboard_key(self, leaderboard_name, data_split_name):
+        return '{}_{}'.format(leaderboard_name, data_split_name)
+
+    def _has_leaderboard_metadata(self, leaderboard_name, data_split_name):
+        leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
         return leaderboard_key in self.last_file_epochs and leaderboard_key in self.last_execution_epochs \
                and leaderboard_key in self.job_statuses and leaderboard_key in self.file_statuses
 
-    def reset_leaderboard_submission(self, leaderboard_name, dataset_split_name):
-        print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, dataset_split_name))
-        leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+    def reset_leaderboard_submission(self, leaderboard_name, data_split_name):
+        print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
+        leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
         self.last_execution_epochs[leaderboard_key] = 0
         self.last_file_epochs[leaderboard_key] = 0
         self.job_statuses[leaderboard_key] = 'None'
@@ -227,7 +260,7 @@ if __name__ == "__main__":
             if char in team_name:
                 raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
 
-        actor_manager.add_actor(trojai_config, args.email, args.name, args.poc_email)
+        actor_manager.add_actor(trojai_config, email, team_name, poc_email)
 
 
     elif args.reset_actor is not None:
@@ -243,19 +276,19 @@ if __name__ == "__main__":
         elif len(items) == 2:
             email = items[0]
             leaderboards.append(items[1])
-            data_splits.extend(Leaderboard.SUBMISSION_DATASET_SPLIT_NAMES)
+            data_splits.extend(Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES)
         elif len(items) == 1:
             email = items[0]
             leaderboards.extend(trojai_config.active_leaderboard_names)
-            data_splits.extend(Leaderboard.SUBMISSION_DATASET_SPLIT_NAMES)
+            data_splits.extend(Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES)
         else:
             raise RuntimeError('Invalid number of CSV arguments for reset-actor')
 
         actor = actor_manager.get(email)
 
-        for leaderboard_name in leaderboards:
+        for l_name in leaderboards:
             for data_split_name in data_splits:
-                actor.reset_leaderboard_submission(leaderboard_name, data_split_name)
+                actor.reset_leaderboard_submission(l_name, data_split_name)
 
     elif args.remove_actor is not None:
         actor_manager.remove_actor(args.remove_actor)
@@ -263,9 +296,4 @@ if __name__ == "__main__":
         actor_manager.convert_to_csv(args.convert_to_csv)
         exit(0)
 
-
     actor_manager.save_json(trojai_config)
-
-
-
-

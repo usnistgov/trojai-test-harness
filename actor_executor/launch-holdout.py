@@ -12,11 +12,11 @@ import subprocess
 import numpy as np
 
 from actor_executor import time_utils
-from actor_executor.config import Config
+from actor_executor.trojai_config import TrojaiConfig
 from actor_executor.submission import Submission, SubmissionManager
 
-
-def main(config_filepath: str, config: Config, execute_team_name: str) -> None:
+# TODO: Update
+def main(config_filepath: str, trojai_config: TrojaiConfig, execute_team_name: str) -> None:
 
     if not os.path.exists(config.results_dir):
         logging.info('Creating results directory: {}'.format(config.results_dir))
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_filepath = args.config_file
-    config = Config.load_json(config_filepath)
+    config = TrojaiConfig.load_json(config_filepath)
     execute_team_name = args.execute_team_name
 
     main(config_filepath, config, execute_team_name)

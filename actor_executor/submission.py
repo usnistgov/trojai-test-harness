@@ -11,7 +11,6 @@ import logging
 import traceback
 from typing import List
 from typing import Dict
-import sklearn.metrics
 
 from actor_executor.drive_io import DriveIO
 from actor_executor.mail_io import TrojaiMail
@@ -21,54 +20,87 @@ from actor_executor import json_io
 from actor_executor import slurm
 from actor_executor import time_utils
 from actor_executor import fs_utils
-from actor_executor import metrics
+from actor_executor.leaderboard import Leaderboard
+from actor_executor.trojai_config import TrojaiConfig
 
 
 class Submission(object):
-    def __init__(self, gdrive_file: GoogleDriveFile, actor: Actor, submission_dirpath: str, results_dirpath: str, ground_truth_dirpath: str, slurm_queue: str):
-        self.file = gdrive_file
-        self.actor = actor
-
-        self.slurm_queue = slurm_queue
-        self.cross_entropy = None
-        self.cross_entropy_95_confidence_interval = None
-        self.roc_auc = None
-        self.brier_score = None
+    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str):
+        self.g_file = g_file
+        self.actor_name = actor.name
+        self.actor_email = actor.email
+        self.leaderboard_name = leaderboard.name
+        self.data_split_name = data_split_name
+        self.slurm_queue_name = leaderboard.get_slurm_queue_name(self.data_split_name)
+        self.metric_results = {}
+        self.saved_metric_results = {}
         self.execution_runtime = None
         self.model_execution_runtimes = None
         self.execution_epoch = None
-        self.slurm_job_name = None
+        self.active_slurm_job_name = None
         self.slurm_output_filename = None
         self.confusion_output_filename = None
         self.web_display_parse_errors = "None"
         self.web_display_execution_errors = "None"
 
-        self.ground_truth_dirpath = ground_truth_dirpath
+        self.ground_truth_dirpath = leaderboard.get_ground_truth_dirpath(self.data_split_name)
 
         # create the directory where submissions are stored
-        self.global_submission_dirpath = submission_dirpath
-        if not os.path.isdir(os.path.join(self.global_submission_dirpath, self.actor.name)):
-            logging.info("Submission directory for " + self.actor.name + " does not exist, creating ...")
-            os.makedirs(os.path.join(self.global_submission_dirpath, self.actor.name))
+        self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, self.actor_name)
+
+        if not os.path.isdir(self.actor_submission_dirpath):
+            logging.info("Submission directory for " + self.actor_name + " does not exist, creating ...")
+            os.makedirs(self.actor_submission_dirpath)
 
         # create the directory where results are stored
-        self.global_results_dirpath = results_dirpath
-        if not os.path.isdir(os.path.join(self.global_results_dirpath, self.actor.name)):
-            logging.info("Results directory for " + self.actor.name + " does not exist, creating ...")
-            os.makedirs(os.path.join(self.global_results_dirpath, self.actor.name))
+        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), leaderboard.name, self.actor_name)
+        if not os.path.isdir(self.actor_results_dirpath):
+            logging.info("Results directory for " + self.actor_name + " does not exist, creating ...")
+            os.makedirs(self.actor_results_dirpath)
 
     def __str__(self) -> str:
-        msg = 'file name: "{}", from eamil: "{}"'.format(self.file.name, self.actor.email)
+        msg = 'file name: "{}", from email: "{}"'.format(self.g_file.name, self.actor_email)
         return msg
 
-    def check(self, g_drive: DriveIO, log_file_byte_limit: int) -> None:
+    def get_slurm_job_name(self):
+        return '{}_{}_{}'.format(self.actor_name, self.leaderboard_name, self.data_split_name)
 
-        if self.slurm_job_name is None:
-            logging.info('Submission "{}" by team "{}" is not active.'.format(self.file.name, self.actor.name))
+    def is_active_job(self):
+        if self.active_slurm_job_name is None:
+            return False
+
+        stdout, stderr = slurm.squeue(self.active_slurm_job_name, self.slurm_queue_name)  # raises RuntimeError on failure
+
+        stdoutSplitNL = str(stdout).split("\\n")
+        logging.info('squeue results: {}'.format(stdoutSplitNL))
+
+        # Check if we got a valid response from squeue
+        if len(stdoutSplitNL) == 3:
+            # found single job with that name, and it has state
+            info = stdoutSplitNL[1]
+            info_split = info.strip().split(' ')
+            # slurm_status = str(info_split[0]).strip()
+
+            if len(info_split) != 1:
+                logging.warning("Incorrect format for status info: {}".format(info_split))
+
+            return True
+
+        elif len(stdoutSplitNL) == 2:
+            return False
+        else:
+            logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
+            return False
+
+    def check(self, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
+
+        if self.active_slurm_job_name is None:
+            logging.info('Submission "{}_{}" by team "{}" is not active.'.format(self.leaderboard_name, self.data_split_name, self.actor_name))
             return
 
-        logging.info('Checking status submission from actor "{}".'.format(self.actor.name))
-        stdout, stderr = slurm.squeue(self.slurm_job_name, self.slurm_queue)  # raises RuntimeError on failure
+        logging.info('Checking status submission from actor "{}".'.format(self.actor_name))
+
+        stdout, stderr = slurm.squeue(self.active_slurm_job_name, self.slurm_queue_name)  # raises RuntimeError on failure
 
         stdoutSplitNL = str(stdout).split("\\n")
         logging.info('squeue results: {}'.format(stdoutSplitNL))
@@ -79,71 +111,94 @@ class Submission(object):
             info = stdoutSplitNL[1]
             info_split = info.strip().split(' ')
             slurm_status = str(info_split[0]).strip()
-            logging.info('slurm has status: {} for job name: {}'.format(slurm_status, self.slurm_job_name))
+            logging.info('slurm has status: {} for job name: {}'.format(slurm_status, self.active_slurm_job_name))
             if len(info_split) == 1:
-                self.actor.job_status = slurm_status
+                actor.update_job_status(self.leaderboard_name, self.data_split_name, slurm_status)
             else:
                 logging.warning("Incorrect format for status info: {}".format(info_split))
         elif len(stdoutSplitNL) == 2:
-            logging.info('squeue does not have status for job name: {}'.format(self.slurm_job_name))
+            logging.info('squeue does not have status for job name: {}'.format(self.active_slurm_job_name))
             # 1 entries means no state and job name was not found
             # if the job was not found, and this was a previously active submission, the results are ready for processing
-            self.process_results(g_drive, log_file_byte_limit)
+            self.process_results(actor, leaderboard, g_drive, log_file_byte_limit)
 
-            if self.slurm_queue == 'sts':
+            if self.data_split_name == 'sts':
                 # delete the container file to avoid filling up disk space for the STS server
                 time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-                submission_filepath = os.path.join(self.global_submission_dirpath, self.actor.name, time_str, self.file.name)
+                submission_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 os.remove(submission_filepath)
+            elif self.data_split_name == 'test':
+                # TODO: Implement checking for train results/submission . . .
+                # If it does not exist, then create a new submission using the test container
+                # use submission_manager to find valid submissions ... alternatively could use the actor_submission list...
+
+                pass
+            elif self.data_split_name == 'train':
+                # TODO: Check for matching test container
+                pass
+
+
+
         else:
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
 
             # attempt to process the result
-            self.process_results(g_drive, log_file_byte_limit)
+            self.process_results(actor, leaderboard, g_drive, log_file_byte_limit)
 
-            if self.slurm_queue == 'sts':
+            if self.data_split_name == 'sts':
                 # delete the container file to avoid filling up disk space for the STS server
                 time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-                submission_filepath = os.path.join(self.global_submission_dirpath, self.actor.name, time_str, self.file.name)
+                submission_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 os.remove(submission_filepath)
 
         logging.info("After Check submission: {}".format(self))
 
-    def execute(self, slurm_script, config_filepath: str, execution_epoch: int) -> None:
-        logging.info('Executing submission {} by {}'.format(self.file.name, self.actor.name))
+    def execute(self, actor: Actor, slurm_queue: str, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
+        logging.info('Executing submission {} by {}'.format(self.g_file.name, self.actor_name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(execution_epoch)
 
-        result_dirpath = os.path.join(self.global_results_dirpath, self.actor.name, time_str)
+        result_dirpath = os.path.join(self.actor_results_dirpath, time_str)
         if not os.path.exists(result_dirpath):
             logging.debug('Creating result directory: {}'.format(result_dirpath))
             os.makedirs(result_dirpath)
 
-        submission_dirpath = os.path.join(self.global_submission_dirpath, self.actor.name, time_str)
+        submission_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
         if not os.path.exists(submission_dirpath):
             logging.debug('Creating submission directory: {}'.format(submission_dirpath))
             os.makedirs(submission_dirpath)
 
-        self.slurm_job_name = self.actor.name
-        v100_slurm_queue = 'control'
+        self.active_slurm_job_name = self.get_slurm_job_name()
+
+        slurm_script_filepath = trojai_config.slurm_execute_script_filepath
+        v100_slurm_queue = trojai_config.control_slurm_queue_name
+        submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
+
+        # TODO: Update run_python.sh
+        # New version should indicate the following:
+        # 1. The filepath to the Leaderboard (used to fetch the task)
+        # 2. The submission filepath
+        # 3. The results dirpath
+        # 4. The team name
+        # 5. The email for the team
 
         # select which slurm queue to use and build the command string list
-        if self.slurm_queue == 'sts':
-            self.slurm_output_filename = self.actor.name + ".sts.log.txt"
-            self.confusion_output_filename = self.actor.name + ".sts.confusion.csv"
-            slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-
-            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "10", "--gres=gpu:1", "-J", self.slurm_job_name, "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-        else:
-            self.slurm_output_filename = self.actor.name + ".es.log.txt"
-            self.confusion_output_filename = self.actor.name + ".es.confusion.csv"
-            slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-
-            # ES queue uses "--nice" option to reduce priority by 100, allowing the STS to run when the ES if full
-            cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "30", "--gres=gpu:3", "-J", self.slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-
+        # if self.slurm_queue == 'sts':
+        #     self.slurm_output_filename = self.actor.name + ".sts.log.txt"
+        #     self.confusion_output_filename = self.actor.name + ".sts.confusion.csv"
+        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+        #
+        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "10", "--gres=gpu:1", "-J", self.slurm_job_name, "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
+        # else:
+        #     self.slurm_output_filename = self.actor.name + ".es.log.txt"
+        #     self.confusion_output_filename = self.actor.name + ".es.confusion.csv"
+        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+        #
+        #     # ES queue uses "--nice" option to reduce priority by 100, allowing the STS to run when the ES if full
+        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "30", "--gres=gpu:3", "-J", self.slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
+        cmd_str_list = ['placeholder']
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
         out = subprocess.Popen(cmd_str_list,
             stdout=subprocess.PIPE,
@@ -154,22 +209,21 @@ class Submission(object):
         if stderr == b'':
             job_id = int(stdout.strip())
             self.execution_epoch = execution_epoch
-
-            self.actor.job_status = "Queued"
-            self.actor.file_status = "Ok"
-            self.actor.last_execution_epoch = execution_epoch
-            self.actor.last_file_epoch = self.file.modified_epoch
+            actor.update_job_status(self.leaderboard_name, self.data_split_name, 'Queued')
+            actor.update_file_status(self.leaderboard_name, self.data_split_name, 'Ok')
+            actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
+            actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
             logging.info("Slurm job executed with job id: {}".format(job_id))
         else:
-            logging.error("The slurm script: {} resulted in errors {}".format(slurm_script, stderr))
+            logging.error("The slurm script: {} resulted in errors {}".format(slurm_script_filepath, stderr))
             self.web_display_execution_errors += ":Slurm Script Error:"
 
-    def process_results(self, g_drive: DriveIO, log_file_byte_limit: int) -> None:
-        logging.info("Checking results for {}".format(self.actor.name))
+    def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
+        logging.info("Checking results for {}".format(self.actor_name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-        info_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, "info.json")  # TODO put this filename into a config
-        slurm_log_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, self.slurm_output_filename)
+        info_filepath = os.path.join(self.actor_submission_dirpath, time_str, "info.json")  # TODO put this filename into a config
+        slurm_log_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.slurm_output_filename)
 
         # truncate log file to N bytes
         fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
@@ -190,7 +244,7 @@ class Submission(object):
         try:
             # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
             logging.info('**************************************************')
-            logging.info('Processing {}: Results'.format(self.actor.name))
+            logging.info('Processing {}: Results'.format(self.actor_name))
             logging.info('**************************************************')
 
             # initialize error strings to empty
@@ -199,16 +253,17 @@ class Submission(object):
 
             # Get the actual file that was downloaded for the submission
             logging.info('Loading metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
-            orig_file = self.file
-
-            submission_metadata_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, self.actor.name + ".metadata.json")
+            orig_g_file = self.g_file
+            submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.actor_name + ".metadata.json")
             if os.path.exists(submission_metadata_filepath):
                 try:
-                    self.file = GoogleDriveFile.load_json(submission_metadata_filepath)
-                    self.actor.last_file_epoch = self.file.modified_epoch
-                    if orig_file.id != self.file.id:
-                        logging.info('Originally Submitted File: "{}"'.format(self.file))
-                        logging.info('Updated Submission with Executed File: "{}"'.format(self.file))
+                    self.g_file = GoogleDriveFile.load_json(submission_metadata_filepath)
+                    actor.update_last_file_epoch(leaderboard.name, self.data_split_name, self.g_file.modified_epoch)
+
+                    if orig_g_file.id != self.g_file.id:
+                        logging.info('Originally Submitted File: "{}, id: {}"'.format(orig_g_file.name, orig_g_file.id))
+                        logging.info('Updated Submission with Executed File: "{}"'.format(self.g_file))
+
                     else:
                         logging.info('Drive file did not change between original submission and execution.')
                 except:
@@ -234,7 +289,7 @@ class Submission(object):
             # compute cross entropy
             default_result = 0.5
             logging.info('Computing cross entropy between predictions and ground truth.')
-            if self.slurm_queue == 'sts':
+            if self.data_split_name == 'sts':
                 logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
             predictions = np.array(list(results.values())).reshape(-1, 1)
             targets = np.array(list(ground_truth_dict.values())).reshape(-1, 1)
@@ -249,27 +304,43 @@ class Submission(object):
             logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
 
             predictions[np.isnan(predictions)] = default_result
-            elementwise_cross_entropy = metrics.elementwise_binary_cross_entropy(predictions, targets)
-            ce_95_ci = metrics.cross_entropy_confidence_interval(elementwise_cross_entropy)
-            self.cross_entropy = float(np.mean(elementwise_cross_entropy))
-            self.cross_entropy_95_confidence_interval = ce_95_ci
 
-            # compute Brier score
-            self.brier_score = metrics.binary_brier_score(predictions, targets)
 
-            TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
-            # cast to a float so its human readable in the joson
-            self.roc_auc = float(sklearn.metrics.auc(FPR, TPR))
+            metric_output_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
 
-            confusion_filepath = os.path.join(self.global_results_dirpath, self.actor.name, time_str, self.confusion_output_filename)
-            fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_filepath)
+            # Compute metrics
+            for metric in leaderboard.get_submission_metrics(self.data_split_name):
+                metric_name = metric.get_name()
+                metric_output = metric.compute(predictions, targets)
 
-            # generate_roc_image(fpr, tpr, submission.global_results_dirpath, submission.slurm_job_name)
-            logging.info('Binary Cross Entropy Loss: "{}"'.format(self.cross_entropy))
-            logging.info('ROC AUC: "{}"'.format(self.roc_auc))
-            if len(targets) < 2:
-                logging.info("  ROC Curve undefined for vectors of length: {}".format(len(targets)))
-            logging.info('Brier Score: "{}"'.format(self.brier_score))
+                if metric.store_result_in_submission:
+                    self.metric_results[metric_name] = metric_output['result']
+
+                if metric.share_with_actor:
+                    self.saved_metric_results[metric_name] = metric.write_data(metric_output, metric_output_dirpath)
+
+            output_files = []
+
+            # Gather metric output files
+            for metric_filepaths in self.saved_metric_results.values():
+                if isinstance(metric_filepaths, list):
+                    output_files.extend(metric_filepaths)
+                elif isinstance(metric_filepaths, str):
+                    output_files.append(metric_filepaths)
+
+            # Share metric output files with actor
+            for output_file in output_files:
+                try:
+                    if os.path.exists(output_file):
+                        g_drive.upload_and_share(output_file, self.actor_email)
+                    else:
+                        logging.error('Unable to upload file: {}'.format(output_file))
+                        if ":File Upload:" not in self.web_display_parse_errors:
+                            self.web_display_parse_errors += ":File Upload:"
+                except:
+                    logging.error('Unable to upload file: {}'.format(output_file))
+                    if ":File Upload:" not in self.web_display_parse_errors:
+                        self.web_display_parse_errors += ":File Upload:"
 
             # load the runtime info from the vm-executor
             if not os.path.exists(info_filepath):
@@ -300,22 +371,10 @@ class Submission(object):
             # set the global logging handlers back to its original level
             logging.getLogger().setLevel(cur_logging_level)
 
-        # upload confusion matrix file to drive
-        try:
-            if os.path.exists(confusion_filepath):
-                g_drive.upload_and_share(confusion_filepath, self.actor.email)
-            else:
-                logging.error('Failed to find confusion matrix file: {}'.format(confusion_filepath))
-                self.web_display_parse_errors += ":Confusion File Missing:"
-        except:
-            logging.error('Unable to upload confusion matrix output file: {}'.format(confusion_filepath))
-            if ":File Upload:" not in self.web_display_parse_errors:
-                self.web_display_parse_errors += ":File Upload:"
-
         # upload log file to drive
         try:
             if os.path.exists(slurm_log_filepath):
-                g_drive.upload_and_share(slurm_log_filepath, self.actor.email)
+                g_drive.upload_and_share(slurm_log_filepath, self.actor_email)
             else:
                 logging.error('Failed to find slurm output log file: {}'.format(slurm_log_filepath))
                 self.web_display_parse_errors += ":Log File Missing:"
@@ -331,12 +390,14 @@ class Submission(object):
             self.web_display_execution_errors = "None"
 
         logging.info('After process_results')
-        self.slurm_job_name = None
-        self.actor.job_status = "None"  # reset job status to enable next submission
+        self.active_slurm_job_name = None
+
+        actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
 
 class SubmissionManager(object):
-    def __init__(self):
+    def __init__(self, leaderboard_name):
+        self.leaderboard_name = leaderboard_name
         # keyed on email
         self.__submissions = dict()
 
@@ -368,10 +429,15 @@ class SubmissionManager(object):
 
         return holdout_execution_submissions
 
-    def add_submission(self, submission: Submission) -> None:
-        actor = submission.actor
-        if actor.email not in self.__submissions.keys():
-            self.__submissions[actor.email] = list()
+    def has_active_submission(self, actor: Actor):
+        submissions = self.__submissions[actor.email]
+        for submission in submissions:
+            if submission.is_active_job():
+                return True
+        return False
+
+
+    def add_submission(self, actor: Actor, submission: Submission) -> None:
         self.__submissions[actor.email].append(submission)
 
     def get_submissions_by_actor(self, actor: Actor) -> List[Submission]:
@@ -390,27 +456,23 @@ class SubmissionManager(object):
         return len(self.__submissions.keys())
 
     def save_json(self, filepath: str) -> None:
-        # make copies of all the actors to ensure json file is human readable on disk
-        import copy
-        for actor_email in self.__submissions.keys():
-            submissions = self.__submissions[actor_email]
-            for submission in submissions:
-                submission.actor = copy.deepcopy(submission.actor)
         json_io.write(filepath, self)
 
     @staticmethod
-    def init_file(filepath: str) -> None:
+    def init_file(filepath: str, leaderboard_name: str) -> None:
         # Create the json file if it does not exist already
         if not os.path.exists(filepath):
-            submissions = SubmissionManager()
+            submissions = SubmissionManager(leaderboard_name)
             submissions.save_json(filepath)
 
     @staticmethod
-    def load_json(filepath: str):
-        SubmissionManager.init_file(filepath)
+    def load_json(filepath: str, leaderboard_name: str):
+        SubmissionManager.init_file(filepath, leaderboard_name)
         return json_io.read(filepath)
 
     def get_score_table_unique(self):
+
+            # TODO: Update
         # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
         scores = []
 
@@ -445,6 +507,7 @@ class SubmissionManager(object):
         return scores
 
     def get_score_table(self):
+            # TODO: Update
         # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
         scores = []
 
