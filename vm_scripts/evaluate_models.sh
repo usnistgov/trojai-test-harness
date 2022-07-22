@@ -8,7 +8,7 @@
 
 
 CONTAINER_NAME=$1
-QUEUE_NAME=$2
+TASK_SCRIPT=$3
 
 MODEL_DIR=/home/trojai/models
 
@@ -45,7 +45,7 @@ do
 			done
 
 			# launch the job
-			./evaluate_model.sh $CONTAINER_NAME $QUEUE_NAME $dir $FREE_GPU_ID &
+			./evaluate_model.sh $CONTAINER_NAME $dir $FREE_GPU_ID $TASK_SCRIPT &
 			PROCESS_IDS[$FREE_GPU_ID]=$!
 		fi
 	fi

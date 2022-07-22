@@ -9,7 +9,7 @@ from actor_executor.tasks import *
 
 
 class Leaderboard(object):
-
+    TRAIN_DATASET_NAME = 'train'
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts']
     VALID_TASK_NAMES = {'image_summary' : ImageSummary(),
@@ -20,6 +20,7 @@ class Leaderboard(object):
                         'nlp_sentiment': NaturalLanguageProcessingSentiment(),
                         'nlp_ner': NaturalLanguageProcessingNamedEntityRecognition(),
                         'nlp_qa': NaturalLanguageProcessingQuestionAnswering()}
+
 
     # 15 minute timeout
     STS_TIMEOUT_TIME_SEC = 900
@@ -62,6 +63,9 @@ class Leaderboard(object):
 
     def get_submission_metrics(self, data_split_name):
         return self.dataset_manager.get_submission_metrics(data_split_name)
+
+    def get_dataset(self, data_split_name):
+        return self.dataset_manager.get(data_split_name)
 
     def get_ground_truth_dirpath(self, data_split_name):
         dataset = self.dataset_manager.get(data_split_name)
