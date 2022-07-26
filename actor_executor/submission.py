@@ -138,8 +138,6 @@ class Submission(object):
                 # TODO: Check for matching test container
                 pass
 
-
-
         else:
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
 
@@ -152,77 +150,23 @@ class Submission(object):
                 submission_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 os.remove(submission_filepath)
+            elif self.data_split_name == 'test':
+                # TODO: Implement checking for train results/submission . . .
+                # If it does not exist, then create a new submission using the test container
+                # use submission_manager to find valid submissions ... alternatively could use the actor_submission list...
+
+                pass
+            elif self.data_split_name == 'train':
+                # TODO: Check for matching test container
+                pass
 
         logging.info("After Check submission: {}".format(self))
-
-    def execute(self, actor: Actor, slurm_queue: str, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
-        logging.info('Executing submission {} by {}'.format(self.g_file.name, self.actor_name))
-
-        time_str = time_utils.convert_epoch_to_psudo_iso(execution_epoch)
-
-        result_dirpath = os.path.join(self.actor_results_dirpath, time_str)
-        if not os.path.exists(result_dirpath):
-            logging.debug('Creating result directory: {}'.format(result_dirpath))
-            os.makedirs(result_dirpath)
-
-        submission_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
-        if not os.path.exists(submission_dirpath):
-            logging.debug('Creating submission directory: {}'.format(submission_dirpath))
-            os.makedirs(submission_dirpath)
-
-        self.active_slurm_job_name = self.get_slurm_job_name()
-
-        slurm_script_filepath = trojai_config.slurm_execute_script_filepath
-        v100_slurm_queue = trojai_config.control_slurm_queue_name
-        submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
-
-        # TODO: Update run_python.sh
-        # New version should indicate the following:
-        # 1. The filepath to the Leaderboard (used to fetch the task)
-        # 2. The submission filepath
-        # 3. The results dirpath
-        # 4. The team name
-        # 5. The email for the team
-
-        # select which slurm queue to use and build the command string list
-        # if self.slurm_queue == 'sts':
-        #     self.slurm_output_filename = self.actor.name + ".sts.log.txt"
-        #     self.confusion_output_filename = self.actor.name + ".sts.confusion.csv"
-        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-        #
-        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "10", "--gres=gpu:1", "-J", self.slurm_job_name, "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-        # else:
-        #     self.slurm_output_filename = self.actor.name + ".es.log.txt"
-        #     self.confusion_output_filename = self.actor.name + ".es.confusion.csv"
-        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-        #
-        #     # ES queue uses "--nice" option to reduce priority by 100, allowing the STS to run when the ES if full
-        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "30", "--gres=gpu:3", "-J", self.slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-        cmd_str_list = ['placeholder']
-        logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
-        out = subprocess.Popen(cmd_str_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        stdout, stderr = out.communicate()
-
-        # Check if there are no errors reported from sbatch
-        if stderr == b'':
-            job_id = int(stdout.strip())
-            self.execution_epoch = execution_epoch
-            actor.update_job_status(self.leaderboard_name, self.data_split_name, 'Queued')
-            actor.update_file_status(self.leaderboard_name, self.data_split_name, 'Ok')
-            actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
-            actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
-            logging.info("Slurm job executed with job id: {}".format(job_id))
-        else:
-            logging.error("The slurm script: {} resulted in errors {}".format(slurm_script_filepath, stderr))
-            self.web_display_execution_errors += ":Slurm Script Error:"
 
     def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
         logging.info("Checking results for {}".format(self.actor_name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-        info_filepath = os.path.join(self.actor_submission_dirpath, time_str, "info.json")  # TODO put this filename into a config
+        info_filepath = os.path.join(self.actor_submission_dirpath, time_str, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.slurm_output_filename)
 
         # truncate log file to N bytes
@@ -263,7 +207,6 @@ class Submission(object):
                     if orig_g_file.id != self.g_file.id:
                         logging.info('Originally Submitted File: "{}, id: {}"'.format(orig_g_file.name, orig_g_file.id))
                         logging.info('Updated Submission with Executed File: "{}"'.format(self.g_file))
-
                     else:
                         logging.info('Drive file did not change between original submission and execution.')
                 except:
@@ -393,6 +336,70 @@ class Submission(object):
         self.active_slurm_job_name = None
 
         actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
+
+
+    def execute(self, actor: Actor, slurm_queue: str, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
+        logging.info('Executing submission {} by {}'.format(self.g_file.name, self.actor_name))
+
+        time_str = time_utils.convert_epoch_to_psudo_iso(execution_epoch)
+
+        result_dirpath = os.path.join(self.actor_results_dirpath, time_str)
+        if not os.path.exists(result_dirpath):
+            logging.debug('Creating result directory: {}'.format(result_dirpath))
+            os.makedirs(result_dirpath)
+
+        submission_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
+        if not os.path.exists(submission_dirpath):
+            logging.debug('Creating submission directory: {}'.format(submission_dirpath))
+            os.makedirs(submission_dirpath)
+
+        self.active_slurm_job_name = self.get_slurm_job_name()
+
+        slurm_script_filepath = trojai_config.slurm_execute_script_filepath
+        v100_slurm_queue = trojai_config.control_slurm_queue_name
+        submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
+
+        # TODO: Update run_python.sh
+        # New version should indicate the following:
+        # 1. The filepath to the Leaderboard (used to fetch the task)
+        # 2. The submission filepath
+        # 3. The results dirpath
+        # 4. The team name
+        # 5. The email for the team
+
+        # select which slurm queue to use and build the command string list
+        # if self.slurm_queue == 'sts':
+        #     self.slurm_output_filename = self.actor.name + ".sts.log.txt"
+        #     self.confusion_output_filename = self.actor.name + ".sts.confusion.csv"
+        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+        #
+        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "10", "--gres=gpu:1", "-J", self.slurm_job_name, "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
+        # else:
+        #     self.slurm_output_filename = self.actor.name + ".es.log.txt"
+        #     self.confusion_output_filename = self.actor.name + ".es.confusion.csv"
+        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+        #
+        #     # ES queue uses "--nice" option to reduce priority by 100, allowing the STS to run when the ES if full
+        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "30", "--gres=gpu:3", "-J", self.slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
+        cmd_str_list = ['placeholder']
+        logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
+        out = subprocess.Popen(cmd_str_list,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        stdout, stderr = out.communicate()
+
+        # Check if there are no errors reported from sbatch
+        if stderr == b'':
+            job_id = int(stdout.strip())
+            self.execution_epoch = execution_epoch
+            actor.update_job_status(self.leaderboard_name, self.data_split_name, 'Queued')
+            actor.update_file_status(self.leaderboard_name, self.data_split_name, 'Ok')
+            actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
+            actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
+            logging.info("Slurm job executed with job id: {}".format(job_id))
+        else:
+            logging.error("The slurm script: {} resulted in errors {}".format(slurm_script_filepath, stderr))
+            self.web_display_execution_errors += ":Slurm Script Error:"
 
 
 class SubmissionManager(object):

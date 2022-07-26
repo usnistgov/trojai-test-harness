@@ -9,6 +9,7 @@ from actor_executor.tasks import *
 
 
 class Leaderboard(object):
+    INFO_FILENAME = 'info.json'
     TRAIN_DATASET_NAME = 'train'
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts']

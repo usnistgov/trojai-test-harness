@@ -206,6 +206,7 @@ def main(trojai_config: TrojaiConfig) -> None:
     actor_manager.save_json(trojai_config)
 
     logging.debug('Serializing updated submission_managers back to json.')
+    # Should only have to save the submission manager. Leaderboard should be static
     for leaderboard_name, submission_manager in active_submission_managers.items():
         leaderboard = active_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard.submissions_filepath)
