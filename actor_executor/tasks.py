@@ -11,17 +11,21 @@ def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
     return child.wait()
 
+
 def check_file_in_container(container_filepath, filepath_in_container):
     child = subprocess.Popen(['singularity', 'exec', container_filepath, 'test', '-f', filepath_in_container])
     return child.wait()
+
 
 def check_dir_in_container(container_filepath, dirpath_in_container):
     child = subprocess.Popen(['singularity', 'exec', container_filepath, 'test', '-d', dirpath_in_container])
     return child.wait()
 
+
 def cleanup_scratch(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'rm', '-rf', '/mnt/scratch/*'])
     return child.wait()
+
 
 def rsync_file_to_vm(host, source_filepath, remove_path, source_params = [], remote_params = []):
     params = []
@@ -33,6 +37,7 @@ def rsync_file_to_vm(host, source_filepath, remove_path, source_params = [], rem
     child = subprocess.Popen(params)
     return child.wait()
 
+
 def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], remote_params = []):
     params = []
     params.extend(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete'])
@@ -43,9 +48,11 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     child = subprocess.Popen(params)
     return child.wait()
 
+
 def scp_dir_from_vm(host, remote_dirpath, source_dirpath):
     child = subprocess.Popen(['scp', '-r', '-q', 'trojai@{}:{}/*'.format(host, remote_dirpath), source_dirpath])
     return child.wait()
+
 
 def check_subprocess_error(sc, msg, errors, send_mail=False, subject=''):
     if sc != 0:
@@ -59,7 +66,7 @@ def check_subprocess_error(sc, msg, errors, send_mail=False, subject=''):
 
     return ''
 
-# TODO: Implement
+
 class Task(object):
     def __init__(self, task_script_filepath: str, source_data_name: str = 'source_data', evaluate_models_filepath: str = None,
                  evaluate_model_filepath: str = None, remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
@@ -204,13 +211,23 @@ class Task(object):
 
         info_dict['predictions'] = model_prediction_dict
 
+
 class ImageTask(Task):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, task_script_filepath=None):
+        if task_script_filepath is None:
+            task_dirpath = os.path.dirname(os.path.realpath(__file__))
+            task_scripts_dirpath = os.path.join(task_dirpath, '..', 'vm_scripts')
+            task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
+        super().__init__(task_script_filepath)
+
 
 class NaturalLanguageProcessingTask(Task):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, task_script_filepath=None):
+        if task_script_filepath is None:
+            task_dirpath = os.path.dirname(os.path.realpath(__file__))
+            task_scripts_dirpath = os.path.join(task_dirpath, '..', 'task_scripts')
+            task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
+        super().__init__(task_script_filepath)
 
         self.tokenizer_dirname = 'tokenizers'
 
@@ -224,9 +241,11 @@ class NaturalLanguageProcessingTask(Task):
 
         return errors
 
+
 class ImageSummary(ImageTask):
     def __init__(self):
         super().__init__()
+
 
 class ImageClassification(ImageTask):
     def __init__(self):
@@ -242,10 +261,10 @@ class ImageSegmentation(ImageTask):
     def __init__(self):
         super().__init__()
 
+
 class NaturalLanguageProcessingSummary(NaturalLanguageProcessingTask):
     def __init__(self):
         super().__init__()
-
 
 
 class NaturalLanguageProcessingSentiment(NaturalLanguageProcessingTask):
