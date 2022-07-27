@@ -17,6 +17,7 @@ from actor_executor import json_io
 
 from actor_executor import jsonschema_checker
 
+
 def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
     return child.wait()
@@ -262,12 +263,12 @@ if __name__ == "__main__":
         logging.error(msg)
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Model Data Copy Into VM Failed'.format(vm_name), message=msg)
 
-    logging.info('Copying in tokenizers: "{}"'.format(config.tokenizer_dir))
-    sc = copy_in_tokenizer(vmIp, config.tokenizer_dir)
-    if sc != 0:
-        msg = '"{}" Tokenizer copy in may have failed with status code "{}."'.format(vm_name, sc)
-        logging.error(msg)
-        TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Tokenizer Copy Into VM Failed'.format(vm_name), message=msg)
+    # logging.info('Copying in tokenizers: "{}"'.format(config.tokenizer_dir))
+    # sc = copy_in_tokenizer(vmIp, config.tokenizer_dir)
+    # if sc != 0:
+    #     msg = '"{}" Tokenizer copy in may have failed with status code "{}."'.format(vm_name, sc)
+    #     logging.error(msg)
+    #     TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" Tokenizer Copy Into VM Failed'.format(vm_name), message=msg)
 
     logging.info('Copying in source data: "{}"'.format(config.source_data_dir))
     sc = copy_in_source_data(vmIp, config.source_data_dir)
@@ -280,9 +281,9 @@ if __name__ == "__main__":
     logging.info('Starting Execution of ' + submission_name)
     # defined as 10min/model (adding 15min for VM boot and model download)
     if sts:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="330m")
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="165m")  # 1.1 * 150m
     else:
-        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="2120m")  #6360 / 3 (420 models * 15m per model / num GPUs)
+        executeStatus = execute_submission(vmIp, submission_name, config.slurm_queue, timeout="792m")  # 1.1 * 720m = 2160 / 3 (144 models * 15m per model / num GPUs)
     execution_time = time.time() - start_time
     logging.info('Submission "{}" runtime: {} seconds'.format(submission_name, execution_time))
 
