@@ -8,7 +8,7 @@ class TrojaiConfig(object):
     TROJAI_CONFIG_FILENAME = 'trojai_config.json'
     DEFAULT_VM_CONFIGURATION = {'gpu-vm-01': '192.168.200.2', 'gpu-vm-41': '192.168.200.3', 'gpu-vm-81': '192.168.200.4', 'gpu-vm-c1': '192.168.200.5'}
 
-    def __init__(self, trojai_dirpath: str, token_pickle_filepath: str, slurm_execute_script_filepath: str, init=False, control_slurm_queue_name='control'):
+    def __init__(self, trojai_dirpath: str, token_pickle_filepath: str, slurm_execute_script_filepath: str=None, init=False, control_slurm_queue_name='control'):
         self.trojai_dirpath = os.path.abspath(trojai_dirpath)
         self.trojai_config_filepath = os.path.join(self.trojai_dirpath, TrojaiConfig.TROJAI_CONFIG_FILENAME)
         self.token_pickle_filepath = token_pickle_filepath
@@ -19,7 +19,13 @@ class TrojaiConfig(object):
         self.leaderboard_configs_dirpath = os.path.join(self.trojai_dirpath, 'leaderboard-configs')
         self.actors_filepath = os.path.join(self.trojai_dirpath, 'actors.json')
         self.log_filepath = os.path.join(self.trojai_dirpath, 'trojai.log')
+
         self.slurm_execute_script_filepath = slurm_execute_script_filepath
+        if slurm_execute_script_filepath is None:
+            file_dirpath = os.path.dirname(os.path.realpath(__file__))
+            slurm_scripts_dirpath = os.path.join(file_dirpath, '..', 'slurm_scripts')
+            self.slurm_execute_script_filepath = os.path.normpath(os.path.join(slurm_scripts_dirpath, 'run_python.sh'))
+
         self.control_slurm_queue_name = control_slurm_queue_name
         self.accepting_submissions = False
         self.active_leaderboard_names = list()
@@ -65,11 +71,10 @@ if __name__ == "__main__":
                         help='The main trojai directory path',
                         required=True)
     parser.add_argument('--token-pickle-filepath', type=str, help='The token pickle filepath', required=True)
-    parser.add_argument('--slurm-execute-script-filepath', type=str, help='The filepath to the slurm execute script (trojai-test-harness/slurm_scripts/run_python.sh', required=True)
     parser.add_argument('--control-slurm-queue-name', type=str, help='The name of the slurm queue used for control', default='control')
     parser.add_argument('--init', action='store_true')
     args = parser.parse_args()
 
-    trojai_config = TrojaiConfig(args.trojai_dirpath, args.token_pickle_filepath, args.slurm_execute_script_filepath, args.init, args.control_slurm_queue_name)
+    trojai_config = TrojaiConfig(trojai_dirpath=args.trojai_dirpath, token_pickle_filepath=args.token_pickle_filepath, init=args.init, control_slurm_queue_name=args.control_slurm_queue_name)
     trojai_config.save_json()
     print('Created: {}'.format(trojai_config))

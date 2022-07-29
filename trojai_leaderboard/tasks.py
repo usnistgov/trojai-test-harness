@@ -79,13 +79,41 @@ class Task(object):
         self.remote_scratch = remote_scratch
 
         task_dirpath = os.path.dirname(os.path.realpath(__file__))
-        vm_scripts_dirpath = os.path.join(task_dirpath, '..', 'vm_scripts')
+        vm_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
 
         if self.evaluate_models_filepath is None:
             self.evaluate_models_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_models.sh')
 
         if self.evaluate_model_filepath is None:
             self.evaluate_model_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_model.sh')
+
+    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+        dataset_dirpath = dataset.dataset_dirpath
+        source_dataset_dirpath = os.path.join(dataset_dirpath, self.source_data_name)
+        models_dirpath = os.path.join(dataset_dirpath, Dataset.MODEL_DIRNAME)
+        required_files = ['model.pt', 'config.json']
+
+        if not os.path.exists(dataset_dirpath):
+            logging.error('Failed to verify dataset {} for leaderboard: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
+            return False
+
+        if not os.path.exists(source_dataset_dirpath):
+            logging.error('Failed to verify dataset {} for leaderboard: {}; source_dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
+            return False
+
+        if not os.path.exists(models_dirpath):
+            logging.error('Failed to verify dataset {} for leaderboard: {}; models_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, models_dirpath))
+            return False
+
+        for model_id_dir in os.listdir(models_dirpath):
+            for required_filename in required_files:
+                filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
+                if not os.path.exists(filepath):
+                    logging.error('Failed to verify dataset {} for leaderboard: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
+                    return False
+
+        logging.info('dataset {} for leaderboard {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
+        return True
 
     def run_basic_checks(self, vm_ip, vm_name):
         errors = ''
@@ -225,11 +253,20 @@ class NaturalLanguageProcessingTask(Task):
     def __init__(self, task_script_filepath=None):
         if task_script_filepath is None:
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
-            task_scripts_dirpath = os.path.join(task_dirpath, '..', 'task_scripts')
+            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'task_scripts'))
             task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
         super().__init__(task_script_filepath)
 
         self.tokenizer_dirname = 'tokenizers'
+
+    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+        tokenizers_dirpath = os.path.join(dataset.dataset_dirpath, self.tokenizer_dirname)
+
+        if not os.path.exists(tokenizers_dirpath):
+            logging.error('Failed to verify dataset {} for leaderboard: {}; tokenizers_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, tokenizers_dirpath))
+            return False
+
+        return super().verify_dataset(leaderboard_name, dataset)
 
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
         errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset)

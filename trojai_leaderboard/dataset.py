@@ -52,18 +52,6 @@ class Dataset(object):
     def get_ground_truth_dirpath(self):
         return self.groundtruth_dirpath
 
-    def verify(self):
-        # TODO: Add other things to verify, may also create sub-classes based on task type if we want to verify existance of special things (like tokenizers)
-        dataset_model_dirpath = os.path.join(self.dataset_dirpath, 'models')
-        dataset_metadata_filepath = os.path.join(self.dataset_dirpath, 'METADATA.xml')
-
-        if not os.path.exists(dataset_model_dirpath):
-            raise RuntimeError('Unable to find model dirpath for dataset: {}'.format(dataset_model_dirpath))
-
-        if not os.path.exists(dataset_metadata_filepath):
-            raise RuntimeError('Unable to find metadata filepath for dataset: {}'.format(dataset_metadata_filepath))
-
-
     def __str__(self):
         msg = "Dataset: \n"
         for key, value in self.__dict__.items():
@@ -101,12 +89,14 @@ class DatasetManager(object):
 
         return result
 
-    def add_dataset(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, timeout_time_sec: int):
-        if split_name in self.datasets.keys():
-            raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
+    def has_dataset(self, split_name: str):
+        return split_name in self.datasets.keys()
 
-        dataset = Dataset(trojai_config, leaderboard_name, split_name, can_submit, slurm_queue_name, slurm_priority, timeout_time_sec)
-        self.datasets[split_name] = dataset
+    def add_dataset(self, dataset: Dataset):
+        if dataset.dataset_name in self.datasets.keys():
+            raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(dataset.dataset_name))
+
+        self.datasets[dataset.dataset_name] = dataset
         dataset.initialize_directories()
         print('Created: {}'.format(dataset))
 

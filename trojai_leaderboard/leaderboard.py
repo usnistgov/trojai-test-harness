@@ -13,7 +13,7 @@ class Leaderboard(object):
     TRAIN_DATASET_NAME = 'train'
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts']
-    VALID_TASK_NAMES = {'image_summary' : ImageSummary(),
+    VALID_TASK_NAMES = {'image_summary': ImageSummary(),
                         'nlp_summary': NaturalLanguageProcessingSummary(),
                         'image_classification': ImageClassification(),
                         'image_object_detection' : ImageObjectDetection(),
@@ -23,15 +23,11 @@ class Leaderboard(object):
                         'nlp_qa': NaturalLanguageProcessingQuestionAnswering()}
 
 
-    # 15 minute timeout
-    STS_TIMEOUT_TIME_SEC = 900
-
-    GENERAL_SLURM_QUEUE_NAME = 'general'
+    GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
 
-    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, init=False, timeout_time_sec: int=259200):
+    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False):
         self.name = name
-        self.timeout_time_sec = timeout_time_sec
         self.task_name = task_name
 
         if self.task_name not in Leaderboard.VALID_TASK_NAMES:
@@ -44,23 +40,23 @@ class Leaderboard(object):
 
         self.dataset_manager = DatasetManager()
 
-        for split_name in Leaderboard.DEFAULT_DATASET_SPLIT_NAMES:
-            if split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
-                can_submit = True
-            else:
-                can_submit = False
+        if add_default_data_split:
+            for split_name in Leaderboard.DEFAULT_DATASET_SPLIT_NAMES:
+                if split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+                    can_submit = True
+                else:
+                    can_submit = False
 
-            if split_name == 'sts':
-                slurm_queue_name = Leaderboard.STS_SLURM_QUEUE_NAME
-                slurm_priority = 0
-            else:
-                slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
-                slurm_priority = 0
+                if split_name == 'sts':
+                    slurm_queue_name = Leaderboard.STS_SLURM_QUEUE_NAME
+                    slurm_priority = 0
+                else:
+                    slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
+                    slurm_priority = 0
 
-            self.dataset_manager.add_dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_priority)
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority)
 
-        if init:
-            self.initialize_directories()
+        self.initialize_directories()
 
     def get_submission_metrics(self, data_split_name):
         return self.dataset_manager.get_submission_metrics(data_split_name)
@@ -87,7 +83,15 @@ class Leaderboard(object):
         return self.dataset_manager.get_submission_dataset_split_names()
 
     def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int):
-        self.dataset_manager.add_dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_priority)
+        if self.dataset_manager.has_dataset(split_name):
+            raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
+
+        dataset = Dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_priority)
+        if self.task.verify_dataset(self.name, dataset):
+            self.dataset_manager.add_dataset(dataset)
+            return True
+        return False
+
 
     def get_timeout_window_time(self, data_split_name):
         if data_split_name == 'sts':
@@ -121,42 +125,54 @@ class Leaderboard(object):
         assert leaderboard_config.task_name in Leaderboard.VALID_TASK_NAMES
         return leaderboard_config
 
+def init(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    leaderboard = Leaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
+    leaderboard.save_json(trojai_config)
+    print('Created: {}'.format(leaderboard))
+
+def add_dataset(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    if args.slurm_queue_name is None:
+        slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
+    else:
+        slurm_queue_name = args.slurm_queue_name
+
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_priority):
+        leaderboard.save_json(trojai_config)
+
+        print('Added dataset {} to {}'.format(args.split_name, args.name))
+
+    print('Failed to add dataset')
+
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Creates a leaderboard config')
-    parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
-    parser.add_argument('--timeout', type=int, help='The timeout time in seconds for the leaderboard', default=259200)
-    parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES,
-                        help='The name of the task for this leaderboard', required=True)
-    parser.add_argument('--init', action='store_true')
+    parser = argparse.ArgumentParser(description='Runs leaderboard commands')
+    parser.set_defaults(func=lambda args: parser.print_help())
 
-    parser.add_argument('--add-dataset', help='Adds dataset to leaderboard in CSV format: "leaderboard_name,split_name,can_submit,slurm_priority"')
+    subparser = parser.add_subparsers(dest='cmd', required=True)
+
+    init_parser = subparser.add_parser('init')
+    init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    init_parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
+    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboard', required=True)
+    init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits: {}, if they fail task checks then will not be added. Need to call add-dataset when they are ready.'.format(Leaderboard.DEFAULT_DATASET_SPLIT_NAMES), action='store_true')
+    init_parser.set_defaults(func=init)
+
+    add_dataset_parser = subparser.add_parser('add-dataset')
+    add_dataset_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    add_dataset_parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
+    add_dataset_parser.add_argument('--split-name', type=str, help='The dataset split name', required=True)
+    add_dataset_parser.add_argument('--can-submit', action='store_true', help='Whether actors can submit to the dataset')
+    add_dataset_parser.add_argument('--slurm-queue-name', type=str, help='The name of the slurm queue')
+    add_dataset_parser.add_argument('--slurm-priority', type=int, help='The priority when launching jobs for this dataset', default=0)
+    add_dataset_parser.set_defaults(func=add_dataset)
 
     args = parser.parse_args()
 
-    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    args.func(args)
 
-    if args.add_dataset is not None:
-        items = args.add_dataset.split(',')
-        if len(items) != 5:
-            raise RuntimeError('Invalid number of arguments for adding dataset')
-        leaderboard_name = items[0]
-        split_name = items[1]
-        can_submit = items[2].lower() == 'true'
-        slurm_queue_name = items[3]
-        slurm_priority = int(items[4])
-
-        leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
-        leaderboard.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority)
-        leaderboard.save_json(trojai_config)
-
-        print('Added dataset {} to {}'.format(split_name, leaderboard_name))
-
-    else:
-        leaderboard = Leaderboard(args.name, args.task_name, trojai_config, init=True, timeout_time_sec=args.timeout)
-
-        leaderboard.save_json(trojai_config)
-
-        print('Created: {}'.format(leaderboard))
