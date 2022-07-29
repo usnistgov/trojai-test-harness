@@ -12,11 +12,11 @@ from pytablewriter import HtmlTableWriter
 from git import Repo
 from git.exc import GitCommandError
 
-from actor_executor.actor import Actor, ActorManager
-from actor_executor.submission import Submission, SubmissionManager
-from actor_executor import time_utils
-from actor_executor import slurm
-from actor_executor.mail_io import TrojaiMail
+from trojai_leaderboard.actor import Actor, ActorManager
+from trojai_leaderboard.submission import Submission, SubmissionManager
+from trojai_leaderboard import time_utils
+from trojai_leaderboard import slurm
+from trojai_leaderboard.mail_io import TrojaiMail
 
 # TODO: Update
 def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int, job_table_name: str, result_table_name: str, commit_and_push: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):

@@ -12,16 +12,16 @@ import traceback
 from typing import List
 from typing import Dict
 
-from actor_executor.drive_io import DriveIO
-from actor_executor.mail_io import TrojaiMail
-from actor_executor.google_drive_file import GoogleDriveFile
-from actor_executor.actor import Actor
-from actor_executor import json_io
-from actor_executor import slurm
-from actor_executor import time_utils
-from actor_executor import fs_utils
-from actor_executor.leaderboard import Leaderboard
-from actor_executor.trojai_config import TrojaiConfig
+from trojai_leaderboard.drive_io import DriveIO
+from trojai_leaderboard.mail_io import TrojaiMail
+from trojai_leaderboard.google_drive_file import GoogleDriveFile
+from trojai_leaderboard.actor import Actor
+from trojai_leaderboard import json_io
+from trojai_leaderboard import slurm
+from trojai_leaderboard import time_utils
+from trojai_leaderboard import fs_utils
+from trojai_leaderboard.leaderboard import Leaderboard
+from trojai_leaderboard.trojai_config import TrojaiConfig
 
 
 class Submission(object):

@@ -1,5 +1,5 @@
-from actor_executor.trojai_config import TrojaiConfig
-from actor_executor.metrics import *
+from trojai_leaderboard.trojai_config import TrojaiConfig
+from trojai_leaderboard.metrics import *
 import os
 
 class Dataset(object):

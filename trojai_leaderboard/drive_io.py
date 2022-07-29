@@ -16,7 +16,7 @@ from typing import List
 import socket
 socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
 
-from actor_executor.google_drive_file import GoogleDriveFile
+from trojai_leaderboard.google_drive_file import GoogleDriveFile
 
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request

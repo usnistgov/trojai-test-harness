@@ -7,11 +7,11 @@
 import os
 from typing import KeysView
 
-from actor_executor import json_io
-from actor_executor import slurm
-from actor_executor import time_utils
-from actor_executor.leaderboard import Leaderboard
-from actor_executor.trojai_config import TrojaiConfig
+from trojai_leaderboard import json_io
+from trojai_leaderboard import slurm
+from trojai_leaderboard import time_utils
+from trojai_leaderboard.leaderboard import Leaderboard
+from trojai_leaderboard.trojai_config import TrojaiConfig
 
 
 class Actor(object):

@@ -10,7 +10,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import sklearn.metrics
 
-from actor_executor import metrics
+from trojai_leaderboard import metrics
 from data_science import utils
 
 

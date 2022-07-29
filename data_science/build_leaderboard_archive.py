@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 
-from actor_executor import metrics
+from trojai_leaderboard import metrics
 
 
 def find_dirs(fp):

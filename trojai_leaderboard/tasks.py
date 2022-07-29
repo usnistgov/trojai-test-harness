@@ -2,9 +2,9 @@ import logging
 import os.path
 import subprocess
 import time
-from actor_executor.mail_io import TrojaiMail
-from actor_executor import jsonschema_checker
-from actor_executor.dataset import Dataset
+from trojai_leaderboard.mail_io import TrojaiMail
+from trojai_leaderboard import jsonschema_checker
+from trojai_leaderboard.dataset import Dataset
 
 
 def check_gpu(host):

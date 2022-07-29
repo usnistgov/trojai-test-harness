@@ -10,12 +10,12 @@ import logging
 import traceback
 import time
 
-from actor_executor.drive_io import DriveIO
-from actor_executor.trojai_config import TrojaiConfig
-from actor_executor.mail_io import TrojaiMail
-from actor_executor import json_io
+from trojai_leaderboard.drive_io import DriveIO
+from trojai_leaderboard.trojai_config import TrojaiConfig
+from trojai_leaderboard.mail_io import TrojaiMail
+from trojai_leaderboard import json_io
 
-from actor_executor import jsonschema_checker
+from trojai_leaderboard import jsonschema_checker
 # TODO: Use new task abstractions
 def check_gpu(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])

@@ -13,12 +13,12 @@ from typing import Dict
 
 import fcntl
 
-from actor_executor.trojai_config import TrojaiConfig
-from actor_executor.drive_io import DriveIO
-from actor_executor.actor import Actor, ActorManager
-from actor_executor.submission import Submission, SubmissionManager
-from actor_executor import time_utils
-from actor_executor.leaderboard import Leaderboard
+from trojai_leaderboard.trojai_config import TrojaiConfig
+from trojai_leaderboard.drive_io import DriveIO
+from trojai_leaderboard.actor import Actor, ActorManager
+from trojai_leaderboard.submission import Submission, SubmissionManager
+from trojai_leaderboard import time_utils
+from trojai_leaderboard.leaderboard import Leaderboard
 
 
 def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard],  active_submission_managers: Dict[str, SubmissionManager]) -> None:

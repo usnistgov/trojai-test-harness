@@ -8,7 +8,7 @@ import numpy as np
 import sklearn
 import os
 
-from actor_executor import fs_utils
+from trojai_leaderboard import fs_utils
 
 class Metric(object):
     def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool):

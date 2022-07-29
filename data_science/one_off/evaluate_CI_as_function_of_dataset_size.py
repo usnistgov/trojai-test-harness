@@ -6,7 +6,7 @@
 
 import numpy as np
 
-from actor_executor import metrics
+from trojai_leaderboard import metrics
 
 x_vals = list()
 y_vals = list()

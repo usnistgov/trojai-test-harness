@@ -1,11 +1,11 @@
 import os
 import numpy as np
 
-from actor_executor.trojai_config import TrojaiConfig
-from actor_executor import json_io
-from actor_executor.dataset import DatasetManager
-from actor_executor.metrics import *
-from actor_executor.tasks import *
+from trojai_leaderboard.trojai_config import TrojaiConfig
+from trojai_leaderboard import json_io
+from trojai_leaderboard.dataset import DatasetManager
+from trojai_leaderboard.metrics import *
+from trojai_leaderboard.tasks import *
 
 
 class Leaderboard(object):

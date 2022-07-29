@@ -1,6 +1,6 @@
 import os
 
-from actor_executor import json_io
+from trojai_leaderboard import json_io
 
 
 class TrojaiConfig(object):
