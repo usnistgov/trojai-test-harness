@@ -5,6 +5,7 @@ import time
 from trojai_leaderboard.mail_io import TrojaiMail
 from trojai_leaderboard import jsonschema_checker
 from trojai_leaderboard.dataset import Dataset
+from trojai_leaderboard.trojai_config import TrojaiConfig
 
 
 def check_gpu(host):
@@ -68,12 +69,11 @@ def check_subprocess_error(sc, msg, errors, send_mail=False, subject=''):
 
 
 class Task(object):
-    def __init__(self, task_script_filepath: str, source_data_name: str = 'source_data', evaluate_models_filepath: str = None,
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath: str, evaluate_models_filepath: str = None,
                  evaluate_model_filepath: str = None, remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
         self.evaluate_models_filepath = evaluate_models_filepath
         self.evaluate_model_filepath = evaluate_model_filepath
         self.task_script_filepath = task_script_filepath
-        self.source_data_name = source_data_name
 
         self.remote_home = remote_home
         self.remote_scratch = remote_scratch
@@ -89,7 +89,7 @@ class Task(object):
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         dataset_dirpath = dataset.dataset_dirpath
-        source_dataset_dirpath = os.path.join(dataset_dirpath, self.source_data_name)
+        source_dataset_dirpath = dataset.source_dataset_dirpath
         models_dirpath = os.path.join(dataset_dirpath, Dataset.MODEL_DIRNAME)
         required_files = ['model.pt', 'config.json']
 
@@ -97,9 +97,10 @@ class Task(object):
             logging.error('Failed to verify dataset {} for leaderboard: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
             return False
 
-        if not os.path.exists(source_dataset_dirpath):
-            logging.error('Failed to verify dataset {} for leaderboard: {}; source_dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
-            return False
+        if source_dataset_dirpath is not None:
+            if not os.path.exists(source_dataset_dirpath):
+                logging.error('Failed to verify dataset {} for leaderboard: {}; source_dataset_dirpath {} does not exist, if it should not exist, then set the dirpath to None in the leaderboard config'.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
+                return False
 
         if not os.path.exists(models_dirpath):
             logging.error('Failed to verify dataset {} for leaderboard: {}; models_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, models_dirpath))
@@ -168,11 +169,12 @@ class Task(object):
         errors += check_subprocess_error(sc, ':Copy in:', '{} submission copy in may have failed'.format(vm_name), send_mail=True, subject='{} submission copy failed'.format(vm_name))
 
         dataset_dirpath = dataset.dataset_dirpath
-        source_dataset_dirpath = os.path.join(dataset_dirpath, self.source_data_name)
+        source_dataset_dirpath = dataset.source_dataset_dirpath
 
         # copy in round training dataset and source data
-        sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, self.remote_home)
-        errors += check_subprocess_error(sc, ':Copy in:', '{} source dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} source dataset copy failed'.format(vm_name))
+        if source_dataset_dirpath is not None:
+            sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, self.remote_home)
+            errors += check_subprocess_error(sc, ':Copy in:', '{} source dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} source dataset copy failed'.format(vm_name))
         sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, self.remote_home)
         errors += check_subprocess_error(sc, ':Copy in:', '{} training dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} training dataset copy failed'.format(vm_name))
 
@@ -241,29 +243,26 @@ class Task(object):
 
 
 class ImageTask(Task):
-    def __init__(self, task_script_filepath=None):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         if task_script_filepath is None:
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
             task_scripts_dirpath = os.path.join(task_dirpath, '..', 'vm_scripts')
             task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
-        super().__init__(task_script_filepath)
+        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
 
 class NaturalLanguageProcessingTask(Task):
-    def __init__(self, task_script_filepath=None):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, '{}-tokenizers'.format(leaderboard_name))
         if task_script_filepath is None:
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
             task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'task_scripts'))
             task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
-        super().__init__(task_script_filepath)
-
-        self.tokenizer_dirname = 'tokenizers'
+        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
-        tokenizers_dirpath = os.path.join(dataset.dataset_dirpath, self.tokenizer_dirname)
-
-        if not os.path.exists(tokenizers_dirpath):
-            logging.error('Failed to verify dataset {} for leaderboard: {}; tokenizers_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, tokenizers_dirpath))
+        if not os.path.exists(self.tokenizers_dirpath):
+            logging.error('Failed to verify dataset {} for leaderboard: {}; tokenizers_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.tokenizers_dirpath))
             return False
 
         return super().verify_dataset(leaderboard_name, dataset)
@@ -272,50 +271,49 @@ class NaturalLanguageProcessingTask(Task):
         errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset)
 
         # Copy in tokenizers
-        tokenizers_dirpath = os.path.join(dataset.dataset_dirpath, self.tokenizer_dirname)
-        sc = rsync_dir_to_vm(vm_ip, tokenizers_dirpath, self.remote_home)
+        sc = rsync_dir_to_vm(vm_ip, self.tokenizers_dirpath, self.remote_home)
         errors += check_subprocess_error(sc, ':Copy in:', '{} tokenizers copy in may have failed'.format(vm_name), send_mail=True, subject='{} tokenizers copy failed'.format(vm_name))
 
         return errors
 
 
 class ImageSummary(ImageTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class ImageClassification(ImageTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class ImageObjectDetection(ImageTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class ImageSegmentation(ImageTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class NaturalLanguageProcessingSummary(NaturalLanguageProcessingTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class NaturalLanguageProcessingSentiment(NaturalLanguageProcessingTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class NaturalLanguageProcessingNamedEntityRecognition(NaturalLanguageProcessingTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 
 class NaturalLanguageProcessingQuestionAnswering(NaturalLanguageProcessingTask):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
 
 

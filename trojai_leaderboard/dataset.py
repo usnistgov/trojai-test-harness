@@ -11,8 +11,9 @@ class Dataset(object):
     DATASET_SUFFIX = 'dataset'
     DATASET_GROUNDTRUTH_NAME = 'groundtruth'
     MODEL_DIRNAME = 'models'
+    SOURCE_DATA_NAME = 'source_data'
 
-    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, timeout_time_per_model_sec: int=180, excluded_files=None):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool, timeout_time_per_model_sec: int=180, excluded_files=None):
         self.dataset_name = self.get_dataset_name(leaderboard_name, split_name)
 
         self.split_name = split_name
@@ -23,6 +24,9 @@ class Dataset(object):
         self.slurm_queue_name = slurm_queue_name
         self.slurm_priority = slurm_priority
         self.excluded_files = excluded_files
+        self.source_dataset_dirpath = None
+        if has_source_data:
+            self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, '{}-{}'.format(leaderboard_name, Dataset.SOURCE_DATA_NAME))
         if self.excluded_files is None:
             self.excluded_files = ['detailed_stats.csv', 'detailed_config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data.json', 'stats.json']
 
@@ -59,9 +63,7 @@ class Dataset(object):
         msg += ')'
         return msg
 
-
 class DatasetManager(object):
-
     def __init__(self):
         self.datasets = {}
 
