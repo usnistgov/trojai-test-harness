@@ -11,7 +11,7 @@ class Dataset(object):
     DATASET_SUFFIX = 'dataset'
     DATASET_GROUNDTRUTH_NAME = 'groundtruth'
     MODEL_DIRNAME = 'models'
-    SOURCE_DATA_NAME = 'source_data'
+    SOURCE_DATA_NAME = 'source-data'
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool, timeout_time_per_model_sec: int=180, excluded_files=None):
         self.dataset_name = self.get_dataset_name(leaderboard_name, split_name)
@@ -28,7 +28,7 @@ class Dataset(object):
         if has_source_data:
             self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, '{}-{}'.format(leaderboard_name, Dataset.SOURCE_DATA_NAME))
         if self.excluded_files is None:
-            self.excluded_files = ['detailed_stats.csv', 'detailed_config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data.json', 'stats.json']
+            self.excluded_files = ['detailed_stats.csv', 'detailed_config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data.json', 'stats.json', 'MEADATA.csv']
 
         self.submission_metrics = dict()
 
@@ -95,10 +95,10 @@ class DatasetManager(object):
         return split_name in self.datasets.keys()
 
     def add_dataset(self, dataset: Dataset):
-        if dataset.dataset_name in self.datasets.keys():
+        if dataset.split_name in self.datasets.keys():
             raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(dataset.dataset_name))
 
-        self.datasets[dataset.dataset_name] = dataset
+        self.datasets[dataset.split_name] = dataset
         dataset.initialize_directories()
         print('Created: {}'.format(dataset))
 

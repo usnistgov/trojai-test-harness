@@ -338,7 +338,7 @@ class Submission(object):
         actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
 
-    def execute(self, actor: Actor, slurm_queue: str, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
+    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, self.actor_name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(execution_epoch)
@@ -356,32 +356,31 @@ class Submission(object):
         self.active_slurm_job_name = self.get_slurm_job_name()
 
         slurm_script_filepath = trojai_config.slurm_execute_script_filepath
-        v100_slurm_queue = trojai_config.control_slurm_queue_name
+        task_executor_script_filepath = trojai_config.task_evaluator_script_filepath
+        python_executable = trojai_config.python_env
+        test_harness_dirpath = trojai_config.trojai_test_harness_dirpath
+        control_slurm_queue = trojai_config.control_slurm_queue_name
         submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
+        trojai_config_filepath = trojai_config.trojai_config_filepath
 
-        # TODO: Update run_python.sh
+        num_gpus = '1'
+        if self.data_split_name in trojai_config.gres_options.keys():
+            num_gpus = trojai_config.gres_options[self.data_split_name]
+
+        # TODO: Update when the VM has GPU
+        gres_options = '' #'--gres=gpu:{}'.format(num_gpus)
+
+
         # New version should indicate the following:
         # 1. The filepath to the Leaderboard (used to fetch the task)
         # 2. The submission filepath
         # 3. The results dirpath
         # 4. The team name
         # 5. The email for the team
-
-        # select which slurm queue to use and build the command string list
-        # if self.slurm_queue == 'sts':
-        #     self.slurm_output_filename = self.actor.name + ".sts.log.txt"
-        #     self.confusion_output_filename = self.actor.name + ".sts.confusion.csv"
-        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-        #
-        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "10", "--gres=gpu:1", "-J", self.slurm_job_name, "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-        # else:
-        #     self.slurm_output_filename = self.actor.name + ".es.log.txt"
-        #     self.confusion_output_filename = self.actor.name + ".es.confusion.csv"
-        #     slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-        #
-        #     # ES queue uses "--nice" option to reduce priority by 100, allowing the STS to run when the ES if full
-        #     cmd_str_list = ['sbatch', "--partition", v100_slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "1", ":", "--partition", self.slurm_queue, "--nodes", "1", "--ntasks-per-node", "1", "--cpus-per-task", "30", "--gres=gpu:3", "-J", self.slurm_job_name, "--nice", "--parsable", "-o", slurm_output_filepath, slurm_script, self.actor.name, submission_dirpath, result_dirpath, config_filepath, self.actor.email, slurm_output_filepath]
-        cmd_str_list = ['placeholder']
+        self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
+        slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+        cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
+        # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '10', gres_options, '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
         out = subprocess.Popen(cmd_str_list,
             stdout=subprocess.PIPE,
@@ -398,7 +397,8 @@ class Submission(object):
             actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
             logging.info("Slurm job executed with job id: {}".format(job_id))
         else:
-            logging.error("The slurm script: {} resulted in errors {}".format(slurm_script_filepath, stderr))
+            logging.error("The slurm script: {} resulted in errors {}".format(slurm_script_filepath, stderr.decode()))
+            logging.info(stdout.decode())
             self.web_display_execution_errors += ":Slurm Script Error:"
 
 
@@ -418,6 +418,8 @@ class SubmissionManager(object):
         return msg
 
     def gather_submissions(self, min_loss_criteria: float, execute_team_name: str) -> Dict[str, List[Submission]]:
+        # TODO: Update
+        raise NotImplementedError('Function is not updated')
         holdout_execution_submissions = dict()
 
         for actor_email in self.__submissions.keys():
@@ -437,7 +439,7 @@ class SubmissionManager(object):
         return holdout_execution_submissions
 
     def has_active_submission(self, actor: Actor):
-        submissions = self.__submissions[actor.email]
+        submissions = self.get_submissions_by_actor(actor)
         for submission in submissions:
             if submission.is_active_job():
                 return True
@@ -445,13 +447,13 @@ class SubmissionManager(object):
 
 
     def add_submission(self, actor: Actor, submission: Submission) -> None:
-        self.__submissions[actor.email].append(submission)
+        self.get_submissions_by_actor(actor).append(submission)
 
     def get_submissions_by_actor(self, actor: Actor) -> List[Submission]:
-        if actor.email in self.__submissions.keys():
-            return self.__submissions[actor.email]
-        else:
-            return list()
+        if actor.email not in self.__submissions.keys():
+            self.__submissions[actor.email] = list()
+
+        return self.__submissions[actor.email]
 
     def get_number_submissions(self) -> int:
         count = 0

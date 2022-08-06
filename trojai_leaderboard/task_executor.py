@@ -59,7 +59,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
         submission_name = os.path.basename(submission_filepath)
 
         g_drive = DriveIO(trojai_config.token_pickle_filepath)
-        g_drive_file = g_drive.submission_download(team_email, submission_dir, submission_metadata_filepath)
+        g_drive_file = g_drive.submission_download(team_email, submission_dir, submission_metadata_filepath, leaderboard.name, data_split_name)
 
         if submission_name != g_drive_file.name:
             logging.info('Name of file has changed since launching submission')

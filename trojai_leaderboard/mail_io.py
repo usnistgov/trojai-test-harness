@@ -12,6 +12,9 @@ from trojai_leaderboard import time_utils
 
 
 class TrojaiMail(object):
+
+    DEUGGING = True
+
     SERVER = "smtp.nist.gov"
     FROM = 'trojai@nist.gov'
     CACHE_FILEPATH = '/tmp/trojai-mail-cache.json'
@@ -37,6 +40,9 @@ class TrojaiMail(object):
         self.save_cache()
 
     def send(self, to: str, subject: str, message: str):
+        if TrojaiMail.DEUGGING:
+            return
+
         try:
             self.load_cache()
 

@@ -6,13 +6,10 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
+MODEL_DIR=$1
 
-CONTAINER_NAME=$1
-TASK_SCRIPT=$3
-
-MODEL_DIR=/home/trojai/models
-
-NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
+# TODO: Update
+NUM_GPUS=1 #`nvidia-smi --list-gpus | wc -l`
 
 # initialize process ids
 for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
@@ -44,8 +41,8 @@ do
 				sleep 1s
 			done
 
-			# launch the job
-			./evaluate_model.sh $CONTAINER_NAME $dir $FREE_GPU_ID $TASK_SCRIPT &
+			# launch the job with the remaining arguments
+			./evaluate_model.sh $dir $FREE_GPU_ID "${@:2}" &
 			PROCESS_IDS[$FREE_GPU_ID]=$!
 		fi
 	fi

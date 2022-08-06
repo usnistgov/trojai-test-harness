@@ -51,7 +51,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             valid_submissions[key] = []
 
     # Find valid files for submission
-    # TODO: Can we improve the general file status error?
+    # TODO: Can we improve the general file status error? Currently it captures multiple error scenarios: filename split valid, correct leaderboard, if an actor can submit
     for g_file in actor_file_list:
         filename = g_file.name
         filename_split = filename.split('_')
@@ -111,7 +111,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         submission_manager = active_submission_managers[leaderboard_name]
 
         if len(g_file_list) == 0:
-            logging.info('Actor {} does not have a submission from email {}.'.format(actor.name, actor.email))
+            logging.info('Actor {} does not have a submission from email {} for leaderboard {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'None')
             actor.update_job_status(leaderboard_name, data_split_name, 'None')
 
@@ -140,7 +140,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
                     submission = Submission(g_file, actor, leaderboard, data_split_name)
                     submission_manager.add_submission(actor, submission)
                     logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.g_file.name, actor.email))
-                    submission.execute(actor, leaderboard.get_slurm_queue_name(data_split_name), trojai_config, data_split_name, exec_epoch)
+                    submission.execute(actor, trojai_config, exec_epoch)
                 else:
                     logging.info('Submission found is the same as the last execution run for team {}; new file name: {}, new file epoch: {}, last file epoch: {}'.format(actor.name, g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
                     actor.update_job_status(leaderboard_name, data_split_name, 'None')
@@ -170,7 +170,7 @@ def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, ac
 
 def main(trojai_config: TrojaiConfig) -> None:
     # load the instance of ActorManager from the serialized json file
-    actor_manager = ActorManager.load_json(trojai_config.actors_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
     logging.debug('Loaded actor_manager from filepath: {}'.format(trojai_config.actors_filepath))
     logging.debug(actor_manager)
 
@@ -180,13 +180,15 @@ def main(trojai_config: TrojaiConfig) -> None:
     for leaderboard_name in trojai_config.active_leaderboard_names:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
         active_leaderboards[leaderboard_name] = leaderboard
-        active_submission_managers[leaderboard_name] = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+        submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+        active_submission_managers[leaderboard_name] = submission_manager
+        logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
         logging.info('Finished loading leaderboard and submission manager for: {}'.format(leaderboard_name))
         logging.debug(leaderboard)
         logging.debug(active_submission_managers[leaderboard_name])
 
     logging.info('Actor Manger has {} actors.'.format(len(actor_manager.get_keys())))
-    #logging.info('Submissions Manger has {} actors and {} total submissions.'.format(submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
+
 
     g_drive = DriveIO(trojai_config.token_pickle_filepath)
     # Loop over actors, checking if there is a submission for each
@@ -219,8 +221,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Check and Launch script for TrojAI challenge participants')
     parser.add_argument('--trojai-config-file', type=str,
-                        help='The JSON file that describes trojai.',
-                        default='trojai_config.json')
+                        help='The JSON file that describes trojai.', required=True)
 
     args = parser.parse_args()
 
@@ -242,6 +243,8 @@ if __name__ == "__main__":
             logging.basicConfig(level=logging.INFO,
                                 format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                                 handlers=[handler])
+            # TODO: Remove this
+            logging.getLogger().addHandler(logging.StreamHandler())
 
             logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_file))
             main(trojai_config)

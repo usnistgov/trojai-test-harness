@@ -19,6 +19,12 @@ class TrojaiConfig(object):
         self.leaderboard_configs_dirpath = os.path.join(self.trojai_dirpath, 'leaderboard-configs')
         self.actors_filepath = os.path.join(self.trojai_dirpath, 'actors.json')
         self.log_filepath = os.path.join(self.trojai_dirpath, 'trojai.log')
+        file_dirpath = os.path.dirname(os.path.realpath(__file__))
+        self.trojai_test_harness_dirpath = os.path.normpath(os.path.join(file_dirpath, '..'))
+        self.task_evaluator_script_filepath = os.path.join(file_dirpath, 'task_executor.py')
+        self.python_env = '/home/trojai/trojai-env/bin/python3'
+        self.gres_options = {'sts': '1', 'test': '3', 'train': '3', 'holdout': '3'}
+
 
         self.slurm_execute_script_filepath = slurm_execute_script_filepath
         if slurm_execute_script_filepath is None:

@@ -17,6 +17,7 @@ from trojai_leaderboard.submission import Submission, SubmissionManager
 
 # TODO: Update
 def main(config_filepath: str, trojai_config: TrojaiConfig, execute_team_name: str) -> None:
+    # TODO: Update
 
     if not os.path.exists(config.results_dir):
         logging.info('Creating results directory: {}'.format(config.results_dir))

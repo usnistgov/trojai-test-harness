@@ -28,12 +28,15 @@ def cleanup_scratch(host):
     return child.wait()
 
 
-def rsync_file_to_vm(host, source_filepath, remove_path, source_params = [], remote_params = []):
+def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], remote_params = []):
     params = []
-    params.extend(['rsync'])
+    params.extend(['rsync', '-e', 'ssh -q'])
     params.extend(source_params)
-    params.extend([source_filepath, 'trojai@'+host+':\"' + remove_path + '\"'])
+    params.extend([source_filepath, 'trojai@'+host+':\"' + remote_path + '\"'])
     params.extend(remote_params)
+
+    test = ' '.join(params)
+    logging.info(test)
 
     child = subprocess.Popen(params)
     return child.wait()
@@ -45,6 +48,9 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     params.extend(source_params)
     params.extend([source_dirpath, 'trojai@' + host + ':\"' + remote_dirpath + '\"'])
     params.extend(remote_params)
+
+    test = ' '.join(params)
+    logging.info(test)
 
     child = subprocess.Popen(params)
     return child.wait()
@@ -93,28 +99,31 @@ class Task(object):
         models_dirpath = os.path.join(dataset_dirpath, Dataset.MODEL_DIRNAME)
         required_files = ['model.pt', 'config.json']
 
+        is_valid = True
+
         if not os.path.exists(dataset_dirpath):
             logging.error('Failed to verify dataset {} for leaderboard: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
-            return False
+            is_valid = False
 
         if source_dataset_dirpath is not None:
             if not os.path.exists(source_dataset_dirpath):
                 logging.error('Failed to verify dataset {} for leaderboard: {}; source_dataset_dirpath {} does not exist, if it should not exist, then set the dirpath to None in the leaderboard config'.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
-                return False
+                is_valid = False
 
         if not os.path.exists(models_dirpath):
             logging.error('Failed to verify dataset {} for leaderboard: {}; models_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, models_dirpath))
-            return False
+            is_valid = False
 
         for model_id_dir in os.listdir(models_dirpath):
             for required_filename in required_files:
                 filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
                 if not os.path.exists(filepath):
                     logging.error('Failed to verify dataset {} for leaderboard: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
-                    return False
+                    is_valid = False
 
-        logging.info('dataset {} for leaderboard {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
-        return True
+        if is_valid:
+            logging.info('dataset {} for leaderboard {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
+        return is_valid
 
     def run_basic_checks(self, vm_ip, vm_name):
         errors = ''
@@ -161,6 +170,8 @@ class Task(object):
         permissions_params = ['--perms', '--chmod=u+rwx']
         sc = rsync_file_to_vm(vm_ip, self.evaluate_model_filepath, self.remote_home, source_params=permissions_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate model script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
+        sc = rsync_file_to_vm(vm_ip, self.evaluate_models_filepath, self.remote_home, source_params=permissions_params)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate models script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
         sc = rsync_file_to_vm(vm_ip, self.task_script_filepath, self.remote_home, source_params=permissions_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate models script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate models script copy failed'.format(vm_name))
 
@@ -179,27 +190,39 @@ class Task(object):
         errors += check_subprocess_error(sc, ':Copy in:', '{} training dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} training dataset copy failed'.format(vm_name))
 
         # copy in models
-        models_dirpath = os.path.join(dataset_dirpath, Dataset.MODEL_DIRNAME)
-        excluded_files_str = ','.join(dataset.excluded_files)
-        source_params = ['--exclude={' + excluded_files_str + '}']
-        sc = rsync_dir_to_vm(vm_ip, models_dirpath, self.remote_home, source_params=source_params)
+        source_params = []
+        for excluded_file in dataset.excluded_files:
+            source_params.append('--exclude={}'.format(excluded_file))
+        sc = rsync_dir_to_vm(vm_ip, dataset_dirpath, self.remote_home, source_params=source_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} model dataset {} copy in may have failed'.format(vm_name, dataset.dataset_name), send_mail=True, subject='{} dataset copy failed'.format(vm_name))
 
         return errors
 
-    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, info_dict: dict):
+    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict):
         errors = ''
         remote_evaluate_models_filepath = os.path.join(self.remote_home, os.path.basename(self.evaluate_models_filepath))
+        remote_models_dirpath = os.path.join(self.remote_home, dataset.dataset_name, Dataset.MODEL_DIRNAME)
         submission_name = os.path.basename(submission_filepath)
-        task_script_name = os.path.basename(self.task_script_filepath)
+        task_script_filepath = os.path.join(self.remote_home, os.path.basename(self.task_script_filepath))
+        remote_training_dataset_dirpath = os.path.join(self.remote_home, training_dataset.dataset_name)
 
         start_time = time.time()
         logging.info('Starting execution of {}.'.format(submission_name))
-        child = subprocess.Popen(['ssh', '-q', 'trojai@'+vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', dataset.timeout_time_sec + 's', remote_evaluate_models_filepath, '\"{}\"'.format(submission_name), task_script_name])
+
+        # First two parameters must be MODEL_DIR, CONTAINER_NAME, TASK SCRIPT FILEPATH, and round training dataset dirpath all remaining will be passed onto task-specific script
+
+        params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath,
+                                  remote_models_dirpath, '\"{}\"'.format(submission_name), task_script_filepath, remote_training_dataset_dirpath]
+
+        params.extend(self.get_custom_execute_params())
+
+        child = subprocess.Popen(params)
         execute_status = child.wait()
+
         execution_time = time.time() - start_time
         logging.info('Submission: {}, runtime: {} seconds'.format(submission_name, execution_time))
         logging.info('Execute statues: {}'.format(execute_status))
+
 
         if execute_status == -9 or execute_status == 124 or execute_status == (128+9):
             logging.error('VM {} execute submission {} timed out.'.format(vm_name, submission_name))
@@ -211,6 +234,9 @@ class Task(object):
         info_dict['execution_runtime'] = execution_time
 
         return errors
+
+    def get_custom_execute_params(self, dataset: Dataset):
+        return []
 
     def copy_out_results(self, vm_ip, vm_name, result_dirpath):
         logging.info('Copying out results')
@@ -250,6 +276,14 @@ class ImageTask(Task):
             task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
+    def get_custom_execute_params(self, dataset: Dataset):
+        custom_params = []
+        if dataset.source_dataset_dirpath is not None:
+            source_data_dirname = os.path.dirname(dataset.source_dataset_dirpath)
+            remote_source_data
+        tokenizer_dirname = os.path.dirname(self.tokenizers_dirpath)
+        remote_tokenizer_dirpath = os.path.join(self.remote_home, tokenizer_dirname)
+        return [remote_tokenizer_dirpath]
 
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
@@ -259,6 +293,11 @@ class NaturalLanguageProcessingTask(Task):
             task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'task_scripts'))
             task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+
+    def get_custom_execute_params(self, dataset: Dataset):
+        tokenizer_dirname = os.path.dirname(self.tokenizers_dirpath)
+        remote_tokenizer_dirpath = os.path.join(self.remote_home, tokenizer_dirname)
+        return [remote_tokenizer_dirpath]
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         if not os.path.exists(self.tokenizers_dirpath):

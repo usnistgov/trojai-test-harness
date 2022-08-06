@@ -66,12 +66,19 @@ class Actor(object):
         self.last_file_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
 
     def get_leaderboard_key(self, leaderboard_name, data_split_name):
-        return '{}_{}'.format(leaderboard_name, data_split_name)
+        key = '{}_{}'.format(leaderboard_name, data_split_name)
+        if key not in self.last_execution_epochs.keys() or key not in self.last_file_epochs.keys() or key not in self.job_statuses.keys() or key not in self.file_statuses.keys():
+            self.last_execution_epochs[key] = 0
+            self.last_file_epochs[key] = 0
+            self.job_statuses[key] = 'None'
+            self.file_statuses[key] = 'None'
+        return key
+
 
     def _has_leaderboard_metadata(self, leaderboard_name, data_split_name):
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
-        return leaderboard_key in self.last_file_epochs and leaderboard_key in self.last_execution_epochs \
-               and leaderboard_key in self.job_statuses and leaderboard_key in self.file_statuses
+        return leaderboard_key in self.last_file_epochs.keys() and leaderboard_key in self.last_execution_epochs.keys() \
+               and leaderboard_key in self.job_statuses.keys() and leaderboard_key in self.file_statuses.keys()
 
     def reset_leaderboard_submission(self, leaderboard_name, data_split_name):
         print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
@@ -105,7 +112,7 @@ class Actor(object):
 
     def can_submit_time_window(self, leaderboard_name, dataset_split_name, execute_window_seconds, cur_epoch) -> bool:
         # Check if the actor is allowed to execute again or not
-        last_execution_epoch = self.last_execution_epochs[self.get_leaderboard_key(leaderboard_name, dataset_split_name)]
+        last_execution_epoch = self.get_last_execution_epoch(leaderboard_name, dataset_split_name)
         if last_execution_epoch + execute_window_seconds <= cur_epoch:
             return True
         return False
@@ -211,89 +218,111 @@ class ActorManager(object):
                     file.write(str(actor.__dict__[key]) + ',')
                 file.write('\n')
 
+def add_actor(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+
+    team_name = args.name
+    email = args.email
+    poc_email = args.poc_email
+
+    try:
+        team_name = team_name.encode('ascii')
+    except:
+        raise RuntimeError('Team name must be ASCII only')
+
+    team_name = team_name.decode()
+    team_name = str(team_name)
+    invalid_chars = [" ", "/", ">", "<", "|", ":", "&", ",", ";", "?", "\\", "*"]
+    for char in invalid_chars:
+        if char in team_name:
+            raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
+
+    actor_manager.add_actor(trojai_config, email, team_name, poc_email)
+    actor_manager.save_json(trojai_config)
+
+
+def remove_actor(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+    actor_manager.remove_actor(args.email)
+    actor_manager.save_json(trojai_config)
+
+
+def reset_actor(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+
+    data_splits = set()
+    leaderboards = []
+
+    email = args.email
+    leaderboard_name = args.leaderboard
+    data_split = args.data_split
+
+    if leaderboard_name is not None:
+        leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+        leaderboards.append(leaderboard)
+        if data_split is not None:
+            data_splits.add(data_split)
+        else:
+            data_splits.update(leaderboard.get_submission_data_split_names())
+    else:
+        for leaderboard_name in trojai_config.active_leaderboard_names:
+            leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+            leaderboards.append(leaderboard)
+            data_splits.update(leaderboard.get_submission_data_split_names())
+
+    actor = actor_manager.get(email)
+
+    for leaderboard in leaderboards:
+        for data_split_name in data_splits:
+            if leaderboard.can_submit_to_dataset(data_split_name):
+                actor.reset_leaderboard_submission(leaderboard.name, data_split_name)
+            else:
+                print('WARNING: Unable to submit to leaderboard {} for split {}, did not reset'.format(leaderboard.name, data_split_name))
+
+    actor_manager.save_json(trojai_config)
+
+
+def actor_to_csv(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+    actor_manager.convert_to_csv(args.output_filepath)
+
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Creates an actor, and adds it to the actors.json')
-    parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    parser.set_defaults(func=lambda args: parser.print_help())
 
-    parser.add_argument('--add-actor', type=str,
-                        help='Adds an actor in CSV "ActorTeamName,ActorTeamEmail,PocEmail", this will exit after adding the actor',
-                        default=None)
-    parser.add_argument("--remove-actor", type=str,
-                        help='Removes an actor (based on actor team name), this will exit after removing the actor (the repo that is owned by the actor will not be deleted)',
-                        default=None)
-    parser.add_argument("--reset-actor", type=str,
-                        help='Resets a team to allow them to resubmit in CSV '
-                             '"ActorTeamEmail,leaderboard_name,data_split_name", '
-                             'or "ActorTeamEmail,leaderboard_name" for all data split in leaderboard, '
-                             'or "ActorTeamEmail for all leaderboards and data splits',
-                        default=None)
-    parser.add_argument('--convert-to-csv', type=str,
-                        help='The file to save actors to CSV (converts json to CSV)',
-                        default=None)
+    subparser = parser.add_subparsers(dest='cmd', required=True)
+
+    add_actor_parser = subparser.add_parser('add-actor')
+    add_actor_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    add_actor_parser.add_argument('--name', type=str, help='The name of the team to add', required=True)
+    add_actor_parser.add_argument('--email', type=str, help='The submission email of the team to add', required=True)
+    add_actor_parser.add_argument('--poc-email', type=str, help='The point of contact email of the team to add', required=True)
+    add_actor_parser.set_defaults(func=add_actor)
+
+    remove_actor_parser = subparser.add_parser('remove-actor')
+    remove_actor_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    remove_actor_parser.add_argument('--email', type=str, help='The email of the team to remove', required=True)
+    remove_actor_parser.set_defaults(func=remove_actor)
+
+    reset_actor_parser = subparser.add_parser('reset-actor')
+    reset_actor_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    reset_actor_parser.add_argument('--email', type=str, help='The email of the team to reset', required=True)
+    reset_actor_parser.add_argument('--leaderboard', type=str, help='The name of the leaderboard to reset, if used by itself will reset all data splits', default=None)
+    reset_actor_parser.add_argument('--data-split', type=str, help='The data split name to reset associated with leaderboard. Will only reset that leaderboard and data split.', default=None)
+    reset_actor_parser.set_defaults(func=reset_actor)
+
+    to_csv_parser = subparser.add_parser('to-csv')
+    to_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    to_csv_parser.add_argument('--output-filepath', type=str, help='The output filepath for the csv', default='actors.csv')
+    to_csv_parser.set_defaults(func=actor_to_csv)
 
     args = parser.parse_args()
 
-    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
-    actor_manager = ActorManager.load_json(trojai_config)
-
-    if args.add_actor is not None:
-        items = args.add_actor.split(',')
-        if len(items) != 3:
-            raise RuntimeError('Invalid number of CSV arguments for add-actor')
-
-        team_name = items[0]
-        email = items[1]
-        poc_email = items[2]
-
-        try:
-            team_name = team_name.encode('ascii')
-        except:
-            raise RuntimeError('Team name must be ASCII only')
-
-        team_name = team_name.decode()
-        team_name = str(team_name)
-        invalid_chars = [" ", "/", ">", "<", "|", ":", "&", ",", ";", "?", "\\", "*"]
-        for char in invalid_chars:
-            if char in team_name:
-                raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
-
-        actor_manager.add_actor(trojai_config, email, team_name, poc_email)
-
-
-    elif args.reset_actor is not None:
-        items = args.reset_actor.split(',')
-
-        data_splits = []
-        leaderboards = []
-
-        if len(items) == 3:
-            email = items[0]
-            leaderboards.append(items[1])
-            data_splits.append(items[2])
-        elif len(items) == 2:
-            email = items[0]
-            leaderboards.append(items[1])
-            data_splits.extend(Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES)
-        elif len(items) == 1:
-            email = items[0]
-            leaderboards.extend(trojai_config.active_leaderboard_names)
-            data_splits.extend(Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES)
-        else:
-            raise RuntimeError('Invalid number of CSV arguments for reset-actor')
-
-        actor = actor_manager.get(email)
-
-        for l_name in leaderboards:
-            for data_split_name in data_splits:
-                actor.reset_leaderboard_submission(l_name, data_split_name)
-
-    elif args.remove_actor is not None:
-        actor_manager.remove_actor(args.remove_actor)
-    elif args.convert_to_csv is not None:
-        actor_manager.convert_to_csv(args.convert_to_csv)
-        exit(0)
-
-    actor_manager.save_json(trojai_config)
+    args.func(args)
