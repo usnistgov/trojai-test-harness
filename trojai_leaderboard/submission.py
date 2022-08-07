@@ -5,6 +5,10 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
 import os
+import typing
+
+import collections
+
 import numpy as np
 import subprocess
 import logging
@@ -102,7 +106,7 @@ class Submission(object):
 
         stdout, stderr = slurm.squeue(self.active_slurm_job_name, self.slurm_queue_name)  # raises RuntimeError on failure
 
-        stdoutSplitNL = str(stdout).split("\\n")
+        stdoutSplitNL = stdout.decode().split("\n")
         logging.info('squeue results: {}'.format(stdoutSplitNL))
 
         # Check if we got a valid response from squeue
@@ -162,6 +166,76 @@ class Submission(object):
 
         logging.info("After Check submission: {}".format(self))
 
+    def load_ground_truth(self) -> typing.OrderedDict[str, float]:
+        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
+        ground_truth_dict = collections.OrderedDict()
+
+        if os.path.exists(self.ground_truth_dirpath):
+            for ground_truth_model in os.listdir(self.ground_truth_dirpath):
+
+                if not ground_truth_model.startswith('id-'):
+                    continue
+
+                ground_truth_model_dir = os.path.join(self.ground_truth_dirpath, ground_truth_model)
+
+                if not os.path.isdir(ground_truth_model_dir):
+                    continue
+
+                ground_truth_file = os.path.join(ground_truth_model_dir, "ground_truth.csv")
+
+                if not os.path.exists(ground_truth_file):
+                    continue
+
+                with open(ground_truth_file) as truth_file:
+                    file_contents = truth_file.readline().strip()
+                    ground_truth = float(file_contents)
+                    ground_truth_dict[ground_truth_model] = ground_truth
+
+        if len(ground_truth_dict) == 0:
+            raise RuntimeError(
+                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(self.ground_truth_dirpath))
+
+        return ground_truth_dict
+
+
+    def load_results(self, ground_truth_dict: typing.OrderedDict[str, float], time_str: str) -> typing.OrderedDict[str, float]:
+        # Dictionary storing results -- key = model name, value = prediction
+        results = collections.OrderedDict()
+
+        # loop over each model file trojan prediction is being made for
+        logging.info('Looping over ground truth files, computing cross entropy loss.')
+        for model_name in ground_truth_dict.keys():
+            result_filepath = os.path.join(self.actor_results_dirpath, time_str, model_name + ".txt")
+
+            # Check for result file, if its there we read it in
+            if os.path.exists(result_filepath):
+                try:
+                    with open(result_filepath) as file:
+                        file_contents = file.readline().strip()
+                        result = float(file_contents)
+                except:
+                    # if file parsing fails for any reason, the value is nan
+                    result = np.nan
+
+                # Check to ensure the result correctly parsed into a float
+                if np.isnan(result):
+                    if self.data_split_name == 'sts':
+                        logging.warning(
+                            'Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(
+                                model_name, file_contents, result))
+                    if ":Result Parse:" not in self.web_display_parse_errors:
+                        self.web_display_parse_errors += ":Result Parse:"
+
+                    results[model_name] = np.nan
+                else:
+                    results[model_name] = result
+            else:  # If the result file does not exist, then we fill it in with the default answer
+                logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
+                results[model_name] = np.nan
+
+        return results
+
+
     def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
         logging.info("Checking results for {}".format(self.actor_name))
 
@@ -219,7 +293,7 @@ class Submission(object):
                 self.web_display_parse_errors += ":Executed File Update:"
 
             try:
-                ground_truth_dict = fs_utils.load_ground_truth(self.ground_truth_dirpath)
+                ground_truth_dict = self.load_ground_truth()
             except:
                 msg = 'Unable to load ground truth results: "{}".\n{}'.format(self.ground_truth_dirpath, traceback.format_exc())
                 logging.error(msg)
@@ -227,10 +301,9 @@ class Submission(object):
                 raise
 
             # load the results from disk
-            results = fs_utils.load_results(ground_truth_dict, self, time_str)
+            results = self.load_results(ground_truth_dict, time_str)
 
-            # compute cross entropy
-            default_result = 0.5
+            default_result = leaderboard.get_default_prediction_result()
             logging.info('Computing cross entropy between predictions and ground truth.')
             if self.data_split_name == 'sts':
                 logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
@@ -252,8 +325,7 @@ class Submission(object):
             metric_output_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
 
             # Compute metrics
-            for metric in leaderboard.get_submission_metrics(self.data_split_name):
-                metric_name = metric.get_name()
+            for metric_name, metric in leaderboard.get_submission_metrics(self.data_split_name).items():
                 metric_output = metric.compute(predictions, targets)
 
                 if metric.store_result_in_submission:
@@ -354,6 +426,7 @@ class Submission(object):
             os.makedirs(submission_dirpath)
 
         self.active_slurm_job_name = self.get_slurm_job_name()
+        self.execution_epoch = execution_epoch
 
         slurm_script_filepath = trojai_config.slurm_execute_script_filepath
         task_executor_script_filepath = trojai_config.task_evaluator_script_filepath
@@ -387,10 +460,13 @@ class Submission(object):
             stderr=subprocess.PIPE)
         stdout, stderr = out.communicate()
 
+        # TODO: Remove once using SLURM
+        actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
+        actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
+
         # Check if there are no errors reported from sbatch
         if stderr == b'':
             job_id = int(stdout.strip())
-            self.execution_epoch = execution_epoch
             actor.update_job_status(self.leaderboard_name, self.data_split_name, 'Queued')
             actor.update_file_status(self.leaderboard_name, self.data_split_name, 'Ok')
             actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
@@ -471,6 +547,9 @@ class SubmissionManager(object):
     def init_file(filepath: str, leaderboard_name: str) -> None:
         # Create the json file if it does not exist already
         if not os.path.exists(filepath):
+            if not os.path.exists(os.path.dirname(filepath)):
+                os.makedirs(os.path.dirname(filepath))
+
             submissions = SubmissionManager(leaderboard_name)
             submissions.save_json(filepath)
 

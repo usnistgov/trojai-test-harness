@@ -82,6 +82,8 @@ class Task(object):
         self.evaluate_model_filepath = evaluate_model_filepath
         self.task_script_filepath = task_script_filepath
 
+        self.default_prediction_result = 0.5
+
         self.remote_home = remote_home
         self.remote_scratch = remote_scratch
 
@@ -242,9 +244,9 @@ class Task(object):
         args = ['--model-dir', remote_models_dirpath, '--container-name', '\"{}\"'.format(submission_name), '--task-script', task_script_filepath, '--training-dir', remote_training_dataset_dirpath]
 
         if dataset.source_dataset_dirpath is not None:
-            source_data_dirname = os.path.dirname(dataset.source_dataset_dirpath)
+            source_data_dirname = os.path.basename(dataset.source_dataset_dirpath)
             remote_source_data_dirpath = os.path.join(self.remote_home, source_data_dirname)
-            args.extend(['--sourcedir', remote_source_data_dirpath])
+            args.extend(['--source-dir', remote_source_data_dirpath])
 
         return args
 
@@ -300,9 +302,9 @@ class NaturalLanguageProcessingTask(Task):
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
     def get_custom_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
-        tokenizer_dirname = os.path.dirname(self.tokenizers_dirpath)
+        tokenizer_dirname = os.path.basename(self.tokenizers_dirpath)
         remote_tokenizer_dirpath = os.path.join(self.remote_home, tokenizer_dirname)
-        return ['--tokenizerdir', remote_tokenizer_dirpath]
+        return ['--tokenizer-dir', remote_tokenizer_dirpath]
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         if not os.path.exists(self.tokenizers_dirpath):

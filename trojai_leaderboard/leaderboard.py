@@ -61,6 +61,9 @@ class Leaderboard(object):
     def get_submission_metrics(self, data_split_name):
         return self.dataset_manager.get_submission_metrics(data_split_name)
 
+    def get_default_prediction_result(self):
+        return self.task.default_prediction_result
+
     def get_dataset(self, data_split_name):
         return self.dataset_manager.get(data_split_name)
 

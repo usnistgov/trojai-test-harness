@@ -51,9 +51,9 @@ mkdir -p $SCRATCH_DIR
 mkdir -p $ACTIVE_DIR
 
 # clean up scratch directory prior to running each model
-rm -rf $SCRATCH_DIR/*
+rm -rf "${SCRATCH_DIR:?}"/*
 # pre-preemptively clean up the active directory
-rm -rf $ACTIVE_DIR/*
+rm -rf "${ACTIVE_DIR:?}"/*
 # Copy model to the active folder to obscure its name
 cp -r $dir/* $ACTIVE_DIR
 

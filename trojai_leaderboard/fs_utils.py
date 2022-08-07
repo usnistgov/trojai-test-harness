@@ -23,37 +23,6 @@ def truncate_log_file(filepath: str, byte_limit: int):
                 fh.write('\n\n**** Log File Truncated ****\n\n')
 
 
-def load_ground_truth(ground_truth_dir: str) -> typing.OrderedDict[str, float]:
-    # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
-    ground_truth_dict = collections.OrderedDict()
-
-    if os.path.exists(ground_truth_dir):
-        for ground_truth_model in os.listdir(ground_truth_dir):
-
-            if not ground_truth_model.startswith('id-'):
-                continue
-
-            ground_truth_model_dir = os.path.join(ground_truth_dir, ground_truth_model)
-
-            if not os.path.isdir(ground_truth_model_dir):
-                continue
-
-            ground_truth_file = os.path.join(ground_truth_model_dir, "ground_truth.csv")
-
-            if not os.path.exists(ground_truth_file):
-                continue
-
-            with open(ground_truth_file) as truth_file:
-                file_contents = truth_file.readline().strip()
-                ground_truth = float(file_contents)
-                ground_truth_dict[ground_truth_model] = ground_truth
-
-    if len(ground_truth_dict) == 0:
-        raise RuntimeError('ground_truth_dict length was zero. No ground truth found in "{}"'.format(ground_truth_dir))
-
-    return ground_truth_dict
-
-
 def write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_filepath):
     with open(confusion_filepath, 'w', newline='\n') as fh:
         fh.write('Threshold, TP, FP, FN, TN, TPR, FPR\n')
@@ -61,37 +30,4 @@ def write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR,
             fh.write('{}, {:d}, {:d}, {:d}, {:d}, {}, {}\n'.format(float(thresholds[i]), int(TP_counts[i]), int(FP_counts[i]), int(FN_counts[i]), int(TN_counts[i]), float(TPR[i]), float(FPR[i])))
 
 
-def load_results(ground_truth_dict: typing.OrderedDict[str, float], submission, time_str: str):
-    # Dictionary storing results -- key = model name, value = prediction
-    results = collections.OrderedDict()
 
-    # loop over each model file trojan prediction is being made for
-    logging.info('Looping over ground truth files, computing cross entropy loss.')
-    for model_name in ground_truth_dict.keys():
-        result_filepath = os.path.join(submission.global_results_dirpath, submission.actor.name, time_str, model_name + ".txt")
-
-        # Check for result file, if its there we read it in
-        if os.path.exists(result_filepath):
-            try:
-                with open(result_filepath) as file:
-                    file_contents = file.readline().strip()
-                    result = float(file_contents)
-            except:
-                # if file parsing fails for any reason, the value is nan
-                result = np.nan
-
-            # Check to ensure the result correctly parsed into a float
-            if np.isnan(result):
-                if submission.slurm_queue == 'sts':
-                    logging.warning('Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(model_name, file_contents, result))
-                if ":Result Parse:" not in submission.web_display_parse_errors:
-                    submission.web_display_parse_errors += ":Result Parse:"
-
-                results[model_name] = np.nan
-            else:
-                results[model_name] = result
-        else:  # If the result file does not exist, then we fill it in with the default answer
-            logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
-            results[model_name] = np.nan
-
-    return results

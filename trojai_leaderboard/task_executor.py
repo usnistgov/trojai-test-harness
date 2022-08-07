@@ -34,7 +34,15 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
 
     errors = ''
     info_dict = {}
-    submission_metadata_filepath = os.path.join(result_dirpath, team_name + '.metadata.json')
+    submission_dirpath = os.path.dirname(submission_filepath)
+
+    if not os.path.exists(submission_dirpath):
+        os.makedirs(submission_dirpath)
+
+    if not os.path.exists(result_dirpath):
+        os.makedirs(result_dirpath)
+
+    submission_metadata_filepath = os.path.join(submission_dirpath, team_name + '.metadata.json')
     # error_filepath = os.path.join(result_dirpath, 'errors.txt')
     info_file = os.path.join(result_dirpath, 'info.json')
 

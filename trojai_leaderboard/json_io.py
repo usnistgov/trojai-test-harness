@@ -6,6 +6,8 @@
 
 import fcntl
 import json
+import os.path
+
 import jsonpickle
 import logging
 import traceback
@@ -20,9 +22,11 @@ def write(filepath, obj):
     with open(lock_file, 'w') as lfh:
         try:
             fcntl.lockf(lfh, fcntl.LOCK_EX)
+
             with open(filepath, mode='w', encoding='utf-8') as f:
                 f.write(jsonpickle.encode(obj, warn=True, indent=2))
-        except:
+        except Exception as ex:
+            logging.error(ex)
             msg = 'json_io failed writing file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
             TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
             raise
