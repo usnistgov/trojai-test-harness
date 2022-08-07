@@ -6,12 +6,33 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
+EXTRA_ARGS=()
+echo "evaluate model" "$@"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --model-dir)
+    shift
+    dir=$1 ;;
+  --gpu-id)
+    shift
+    GPU_ID=$1 ;;
+  --container-name)
+    shift
+    CONTAINER_NAME=$1 ;;
+  --task-script)
+    shift
+    TASK_SCRIPT=$1 ;;
+  *)
+    EXTRA_ARGS+=("$1") ;;
+  esac
+  # Expose next argument
+  shift
+done
 
-dir=$1
-GPU_ID=$2
-CONTAINER_NAME=$3
-TASK_SCRIPT=$4
+# Set positional arguments
+set -- "${EXTRA_ARGS[@]}"
 
+echo "Launching task: $TASK_SCRIPT"
 
 ACTIVE_DIR="/home/trojai/active_$GPU_ID"
 
@@ -37,7 +58,7 @@ rm -rf $ACTIVE_DIR/*
 cp -r $dir/* $ACTIVE_DIR
 
 echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Starting execution of $dir" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt $TASK_SCRIPT $RESULT_DIR $MODEL $SCRATCH_DIR $CONTAINER_EXEC $ACTIVE_DIR $CONTAINER_NAME "${@:5}"
+/usr/bin/time -f "execution_time %e" -o $RESULT_DIR/$MODEL-walltime.txt "$TASK_SCRIPT" --result-dir $RESULT_DIR --scratch-dir $SCRATCH_DIR --container-exec $CONTAINER_EXEC --active-dir $ACTIVE_DIR --container-name $CONTAINER_NAME "$@"
 echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Finished executing $dir, returned status code: $?"
 
 # copy result back to real output filename based on model name

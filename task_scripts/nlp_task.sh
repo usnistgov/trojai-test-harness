@@ -5,24 +5,48 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-RESULT_DIR=$1
-MODEL=$2
-SCRATCH_DIR=$3
-CONTAINER_EXEC=$4
-ACTIVE_DIR=$5
-CONTAINER_NAME=$6
-ROUND_TRAINING_DATASET_DIR=$7
+echo "nlp task" "$@"
+EXTRA_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --result-dir)
+    shift
+    RESULT_DIR=$1 ;;
+  --scratch-dir)
+    shift
+    SCRATCH_DIR=$1 ;;
+  --container-exec)
+    shift
+    CONTAINER_EXEC=$1 ;;
+  --active-dir)
+    shift
+    ACTIVE_DIR=$1 ;;
+  --container-name)
+    shift
+    CONTAINER_NAME=$1 ;;
+  --training-dir)
+    shift
+    ROUND_TRAINING_DATASET_DIR=$1 ;;
+  --source-dir)
+    shift
+    SOURCE_DATA_DIR=$1 ;;
+  --tokenizer-dir)
+    shift
+    TOKENIZER_DIR=$1 ;;
+  *)
+    EXTRA_ARGS+=("$1") ;;
+  esac
+  # Expose next argument
+  shift
+done
 
-# CUSTOM PARAMS start at 8
-SOURCE_DATA_DIR=$8
-TOKENIZER_DIR=$9
 
 METAPARAMETERS_FILE=/metaparameters.json
 METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
 LEARNED_PARAMETERS_DIR=/learned_parameters
 
 # Determine which embedding, tokenizer, and cls to use
-TOKENIZER_FILENAME=`cat $dir/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['tokenizer_filename'])"`
+TOKENIZER_FILENAME=`cat $ACTIVE_DIR/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['tokenizer_filename'])"`
 TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
 
 singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro \

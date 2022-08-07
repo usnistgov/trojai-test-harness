@@ -5,16 +5,38 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-RESULT_DIR=$1
-MODEL=$2
-SCRATCH_DIR=$3
-CONTAINER_EXEC=$4
-ACTIVE_DIR=$5
-CONTAINER_NAME=$6
-ROUND_TRAINING_DATASET_DIR=$7
+echo "image task" "$@"
+EXTRA_ARGS=()
 
-# CUSTOM PARAMS start at 8
-SOURCE_DATA_DIR=$8
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --result-dir)
+    shift
+    RESULT_DIR=$1 ;;
+  --scratch-dir)
+    shift
+    SCRATCH_DIR=$1 ;;
+  --container-exec)
+    shift
+    CONTAINER_EXEC=$1 ;;
+  --active-dir)
+    shift
+    ACTIVE_DIR=$1 ;;
+  --container-name)
+    shift
+    CONTAINER_NAME=$1 ;;
+  --training-dir)
+    shift
+    ROUND_TRAINING_DATASET_DIR=$1 ;;
+  --source-dir)
+    shift
+    SOURCE_DATA_DIR=$1 ;;
+  *)
+    EXTRA_ARGS+=("$1") ;;
+  esac
+  # Expose next argument
+  shift
+done
 
 METAPARAMETERS_FILE=/metaparameters.json
 METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json

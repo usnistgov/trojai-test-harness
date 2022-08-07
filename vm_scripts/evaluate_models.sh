@@ -6,7 +6,22 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-MODEL_DIR=$1
+EXTRA_ARGS=()
+echo "evaluate models" "$@"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --model-dir)
+    shift
+    MODEL_DIR=$1 ;;
+  *)
+    EXTRA_ARGS+=("$1") ;;
+  esac
+  # Expose next argument
+  shift
+done
+
+# Set positional arguments
+set -- "${EXTRA_ARGS[@]}"
 
 # TODO: Update
 NUM_GPUS=1 #`nvidia-smi --list-gpus | wc -l`
@@ -41,8 +56,8 @@ do
 				sleep 1s
 			done
 
-			# launch the job with the remaining arguments
-			./evaluate_model.sh $dir $FREE_GPU_ID "${@:2}" &
+			# launch the job with the remaining argument
+			./evaluate_model.sh --model-dir $dir --gpu-id $FREE_GPU_ID "$@" &
 			PROCESS_IDS[$FREE_GPU_ID]=$!
 		fi
 	fi

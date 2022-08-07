@@ -82,7 +82,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset)
 
     # Step 7) Execute submission and check errors
-    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, info_dict)
+    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict)
 
     # Step 8) Copy out results
     errors += task.copy_out_results(vm_ip, vm_name, result_dirpath)

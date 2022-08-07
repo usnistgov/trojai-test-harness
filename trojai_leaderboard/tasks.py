@@ -36,7 +36,7 @@ def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], rem
     params.extend(remote_params)
 
     test = ' '.join(params)
-    logging.info(test)
+    logging.debug(test)
 
     child = subprocess.Popen(params)
     return child.wait()
@@ -50,13 +50,14 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     params.extend(remote_params)
 
     test = ' '.join(params)
-    logging.info(test)
+    logging.debug(test)
 
     child = subprocess.Popen(params)
     return child.wait()
 
 
 def scp_dir_from_vm(host, remote_dirpath, source_dirpath):
+    logging.debug('remote: {} to {}'.format(remote_dirpath, source_dirpath))
     child = subprocess.Popen(['scp', '-r', '-q', 'trojai@{}:{}/*'.format(host, remote_dirpath), source_dirpath])
     return child.wait()
 
@@ -201,20 +202,17 @@ class Task(object):
     def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict):
         errors = ''
         remote_evaluate_models_filepath = os.path.join(self.remote_home, os.path.basename(self.evaluate_models_filepath))
-        remote_models_dirpath = os.path.join(self.remote_home, dataset.dataset_name, Dataset.MODEL_DIRNAME)
         submission_name = os.path.basename(submission_filepath)
-        task_script_filepath = os.path.join(self.remote_home, os.path.basename(self.task_script_filepath))
-        remote_training_dataset_dirpath = os.path.join(self.remote_home, training_dataset.dataset_name)
 
         start_time = time.time()
         logging.info('Starting execution of {}.'.format(submission_name))
 
         # First two parameters must be MODEL_DIR, CONTAINER_NAME, TASK SCRIPT FILEPATH, and round training dataset dirpath all remaining will be passed onto task-specific script
 
-        params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath,
-                                  remote_models_dirpath, '\"{}\"'.format(submission_name), task_script_filepath, remote_training_dataset_dirpath]
+        params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
 
-        params.extend(self.get_custom_execute_params())
+        params.extend(self.get_basic_execute_args(submission_filepath, dataset, training_dataset))
+        params.extend(self.get_custom_execute_args(submission_filepath, dataset, training_dataset))
 
         child = subprocess.Popen(params)
         execute_status = child.wait()
@@ -235,7 +233,23 @@ class Task(object):
 
         return errors
 
-    def get_custom_execute_params(self, dataset: Dataset):
+    def get_basic_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
+        remote_models_dirpath = os.path.join(self.remote_home, dataset.dataset_name, Dataset.MODEL_DIRNAME)
+        remote_training_dataset_dirpath = os.path.join(self.remote_home, training_dataset.dataset_name)
+        submission_name = os.path.basename(submission_filepath)
+        task_script_filepath = os.path.join(self.remote_home, os.path.basename(self.task_script_filepath))
+
+        args = ['--model-dir', remote_models_dirpath, '--container-name', '\"{}\"'.format(submission_name), '--task-script', task_script_filepath, '--training-dir', remote_training_dataset_dirpath]
+
+        if dataset.source_dataset_dirpath is not None:
+            source_data_dirname = os.path.dirname(dataset.source_dataset_dirpath)
+            remote_source_data_dirpath = os.path.join(self.remote_home, source_data_dirname)
+            args.extend(['--sourcedir', remote_source_data_dirpath])
+
+        return args
+
+
+    def get_custom_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
         return []
 
     def copy_out_results(self, vm_ip, vm_name, result_dirpath):
@@ -276,15 +290,6 @@ class ImageTask(Task):
             task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
-    def get_custom_execute_params(self, dataset: Dataset):
-        custom_params = []
-        if dataset.source_dataset_dirpath is not None:
-            source_data_dirname = os.path.dirname(dataset.source_dataset_dirpath)
-            remote_source_data
-        tokenizer_dirname = os.path.dirname(self.tokenizers_dirpath)
-        remote_tokenizer_dirpath = os.path.join(self.remote_home, tokenizer_dirname)
-        return [remote_tokenizer_dirpath]
-
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, '{}-tokenizers'.format(leaderboard_name))
@@ -294,10 +299,10 @@ class NaturalLanguageProcessingTask(Task):
             task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
-    def get_custom_execute_params(self, dataset: Dataset):
+    def get_custom_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
         tokenizer_dirname = os.path.dirname(self.tokenizers_dirpath)
         remote_tokenizer_dirpath = os.path.join(self.remote_home, tokenizer_dirname)
-        return [remote_tokenizer_dirpath]
+        return ['--tokenizerdir', remote_tokenizer_dirpath]
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         if not os.path.exists(self.tokenizers_dirpath):
