@@ -54,7 +54,9 @@ class Leaderboard(object):
                     slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
                     slurm_priority = 0
 
-                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority)
+                # TODO: Add check for source data
+                has_source_data = True
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority, has_source_data)
 
         self.initialize_directories()
 
@@ -67,9 +69,9 @@ class Leaderboard(object):
     def get_dataset(self, data_split_name):
         return self.dataset_manager.get(data_split_name)
 
-    def get_ground_truth_dirpath(self, data_split_name):
+    def load_ground_truth(self, data_split_name):
         dataset = self.dataset_manager.get(data_split_name)
-        return dataset.groundtruth_dirpath
+        return self.task.load_ground_truth(dataset)
 
     def get_result_dirpath(self, data_split_name):
         dataset = self.dataset_manager.get(data_split_name)

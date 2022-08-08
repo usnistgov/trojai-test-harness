@@ -166,37 +166,8 @@ class Submission(object):
 
         logging.info("After Check submission: {}".format(self))
 
-    def load_ground_truth(self) -> typing.OrderedDict[str, float]:
-        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
-        ground_truth_dict = collections.OrderedDict()
-
-        if os.path.exists(self.ground_truth_dirpath):
-            for ground_truth_model in os.listdir(self.ground_truth_dirpath):
-
-                if not ground_truth_model.startswith('id-'):
-                    continue
-
-                ground_truth_model_dir = os.path.join(self.ground_truth_dirpath, ground_truth_model)
-
-                if not os.path.isdir(ground_truth_model_dir):
-                    continue
-
-                ground_truth_file = os.path.join(ground_truth_model_dir, "ground_truth.csv")
-
-                if not os.path.exists(ground_truth_file):
-                    continue
-
-                with open(ground_truth_file) as truth_file:
-                    file_contents = truth_file.readline().strip()
-                    ground_truth = float(file_contents)
-                    ground_truth_dict[ground_truth_model] = ground_truth
-
-        if len(ground_truth_dict) == 0:
-            raise RuntimeError(
-                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(self.ground_truth_dirpath))
-
-        return ground_truth_dict
-
+    def load_ground_truth(self, leaderboard: Leaderboard) -> typing.OrderedDict[str, float]:
+        return leaderboard.load_ground_truth(self.data_split_name)
 
     def load_results(self, ground_truth_dict: typing.OrderedDict[str, float], time_str: str) -> typing.OrderedDict[str, float]:
         # Dictionary storing results -- key = model name, value = prediction
@@ -293,7 +264,7 @@ class Submission(object):
                 self.web_display_parse_errors += ":Executed File Update:"
 
             try:
-                ground_truth_dict = self.load_ground_truth()
+                ground_truth_dict = self.load_ground_truth(leaderboard)
             except:
                 msg = 'Unable to load ground truth results: "{}".\n{}'.format(self.ground_truth_dirpath, traceback.format_exc())
                 logging.error(msg)

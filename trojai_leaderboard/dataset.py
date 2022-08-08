@@ -9,7 +9,7 @@ class Dataset(object):
     DEFAULT_TIMEOUT_SEC = 180 * 300 + BUFFER_TIME
     DEFAULT_STS_TIMEOUT_SEC = 180 * 10 + BUFFER_TIME
     DATASET_SUFFIX = 'dataset'
-    DATASET_GROUNDTRUTH_NAME = 'groundtruth'
+    # DATASET_GROUNDTRUTH_NAME = 'groundtruth'
     MODEL_DIRNAME = 'models'
     SOURCE_DATA_NAME = 'source-data'
 
@@ -19,7 +19,7 @@ class Dataset(object):
         self.split_name = split_name
         self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, self.dataset_name)
         self.results_dirpath = os.path.join(trojai_config.results_dirpath, self.dataset_name)
-        self.groundtruth_dirpath = os.path.join(self.dataset_dirpath, Dataset.DATASET_GROUNDTRUTH_NAME)
+        # self.groundtruth_dirpath = os.path.join(self.dataset_dirpath, Dataset.DATASET_GROUNDTRUTH_NAME)
         self.can_submit = can_submit
         self.slurm_queue_name = slurm_queue_name
         self.slurm_priority = slurm_priority
@@ -27,8 +27,11 @@ class Dataset(object):
         self.source_dataset_dirpath = None
         if has_source_data:
             self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, '{}-{}'.format(leaderboard_name, Dataset.SOURCE_DATA_NAME))
+
         if self.excluded_files is None:
             self.excluded_files = ['detailed_stats.csv', 'detailed_config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data.json', 'stats.json', 'MEADATA.csv']
+
+        self.required_files = ['model.pt', 'ground_truth.csv', 'clean-example-data.json', 'config.json']
 
         self.submission_metrics = dict()
 
@@ -36,7 +39,7 @@ class Dataset(object):
             metric_inst = metric()
             self.submission_metrics[metric_inst.get_name()] = metric_inst
 
-        model_dirpath = os.path.join(self.dataset_dirpath, 'models')
+        model_dirpath = os.path.join(self.dataset_dirpath, Dataset.MODEL_DIRNAME)
         if os.path.exists(model_dirpath):
             num_models = len([name for name in os.listdir(model_dirpath) if os.path.isdir(os.path.join(model_dirpath, name))])
             self.timeout_time_sec = num_models * timeout_time_per_model_sec

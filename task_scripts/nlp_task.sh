@@ -46,8 +46,11 @@ METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
 LEARNED_PARAMETERS_DIR=/learned_parameters
 
 # Determine which embedding, tokenizer, and cls to use
-TOKENIZER_FILENAME=`cat $ACTIVE_DIR/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['tokenizer_filename'])"`
-TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
+#TOKENIZER_FILENAME=`cat $ACTIVE_DIR/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['tokenizer_filename'])"`
+MODEL_ARCHITECTURE=`cat $ACTIVE_DIR/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['model_architecture'])"`
+
+#TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
+TOKENIZER_FILEPATH=$TOKENIZER_DIR/"$MODEL_ARCHITECTURE".pt
 
 singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro \
   --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv \

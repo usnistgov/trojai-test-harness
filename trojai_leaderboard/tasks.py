@@ -2,6 +2,9 @@ import logging
 import os.path
 import subprocess
 import time
+import typing
+import collections
+
 from trojai_leaderboard.mail_io import TrojaiMail
 from trojai_leaderboard import jsonschema_checker
 from trojai_leaderboard.dataset import Dataset
@@ -100,7 +103,6 @@ class Task(object):
         dataset_dirpath = dataset.dataset_dirpath
         source_dataset_dirpath = dataset.source_dataset_dirpath
         models_dirpath = os.path.join(dataset_dirpath, Dataset.MODEL_DIRNAME)
-        required_files = ['model.pt', 'config.json']
 
         is_valid = True
 
@@ -118,7 +120,7 @@ class Task(object):
             is_valid = False
 
         for model_id_dir in os.listdir(models_dirpath):
-            for required_filename in required_files:
+            for required_filename in dataset.required_files:
                 filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
                 if not os.path.exists(filepath):
                     logging.error('Failed to verify dataset {} for leaderboard: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
@@ -127,6 +129,39 @@ class Task(object):
         if is_valid:
             logging.info('dataset {} for leaderboard {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
         return is_valid
+
+    def load_ground_truth(self, dataset: Dataset) -> typing.OrderedDict[str, float]:
+        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
+        ground_truth_dict = collections.OrderedDict()
+
+        models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
+
+        if os.path.exists(models_dirpath):
+            for model_dir in os.listdir(models_dirpath):
+
+                if not model_dir.startswith('id-'):
+                    continue
+
+                model_dirpath = os.path.join(models_dirpath, model_dir)
+
+                if not os.path.isdir(model_dirpath):
+                    continue
+
+                ground_truth_file = os.path.join(model_dirpath, "ground_truth.csv")
+
+                if not os.path.exists(ground_truth_file):
+                    continue
+
+                with open(ground_truth_file) as truth_file:
+                    file_contents = truth_file.readline().strip()
+                    ground_truth = float(file_contents)
+                    ground_truth_dict[str(model_dir)] = ground_truth
+
+        if len(ground_truth_dict) == 0:
+            raise RuntimeError(
+                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(models_dirpath))
+
+        return ground_truth_dict
 
     def run_basic_checks(self, vm_ip, vm_name):
         errors = ''
