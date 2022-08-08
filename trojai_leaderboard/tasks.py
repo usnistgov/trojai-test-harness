@@ -130,39 +130,6 @@ class Task(object):
             logging.info('dataset {} for leaderboard {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
         return is_valid
 
-    def load_ground_truth(self, dataset: Dataset) -> typing.OrderedDict[str, float]:
-        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
-        ground_truth_dict = collections.OrderedDict()
-
-        models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
-
-        if os.path.exists(models_dirpath):
-            for model_dir in os.listdir(models_dirpath):
-
-                if not model_dir.startswith('id-'):
-                    continue
-
-                model_dirpath = os.path.join(models_dirpath, model_dir)
-
-                if not os.path.isdir(model_dirpath):
-                    continue
-
-                ground_truth_file = os.path.join(model_dirpath, "ground_truth.csv")
-
-                if not os.path.exists(ground_truth_file):
-                    continue
-
-                with open(ground_truth_file) as truth_file:
-                    file_contents = truth_file.readline().strip()
-                    ground_truth = float(file_contents)
-                    ground_truth_dict[str(model_dir)] = ground_truth
-
-        if len(ground_truth_dict) == 0:
-            raise RuntimeError(
-                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(models_dirpath))
-
-        return ground_truth_dict
-
     def run_basic_checks(self, vm_ip, vm_name):
         errors = ''
         logging.info('Checking GPU status')
@@ -192,13 +159,6 @@ class Task(object):
             logging.error('Jsonschema contained errors.')
             errors += ':Container Parameters (jsonschema checker):'
 
-        return errors
-
-    def cleanup_vm(self, vm_ip, vm_name):
-        errors = ''
-        logging.info('Performing VM cleanup.')
-        sc = cleanup_scratch(vm_ip)
-        errors += check_subprocess_error(sc, ':Cleanup:', '{} cleanup failed with status code {}'.format(vm_name, sc))
         return errors
 
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
@@ -285,7 +245,6 @@ class Task(object):
 
         return args
 
-
     def get_custom_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
         return []
 
@@ -317,6 +276,46 @@ class Task(object):
                 pass
 
         info_dict['predictions'] = model_prediction_dict
+
+    def cleanup_vm(self, vm_ip, vm_name):
+        errors = ''
+        logging.info('Performing VM cleanup.')
+        sc = cleanup_scratch(vm_ip)
+        errors += check_subprocess_error(sc, ':Cleanup:', '{} cleanup failed with status code {}'.format(vm_name, sc))
+        return errors
+
+    def load_ground_truth(self, dataset: Dataset) -> typing.OrderedDict[str, float]:
+        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
+        ground_truth_dict = collections.OrderedDict()
+
+        models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
+
+        if os.path.exists(models_dirpath):
+            for model_dir in os.listdir(models_dirpath):
+
+                if not model_dir.startswith('id-'):
+                    continue
+
+                model_dirpath = os.path.join(models_dirpath, model_dir)
+
+                if not os.path.isdir(model_dirpath):
+                    continue
+
+                ground_truth_file = os.path.join(model_dirpath, "ground_truth.csv")
+
+                if not os.path.exists(ground_truth_file):
+                    continue
+
+                with open(ground_truth_file) as truth_file:
+                    file_contents = truth_file.readline().strip()
+                    ground_truth = float(file_contents)
+                    ground_truth_dict[str(model_dir)] = ground_truth
+
+        if len(ground_truth_dict) == 0:
+            raise RuntimeError(
+                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(models_dirpath))
+
+        return ground_truth_dict
 
 
 class ImageTask(Task):

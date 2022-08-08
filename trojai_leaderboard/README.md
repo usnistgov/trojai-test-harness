@@ -1,3 +1,40 @@
+# Design philosophy
+
+Trojai consists of multiple leaderboards. Each leaderboard targets a specific task, contains a set of datasets, and a set of metrics per dataset that is computed on actor predictions compared with dataset ground truth.
+
+The datasets describe the required files and any files that can be omitted when doing evaluation.
+
+The leaderboard's task is unique per leaderboard, and each dataset should be in-line with that task. Overall the task is responsible for and specializes:
+1. Verifying the dataset (contains the required files)
+2. Check submissions for necessary requirements
+3. Copy in necessary data into VM 
+4. Execute the submission
+5. Copy out results
+6. Clean up the VM for next execution
+
+All components are configured based on a couple of json files:
+1. trojai_config.json -- Configuration for all of trojai
+2. leaderboard configs -- Describes a leaderboard and its datasets
+3. actors -- Describes all actors in trojai
+4. submissions -- Describes the submissions into a leaderboard
+
+
+## Setup Trojai Back-end
+
+1. Run trojai_config.py to create trojai configuration json file
+2. Run leaderboard.py "init" to create a leaderboard (specify --add-default-datasplit, to add "test, sts, holdout, and train" datasets, should only be done after they are added into the datasets folder, use the name "LEADERBOARD_NAME-SPLIT_NAME-dataset")
+3. Run leaderboard.py "add-dataset" to add datasets to a leaderboard (for any datasets )
+4. Run actor.py "add-actor" to add an actor
+
+Customize trojai_config.json, and json files in leaderboard-configs directory.  
+
+## Setup Trojai Front-end
+
+1. Clone https://github.com/usnistgov/trojai html   (place into html folder or as configured in trojai_config.json)
+2. git checkout nist-pages (web-hook page)
+3. Ensure execution user of check_and_launch_actors.py has permission to push to trojai repo.
+
+
 # Setup Drive API Access
 
 Goto the Developer console
