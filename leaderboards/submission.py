@@ -488,9 +488,8 @@ class Submission(object):
                     predictions, targets = self.get_predictions_targets(leaderboard)
                     self.compute_metric(metric, predictions, targets)
                     # TODO: Do we want to share with g_drive any new metrics computed automatically?
-
-                metric_value = self.metric_results[metric_name]
                 if metric.write_html:
+                    metric_value = self.metric_results[metric_name]
                     a.th(klass='th-sm', _t=str(metric_value))
 
             a.th(klass='th-sm', _t=execute_timestr)
@@ -617,7 +616,7 @@ class SubmissionManager(object):
                             best_submission = None
                             for s in submissions:
 
-                                evaluation_metric_name = leaderboard.get_submission_metrics(s.data_split_name)
+                                evaluation_metric_name = leaderboard.get_evaluation_metric_name(s.data_split_name)
 
                                 if evaluation_metric_name in s.metric_results.keys():
                                     metric_score = s.metric_results[evaluation_metric_name]

@@ -27,7 +27,7 @@ class Leaderboard(object):
     GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
 
-    TABLE_NAMES = ['results-unique', 'results', 'jobs']
+    TABLE_NAMES = ['results', 'all-results', 'jobs']
 
     def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False):
         self.name = name
@@ -67,7 +67,7 @@ class Leaderboard(object):
         for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
             self.html_data_split_name_priorities[split_name] = 0
             for table_name in Leaderboard.TABLE_NAMES:
-                key = '{}-{}-{}'.format(table_name, self.name, split_name)
+                key = '{}-{}-{}'.format(self.name, split_name, table_name)
                 if table_name == 'jobs':
                     self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc'}
                 else:

@@ -82,7 +82,7 @@ class Actor(object):
                and leaderboard_key in self.job_statuses.keys() and leaderboard_key in self.file_statuses.keys()
 
     def reset_leaderboard_submission(self, leaderboard_name, data_split_name):
-        print('Resetting {} for leaderboards: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
+        print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
         self.last_execution_epochs[leaderboard_key] = 0
         self.last_file_epochs[leaderboard_key] = 0
@@ -121,7 +121,7 @@ class Actor(object):
     def get_jobs_table_row(self, a: Airium, leaderboard_name, data_split_name, execute_window, current_epoch):
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
 
-        # Check if this is the first time we've encountered this leaderboards
+        # Check if this is the first time we've encountered this leaderboard
         if not self._has_leaderboard_metadata(leaderboard_name, data_split_name):
             self.reset_leaderboard_submission(leaderboard_name, data_split_name)
 

@@ -20,7 +20,7 @@ from leaderboards.mail_io import TrojaiMail
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
 
-def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
+def update_html_pages(trojai_config: TrojaiConfig, active_leaderboards_dict: dict, active_submission_managers_dict: dict, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
 
     lock_filepath = "/var/lock/htmlpush-lockfile"
@@ -29,8 +29,7 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
             fcntl.lockf(fh_lock, fcntl.LOCK_EX)
 
             active_leaderboards = []
-            for leaderboard_name in trojai_config.active_leaderboard_names:
-                leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+            for leaderboard_name, leaderboard in active_leaderboards_dict.items():
                 active_leaderboards.append(leaderboard)
 
             active_leaderboards.sort(key=lambda x: x.html_leaderboard_priority, reverse=True)
@@ -45,6 +44,9 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
 
             a = Airium()
             html_default_leaderboard = trojai_config.html_default_leaderboard_name
+            if html_default_leaderboard == '':
+                if len(active_leaderboards) > 0:
+                    html_default_leaderboard = active_leaderboards[0].name
             with a.ul(klass='nav nav-pills', id='leaderboardTabs', role='tablist'):
                 with a.li(klass='nav-item'):
                     for leaderboard in active_leaderboards:
@@ -82,7 +84,7 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
             actor_manager = ActorManager.load_json(trojai_config)
 
             for leaderboard in active_leaderboards:
-                submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+                submission_manager = active_submission_managers_dict[leaderboard.name]
 
                 is_first = False
                 if html_default_leaderboard == leaderboard.name:
@@ -101,23 +103,40 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
                     written_files.append(filepath)
 
 
+            table_javascript_filepath = os.path.join(trojai_config.html_repo_dirpath, 'js', 'trojai-table-init.js')
+
+            content = """
+$(document).ready(function () {
+
+var sort_col;\n
+"""
+
             # configure javascript for table controls
             for leaderboard in active_leaderboards:
-                for data_split_name in leaderboard.html_data_split_name_priorities.keys():
-                    pass
+                html_sort_options = leaderboard.html_table_sort_options
+                for key, info_dict in html_sort_options.items():
+                    column_name = info_dict['column']
+                    order = info_dict['order']
+                    content += """sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
+                    content += "$('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
 
+            content += "$('.dataTables_length').addClass('bs-select');\n});"
+            with open(table_javascript_filepath, 'w') as f:
+                f.write(content)
+
+            written_files.append(table_javascript_filepath)
             # Push the HTML to the web
             repo = Repo(html_dirpath)
             if repo.is_dirty() or not trojai_config.accepting_submissions:
                 timestampUpdate = """
-                   var uploadTimestamp = """ + str(cur_epoch) + """;
-                   var d = new Date(0);
-                   d.setUTCSeconds(uploadTimestamp);
-                   var acceptingSubmissions = """ + str(trojai_config.accepting_submissions).lower() + """; 
-    
-                   $(document).ready(function () {
-                       $('#timestamp').text(d.toISOString().split('.')[0] );
-                   });
+var uploadTimestamp = """ + str(cur_epoch) + """;
+var d = new Date(0);
+d.setUTCSeconds(uploadTimestamp);
+var acceptingSubmissions = """ + str(trojai_config.accepting_submissions).lower() + """; 
+
+$(document).ready(function () {
+   $('#timestamp').text(d.toISOString().split('.')[0] );
+});
                    """
 
                 time_update_filepath = os.path.join(html_dirpath, 'js', 'time-updater.js')
@@ -144,17 +163,17 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
 
             slurm_queue = 'sts'
             acceptingSubmissionsUpdate = """
-               var """ + slurm_queue + """AcceptingSubmission = """ + str(trojai_config.accepting_submissions).lower() + """;
-               var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
-               var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
-               var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
-    
-                $(document).ready(function () {
-                       $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
-                       $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
-                       $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
-                       $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
-                   });
+var """ + slurm_queue + """AcceptingSubmission = """ + str(trojai_config.accepting_submissions).lower() + """;
+var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
+var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
+var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
+
+$(document).ready(function () {
+       $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
+       $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
+       $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
+       $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
+   });
                """
 
             slurm_submission_filepath = os.path.join(html_dirpath, 'js', '{}-submissions.js'.format(slurm_queue))

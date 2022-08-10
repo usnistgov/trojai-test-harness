@@ -160,7 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--trojai-config-filepath', type=str,
                         help='The JSON file that describes the trojai round',
                         default='config.json')
-    parser.add_argument('--leaderboards-name', type=str,
+    parser.add_argument('--leaderboard-name', type=str,
                         help='The name of the leaderboards')
     parser.add_argument('--data-split-name', type=str, help='The name of the data split that we are executing on.')
     parser.add_argument('--vm-name', type=str,

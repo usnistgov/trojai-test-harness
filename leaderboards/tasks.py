@@ -107,12 +107,12 @@ class Task(object):
         is_valid = True
 
         if not os.path.exists(dataset_dirpath):
-            logging.error('Failed to verify dataset {} for leaderboards: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
+            logging.error('Failed to verify dataset {} for leaderboard: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
             is_valid = False
 
         if source_dataset_dirpath is not None:
             if not os.path.exists(source_dataset_dirpath):
-                logging.error('Failed to verify dataset {} for leaderboards: {}; source_dataset_dirpath {} does not exist, if it should not exist, then set the dirpath to None in the leaderboards config'.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
+                logging.error('Failed to verify dataset {} for leaderboard: {}; source_dataset_dirpath {} does not exist, if it should not exist, then set the dirpath to None in the leaderboards config'.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
                 is_valid = False
 
         if not os.path.exists(models_dirpath):

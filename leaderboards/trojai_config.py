@@ -16,7 +16,7 @@ class TrojaiConfig(object):
         self.submission_dirpath = os.path.join(self.trojai_dirpath, 'submissions')
         self.datasets_dirpath = os.path.join(self.trojai_dirpath, 'datasets')
         self.results_dirpath = os.path.join(self.trojai_dirpath, 'results')
-        self.leaderboard_configs_dirpath = os.path.join(self.trojai_dirpath, 'leaderboards-configs')
+        self.leaderboard_configs_dirpath = os.path.join(self.trojai_dirpath, 'leaderboard-configs')
         self.actors_filepath = os.path.join(self.trojai_dirpath, 'actors.json')
         self.log_filepath = os.path.join(self.trojai_dirpath, 'trojai.log')
         file_dirpath = os.path.dirname(os.path.realpath(__file__))

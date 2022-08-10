@@ -41,7 +41,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
     # query drive for a submission by this actor
     actor_file_list = g_drive.query_by_email(actor.email)
 
-    # Search for entries that contain a valid leaderboards name and dataset split
+    # Search for entries that contain a valid leaderboard name and dataset split
     has_general_errors = False
     valid_submissions = {}
 
@@ -57,7 +57,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         filename = g_file.name
         filename_split = filename.split('_')
 
-        # Expected format is leaderboards-name_data-split-name_container-name.simg
+        # Expected format is leaderboard-name_data-split-name_container-name.simg
         if len(filename_split) <= 2:
             logging.info('File {} from actor {} did not have expected format'.format(filename, actor.name))
             actor.general_file_status = 'Shared File Error'
@@ -67,9 +67,9 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         leaderboard_name = filename_split[0]
         data_split_name = filename_split[1]
 
-        # check if valid leaderboards
+        # check if valid leaderboard
         if leaderboard_name not in active_leaderboards.keys():
-            logging.info('File {} from actor {} did not have a valid leaderboards name: {}'.format(filename, actor.name, leaderboard_name))
+            logging.info('File {} from actor {} did not have a valid leaderboard name: {}'.format(filename, actor.name, leaderboard_name))
             if not has_general_errors:
                 actor.general_file_status = 'Shared File Error'
                 has_general_errors = True
@@ -93,7 +93,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
 
         key = '{}_{}'.format(leaderboard_name, data_split_name)
         if key not in valid_submissions.keys():
-            logging.info('Unknown leaderboards key when adding valid submissions: {}'.format(key))
+            logging.info('Unknown leaderboard key when adding valid submissions: {}'.format(key))
             continue
 
         valid_submissions[key].append(g_file)
@@ -112,18 +112,18 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         submission_manager = active_submission_managers[leaderboard_name]
 
         if len(g_file_list) == 0:
-            logging.info('Actor {} does not have a submission from email {} for leaderboards {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
+            logging.info('Actor {} does not have a submission from email {} for leaderboard {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'None')
             actor.update_job_status(leaderboard_name, data_split_name, 'None')
 
         if len(g_file_list) > 1:
-            logging.warning('Actor {} shared {} files from email {} for leaderboards {} and data split {}'.format(actor.name, len(g_file_list), actor.email, leaderboard_name, data_split_name))
+            logging.warning('Actor {} shared {} files from email {} for leaderboard {} and data split {}'.format(actor.name, len(g_file_list), actor.email, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'Multiple files shared')
             actor.update_job_status(leaderboard_name, data_split_name, 'None')
 
         if len(g_file_list) == 1:
             g_file = g_file_list[0]
-            logging.info('Detected submission from actor {}: {} for leaderboards {} and data split {}'.format(actor.name, g_file.name, leaderboard_name, data_split_name))
+            logging.info('Detected submission from actor {}: {} for leaderboard {} and data split {}'.format(actor.name, g_file.name, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'Ok')
 
             # Check timestamp (1 second granularity)
@@ -205,7 +205,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             logging.error(msg)
 
     # Check web-site updates
-    update_html_pages(trojai_config, commit_and_push=True)
+    update_html_pages(trojai_config, active_leaderboards, active_submission_managers, commit_and_push=True)
 
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')
