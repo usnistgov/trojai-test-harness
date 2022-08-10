@@ -12,6 +12,7 @@ from trojai_leaderboard import slurm
 from trojai_leaderboard import time_utils
 from trojai_leaderboard.leaderboard import Leaderboard
 from trojai_leaderboard.trojai_config import TrojaiConfig
+from airium import Airium
 
 
 class Actor(object):
@@ -117,13 +118,12 @@ class Actor(object):
             return True
         return False
 
-    def get_jobs_table_entry(self, leaderboard_name, dataset_split_name, execute_window, current_epoch: int):
-
-        leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+    def get_jobs_table_row(self, a: Airium, leaderboard_name, data_split_name, execute_window, current_epoch):
+        leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
 
         # Check if this is the first time we've encountered this leaderboard
-        if not self._has_leaderboard_metadata(leaderboard_name, dataset_split_name):
-            self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
+        if not self._has_leaderboard_metadata(leaderboard_name, data_split_name):
+            self.reset_leaderboard_submission(leaderboard_name, data_split_name)
 
         remaining_time = 0
         if self.last_execution_epochs[leaderboard_key] + execute_window > current_epoch:
@@ -141,7 +141,41 @@ class Actor(object):
         else:
             last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epochs[leaderboard_key])
 
-        return [self.name, last_execution_timestamp, self.job_statuses[leaderboard_key], self.file_statuses[leaderboard_key], last_file_timestamp, time_str]
+        with a.tr():
+            a.td(_t=self.name)
+            a.td(_t=last_execution_timestamp)
+            a.td(_t=self.job_statuses[leaderboard_key])
+            a.td(_t=self.file_statuses[leaderboard_key])
+            a.td(_t=self.general_file_status)
+            a.td(_t=last_file_timestamp)
+            a.td(_t=time_str)
+
+    # TODO: REMOVE
+    # def get_jobs_table_entry(self, leaderboard_name, dataset_split_name, execute_window, current_epoch: int):
+    #
+    #     leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
+    #
+    #     # Check if this is the first time we've encountered this leaderboard
+    #     if not self._has_leaderboard_metadata(leaderboard_name, dataset_split_name):
+    #         self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
+    #
+    #     remaining_time = 0
+    #     if self.last_execution_epochs[leaderboard_key] + execute_window > current_epoch:
+    #         remaining_time = (self.last_execution_epochs[leaderboard_key] + execute_window) - current_epoch
+    #
+    #     days, hours, minutes, seconds = time_utils.convert_seconds_to_dhms(remaining_time)
+    #     time_str = "{} d, {} h, {} m, {} s".format(days, hours, minutes, seconds)
+    #
+    #     if self.last_file_epochs[leaderboard_key] == 0:
+    #         last_file_timestamp = "None"
+    #     else:
+    #         last_file_timestamp = time_utils.convert_epoch_to_iso(self.last_file_epochs[leaderboard_key])
+    #     if self.last_execution_epochs[leaderboard_key] == 0:
+    #         last_execution_timestamp = "None"
+    #     else:
+    #         last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epochs[leaderboard_key])
+    #
+    #     return [self.name, last_execution_timestamp, self.job_statuses[leaderboard_key], self.file_statuses[leaderboard_key], last_file_timestamp, time_str]
 
 
 class ActorManager(object):
@@ -196,11 +230,38 @@ class ActorManager(object):
         ActorManager.init_file(trojai_config)
         return json_io.read(trojai_config.actors_filepath)
 
-    def get_jobs_table(self, leaderboard_name, dataset_split_name, execute_window, cur_epoch: int):
-        jobs_table = list()
-        for actor in self.actors.values():
-            jobs_table.append(actor.get_jobs_table_entry(leaderboard_name, dataset_split_name, execute_window, cur_epoch))
-        return jobs_table
+    def write_jobs_table(self, output_dirpath, leaderboard_name, dataset_split_name, execute_window, cur_epoch):
+        jobs_filename = 'jobs-{}-{}.html'.format(leaderboard_name, dataset_split_name)
+        jobs_filepath = os.path.join(output_dirpath, jobs_filename)
+        a = Airium()
+
+        with a.div(klass='card-body card-body-cascade pb-0'):
+            a.h2(klass='pb-q card-title', _t='Teams/Jobs')
+            with a.div(klass='table-responsive'):
+                with a.table(id='{}-{}-jobs'.format(leaderboard_name, dataset_split_name), klass='table table-striped table-bordered table-sm'):
+                    with a.thead():
+                        with a.tr():
+                            a.th(klass='th-sm', _t='Team')
+                            a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='Job Status')
+                            a.th(klass='th-sm', _t='File Status')
+                            a.th(klass='th-sm', _t='General Status')
+                            a.th(klass='th-sm', _t='File Timestamp')
+                            a.th(klass='th-sm', _t='Time until next execution')
+                    with a.tbody():
+                        for actor in self.actors.values():
+                            actor.get_jobs_table_row(a, leaderboard_name, dataset_split_name, execute_window, cur_epoch)
+
+        with open(jobs_filepath, 'w') as f:
+            f.write(str(a))
+
+        return jobs_filepath
+    #
+    # def get_jobs_table(self, leaderboard_name, dataset_split_name, execute_window, cur_epoch: int):
+    #     jobs_table = list()
+    #     for actor in self.actors.values():
+    #         jobs_table.append(actor.get_jobs_table_entry(leaderboard_name, dataset_split_name, execute_window, cur_epoch))
+    #     return jobs_table
 
     def convert_to_csv(self, output_file):
         write_header = True
@@ -290,6 +351,10 @@ def actor_to_csv(args):
     actor_manager = ActorManager.load_json(trojai_config)
     actor_manager.convert_to_csv(args.output_filepath)
 
+def test_actor_manager_to_html(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+    actor_manager.get_jobs_table(args.leaderboard_name, args.data_split_name, 0, 0)
 
 if __name__ == "__main__":
     import argparse
@@ -322,6 +387,12 @@ if __name__ == "__main__":
     to_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     to_csv_parser.add_argument('--output-filepath', type=str, help='The output filepath for the csv', default='actors.csv')
     to_csv_parser.set_defaults(func=actor_to_csv)
+
+    html_parser = subparser.add_parser('html')
+    html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    html_parser.add_argument('--leaderboard-name', type=str, help='The leaderboard name', required=True)
+    html_parser.add_argument('--data-split-name', type=str, help='The leaderboard data split name', required=True)
+    html_parser.set_defaults(func=test_actor_manager_to_html)
 
     args = parser.parse_args()
 

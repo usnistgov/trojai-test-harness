@@ -13,3 +13,4 @@ dominate
 GitPython
 httplib2
 sklearn
+airium

@@ -16,6 +16,8 @@ import traceback
 from typing import List
 from typing import Dict
 
+from airium import Airium
+
 from trojai_leaderboard.drive_io import DriveIO
 from trojai_leaderboard.mail_io import TrojaiMail
 from trojai_leaderboard.google_drive_file import GoogleDriveFile
@@ -26,7 +28,6 @@ from trojai_leaderboard import time_utils
 from trojai_leaderboard import fs_utils
 from trojai_leaderboard.leaderboard import Leaderboard
 from trojai_leaderboard.trojai_config import TrojaiConfig
-
 
 class Submission(object):
     def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str):
@@ -47,7 +48,7 @@ class Submission(object):
         self.web_display_parse_errors = "None"
         self.web_display_execution_errors = "None"
 
-        self.ground_truth_dirpath = leaderboard.get_ground_truth_dirpath(self.data_split_name)
+
 
         # create the directory where submissions are stored
         self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, self.actor_name)
@@ -263,47 +264,11 @@ class Submission(object):
                 logging.error(msg)
                 self.web_display_parse_errors += ":Executed File Update:"
 
-            try:
-                ground_truth_dict = self.load_ground_truth(leaderboard)
-            except:
-                msg = 'Unable to load ground truth results: "{}".\n{}'.format(self.ground_truth_dirpath, traceback.format_exc())
-                logging.error(msg)
-                TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
-                raise
-
-            # load the results from disk
-            results = self.load_results(ground_truth_dict, time_str)
-
-            default_result = leaderboard.get_default_prediction_result()
-            logging.info('Computing cross entropy between predictions and ground truth.')
-            if self.data_split_name == 'sts':
-                logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
-            predictions = np.array(list(results.values())).reshape(-1, 1)
-            targets = np.array(list(ground_truth_dict.values())).reshape(-1, 1)
-
-            if not np.any(np.isfinite(predictions)):
-                logging.warning('Found no parse-able results from container execution.')
-                self.web_display_parse_errors += ":No Results:"
-
-            num_missing_predictions = np.count_nonzero(np.isnan(predictions))
-            num_total_predictions = predictions.size
-
-            logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
-
-            predictions[np.isnan(predictions)] = default_result
-
-
-            metric_output_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
+            predictions, targets = self.get_predictions_targets(leaderboard, print_details=True)
 
             # Compute metrics
             for metric_name, metric in leaderboard.get_submission_metrics(self.data_split_name).items():
-                metric_output = metric.compute(predictions, targets)
-
-                if metric.store_result_in_submission:
-                    self.metric_results[metric_name] = metric_output['result']
-
-                if metric.share_with_actor:
-                    self.saved_metric_results[metric_name] = metric.write_data(metric_output, metric_output_dirpath)
+                self.compute_metric(metric, predictions, targets)
 
             output_files = []
 
@@ -380,6 +345,57 @@ class Submission(object):
 
         actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
+    def compute_metric(self, metric, predictions, targets):
+        time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
+
+        metric_output_dirpath = os.path.join(self.actor_results_dirpath, time_str)
+
+        metric_output = metric.compute(predictions, targets)
+
+        if metric.store_result_in_submission:
+            self.metric_results[metric.get_name()] = metric_output['result']
+
+        if metric.share_with_actor:
+            self.saved_metric_results[metric.get_name()] = metric.write_data(metric_output, metric_output_dirpath)
+
+    def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False):
+        time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
+
+        try:
+            ground_truth_dict = self.load_ground_truth(leaderboard)
+        except:
+            msg = 'Unable to load ground truth results: "{}-{}".\n{}'.format(leaderboard.name, self.data_split_name,
+                                                                             traceback.format_exc())
+            logging.error(msg)
+            TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
+            raise
+
+        # load the results from disk
+        results = self.load_results(ground_truth_dict, time_str)
+
+        default_result = leaderboard.get_default_prediction_result()
+        if print_details:
+            logging.info('Computing cross entropy between predictions and ground truth.')
+            if self.data_split_name == 'sts':
+                logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
+
+        predictions = np.array(list(results.values())).reshape(-1, 1)
+        targets = np.array(list(ground_truth_dict.values())).reshape(-1, 1)
+
+        if not np.any(np.isfinite(predictions)):
+            logging.warning('Found no parse-able results from container execution.')
+            self.web_display_parse_errors += ":No Results:"
+
+        num_missing_predictions = np.count_nonzero(np.isnan(predictions))
+        num_total_predictions = predictions.size
+
+        logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
+
+        predictions[np.isnan(predictions)] = default_result
+
+        return predictions, targets
+
+
 
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, self.actor_name))
@@ -448,6 +464,39 @@ class Submission(object):
             logging.info(stdout.decode())
             self.web_display_execution_errors += ":Slurm Script Error:"
 
+    def get_result_table_row(self, a: Airium, leaderboard: Leaderboard):
+        if self.execution_epoch == 0 or self.execution_epoch is None:
+            execute_timestr = "None"
+        else:
+            execute_timestr = time_utils.convert_epoch_to_iso(self.execution_epoch)
+        if self.g_file.modified_epoch == 0 or self.g_file.modified_epoch is None:
+            file_timestr = "None"
+        else:
+            file_timestr = time_utils.convert_epoch_to_iso(self.g_file.modified_epoch)
+
+        if len(self.web_display_execution_errors.strip()) == 0:
+            self.web_display_execution_errors = "None"
+
+        if len(self.web_display_parse_errors.strip()) == 0:
+            self.web_display_parse_errors = "None"
+
+        with a.tr():
+            a.th(klass='th-sm', _t=self.actor_name)
+            submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
+            for metric_name, metric in submission_metrics.items():
+                if metric_name not in self.metric_results.keys():
+                    predictions, targets = self.get_predictions_targets(leaderboard)
+                    self.compute_metric(metric, predictions, targets)
+                    # TODO: Do we want to share with g_drive any new metrics computed automatically?
+
+                metric_value = self.metric_results[metric_name]
+                if metric.write_html:
+                    a.th(klass='th-sm', _t=str(metric_value))
+
+            a.th(klass='th-sm', _t=execute_timestr)
+            a.th(klass='th-sm', _t=file_timestr)
+            a.th(klass='th-sm', _t=self.web_display_parse_errors)
+            a.th(klass='th-sm', _t=self.web_display_execution_errors)
 
 class SubmissionManager(object):
     def __init__(self, leaderboard_name):
@@ -529,68 +578,100 @@ class SubmissionManager(object):
         SubmissionManager.init_file(filepath, leaderboard_name)
         return json_io.read(filepath)
 
-    def get_score_table_unique(self):
+    def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, data_split_name: str):
+        result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
+        result_filepath = os.path.join(output_dirpath, result_filename)
+        a = Airium()
 
-            # TODO: Update
-        # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
-        scores = []
+        valid_submissions = {}
 
-        for key in self.__submissions.keys():
-            submissions = self.__submissions[key]
-            best_submission_score = 9999
-            best_submission = None
-            for s in submissions:
-                if s.execution_epoch == 0 or s.execution_epoch is None:
-                    execute_timestr = "None"
-                else:
-                    execute_timestr = time_utils.convert_epoch_to_iso(s.execution_epoch)
-                if s.file.modified_epoch == 0 or s.file.modified_epoch is None:
-                    file_timestr = "None"
-                else:
-                    file_timestr = time_utils.convert_epoch_to_iso(s.file.modified_epoch)
+        for actor_email, submission_list in self.__submissions.items():
+            valid_submissions[actor_email] = list()
 
-                if len(s.web_display_execution_errors.strip()) == 0:
-                    s.web_display_execution_errors = "None"
+            for submission in submission_list:
+                if submission.data_split_name == data_split_name:
+                    valid_submissions[actor_email].append(submission)
 
-                if len(s.web_display_parse_errors.strip()) == 0:
-                    s.web_display_parse_errors = "None"
 
-                if s.cross_entropy is not None:
-                    if best_submission_score > s.cross_entropy:
-                        best_submission_score = s.cross_entropy
-                        best_submission = [s.actor.name, s.cross_entropy, s.cross_entropy_95_confidence_interval,
-                                           s.brier_score, s.roc_auc, s.execution_runtime, execute_timestr, file_timestr,
-                                           s.web_display_parse_errors, s.web_display_execution_errors]
-            if best_submission is not None:
-                scores.append(best_submission)
-        return scores
+        with a.div(klass='card-body card-body-cascade pb-0'):
+            a.h2(klass='pb-q card-title', _t='Results')
+            with a.div(klass='table-responsive'):
+                with a.table(id='{}-{}-results'.format(leaderboard.name, data_split_name), klass='table table-striped table-bordered table-sm'):
+                    with a.thead():
+                        with a.tr():
+                            a.th(klass='th-sm', _t='Team')
+                            submission_metrics = leaderboard.get_submission_metrics(data_split_name)
+                            for metric_name, metric in submission_metrics.items():
+                                if metric.write_html:
+                                    a.th(klass='th-sm', _t=metric_name)
 
-    def get_score_table(self):
-            # TODO: Update
-        # ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
-        scores = []
+                            a.th(klass='th-sm', _t='Runtime (s)')
+                            a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='File Timestamp')
+                            a.th(klass='th-sm', _t='Parsing Errors')
+                            a.th(klass='th-sm', _t='Launch Errors')
+                    with a.tbody():
+                        for key in valid_submissions.keys():
+                            submissions = valid_submissions[key]
+                            best_submission_score = 9999
+                            best_submission = None
+                            for s in submissions:
 
-        for key in self.__submissions.keys():
-            submissions = self.__submissions[key]
-            for s in submissions:
-                if s.execution_epoch == 0 or s.execution_epoch is None:
-                    execute_timestr = "None"
-                else:
-                    execute_timestr = time_utils.convert_epoch_to_iso(s.execution_epoch)
-                if s.file.modified_epoch == 0 or s.file.modified_epoch is None:
-                    file_timestr = "None"
-                else:
-                    file_timestr = time_utils.convert_epoch_to_iso(s.file.modified_epoch)
+                                evaluation_metric_name = leaderboard.get_submission_metrics(s.data_split_name)
 
-                if len(s.web_display_execution_errors.strip()) == 0:
-                    s.web_display_execution_errors = "None"
+                                if evaluation_metric_name in s.metric_results.keys():
+                                    metric_score = s.metric_results[evaluation_metric_name]
 
-                if len(s.web_display_parse_errors.strip()) == 0:
-                    s.web_display_parse_errors = "None"
+                                    if best_submission_score > metric_score:
+                                        best_submission = s
 
-                if s.cross_entropy is not None:
-                    scores.append(
-                        [s.actor.name, s.cross_entropy, s.cross_entropy_95_confidence_interval, s.brier_score,
-                         s.roc_auc, s.execution_runtime, execute_timestr, file_timestr, s.web_display_parse_errors,
-                         s.web_display_execution_errors])
-        return scores
+                            if best_submission is not None:
+                                best_submission.get_result_table_row(a, leaderboard)
+
+        with open(result_filepath, 'w') as f:
+            f.write(str(a))
+
+        return result_filepath
+
+    def write_score_table(self, output_dirpath, leaderboard: Leaderboard, data_split_name: str):
+        result_filename = 'results-{}-{}.html'.format(leaderboard.name, data_split_name)
+        result_filepath = os.path.join(output_dirpath, result_filename)
+        a = Airium()
+
+        valid_submissions = {}
+
+        for actor_email, submission_list in self.__submissions.items():
+            valid_submissions[actor_email] = list()
+
+            for submission in submission_list:
+                if submission.data_split_name == data_split_name:
+                    valid_submissions[actor_email].append(submission)
+
+        with a.div(klass='card-body card-body-cascade pb-0'):
+            a.h2(klass='pb-q card-title', _t='All Results')
+            with a.div(klass='table-responsive'):
+                with a.table(id='{}-{}-all-results'.format(leaderboard.name, data_split_name),
+                             klass='table table-striped table-bordered table-sm'):
+                    with a.thead():
+                        with a.tr():
+                            a.th(klass='th-sm', _t='Team')
+                            submission_metrics = leaderboard.get_submission_metrics(data_split_name)
+                            for metric_name, metric in submission_metrics.items():
+                                if metric.write_html:
+                                    a.th(klass='th-sm', _t=metric_name)
+
+                            a.th(klass='th-sm', _t='Runtime (s)')
+                            a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='File Timestamp')
+                            a.th(klass='th-sm', _t='Parsing Errors')
+                            a.th(klass='th-sm', _t='Launch Errors')
+                    with a.tbody():
+                        for key in valid_submissions.keys():
+                            submissions = valid_submissions[key]
+                            for s in submissions:
+                                s.get_result_table_row(a, leaderboard)
+
+        with open(result_filepath, 'w') as f:
+            f.write(str(a))
+
+        return result_filepath

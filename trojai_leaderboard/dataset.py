@@ -39,6 +39,8 @@ class Dataset(object):
             metric_inst = metric()
             self.submission_metrics[metric_inst.get_name()] = metric_inst
 
+        self.evaluation_metric_name = 'Cross Entropy'
+
         model_dirpath = os.path.join(self.dataset_dirpath, Dataset.MODEL_DIRNAME)
         if os.path.exists(model_dirpath):
             num_models = len([name for name in os.listdir(model_dirpath) if os.path.isdir(os.path.join(model_dirpath, name))])

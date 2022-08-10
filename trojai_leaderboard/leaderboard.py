@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from airium import Airium
 
 from trojai_leaderboard.trojai_config import TrojaiConfig
 from trojai_leaderboard import json_io
@@ -37,6 +38,11 @@ class Leaderboard(object):
 
         self.submission_dirpath = os.path.join(trojai_config.submission_dirpath, self.name)
         self.submissions_filepath = os.path.join(self.submission_dirpath, 'submissions.json')
+
+        self.html_leaderboard_priority = 0
+        self.html_data_split_name_priorities = {}
+        for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+            self.html_data_split_name_priorities[split_name] = 0
 
         self.dataset_manager = DatasetManager()
 
@@ -91,6 +97,12 @@ class Leaderboard(object):
     def get_submission_data_split_names(self):
         return self.dataset_manager.get_submission_dataset_split_names()
 
+    def get_all_data_split_names(self):
+        return self.dataset_manager.datasets.keys()
+
+    def get_evaluation_metric_name(self, data_split_name):
+        dataset = self.dataset_manager.get(data_split_name)
+
     def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool):
         if self.dataset_manager.has_dataset(split_name):
             raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
@@ -127,6 +139,48 @@ class Leaderboard(object):
         assert leaderboard_config.task_name in Leaderboard.VALID_TASK_NAMES
         return leaderboard_config
 
+    def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool):
+
+        leaderboard_filename = '{}-leaderboard.html'.format(self.name)
+        leaderboard_filepath = os.path.join(html_output_dirpath, leaderboard_filename)
+        active_show = ''
+        if is_first:
+            active_show = 'active show'
+
+        html_data_split_names = sorted(self.html_data_split_name_priorities, key=self.html_data_split_name_priorities.get, reverse=True)
+
+
+        a = Airium()
+        with a.div(klass='tab-pane fade {}'.format(active_show), id='{}'.format(self.name), role='tabpanel', **{'aria-labelledby' : 'tab-{}'.format(self.name)}):
+            a('{{% include about-{}.html %}}'.format(self.name))
+            with a.ul(klass='nav nav-pills', id='{}-tabs'.format(self.name), role='tablist'):
+                with a.li(klass='nav-item'):
+                    for data_split in html_data_split_names:
+                        if data_split == 'test':
+                            a.a(klass='nav-link waves-light active show', id='tab-{}-{}'.format(self.name, data_split), href='#{}-{}'.format(self.name, data_split), **{'data-toggle': 'tab', 'aria-controls': '{}-{}'.format(self.name, data_split), 'aria-selected': 'true'}, _t=data_split)
+                        else:
+                            a.a(klass='nav-link waves-light', id='tab-{}-{}'.format(self.name, data_split), href='#{}-{}'.format(self.name, data_split), **{'data-toggle': 'tab', 'aria-controls': '{}-{}'.format(self.name, data_split), 'aria-selected': 'false'}, _t=data_split)
+
+            # Add about-leaderboard.html
+
+            with a.div(klass='tab-content card'):
+                for data_split in html_data_split_names:
+                    if data_split == 'test':
+                        active_show = 'active show'
+                    else:
+                        active_show = ''
+                    with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
+                        a('{{% include jobs-{}-{}.html %}}'.format(self.name, data_split))
+                        a('{{% include results-unique-{}-{}.html %}}'.format(self.name, data_split))
+                        a('{{% include results-{}-{}.html %}}'.format(self.name, data_split))
+
+
+        with open(leaderboard_filepath, 'w') as f:
+            f.write(str(a))
+
+        return leaderboard_filepath
+
+
 def init_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
 
@@ -149,6 +203,12 @@ def add_dataset_to_leaderboard(args):
         print('Added dataset {} to {}'.format(args.split_name, args.name))
 
     print('Failed to add dataset')
+
+def view_html(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    leaderboard.get_html_leaderboard(True)
+
 
 if __name__ == "__main__":
     import argparse
@@ -174,6 +234,12 @@ if __name__ == "__main__":
     add_dataset_parser.add_argument('--slurm-queue-name', type=str, help='The name of the slurm queue')
     add_dataset_parser.add_argument('--slurm-priority', type=int, help='The priority when launching jobs for this dataset', default=0)
     add_dataset_parser.set_defaults(func=add_dataset_to_leaderboard)
+
+    html_parser = subparser.add_parser('html')
+    html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    html_parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
+    html_parser.set_defaults(func=view_html)
+
 
     args = parser.parse_args()
 

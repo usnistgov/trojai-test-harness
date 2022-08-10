@@ -35,9 +35,9 @@ class TrojaiConfig(object):
         self.control_slurm_queue_name = control_slurm_queue_name
         self.accepting_submissions = False
         self.active_leaderboard_names = list()
+        self.html_default_leaderboard_name = ''
         self.vms = TrojaiConfig.DEFAULT_VM_CONFIGURATION
 
-        # TODO: Pass this in as a parameter?
         self.log_file_byte_limit = int(1 * 1024 * 1024)
 
         if init:

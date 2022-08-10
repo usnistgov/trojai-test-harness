@@ -5,199 +5,184 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
 import logging
-import pytablewriter
 import fcntl
 import traceback
-from pytablewriter import HtmlTableWriter
+import os
 from git import Repo
 from git.exc import GitCommandError
+from airium import Airium
 
-from trojai_leaderboard.actor import Actor, ActorManager
-from trojai_leaderboard.submission import Submission, SubmissionManager
+from trojai_leaderboard.actor import  ActorManager
+from trojai_leaderboard.submission import SubmissionManager
 from trojai_leaderboard import time_utils
 from trojai_leaderboard import slurm
 from trojai_leaderboard.mail_io import TrojaiMail
+from trojai_leaderboard.trojai_config import TrojaiConfig
+from trojai_leaderboard.leaderboard import Leaderboard
 
-# TODO: Update
-def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: SubmissionManager, execute_window: int, job_table_name: str, result_table_name: str, commit_and_push: bool, cur_epoch: int, accepting_submissions: bool, slurm_queue: str):
+def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
+    cur_epoch = time_utils.get_current_epoch()
+
     lock_filepath = "/var/lock/htmlpush-lockfile"
     with open(lock_filepath, mode='w') as fh_lock:
         try:
             fcntl.lockf(fh_lock, fcntl.LOCK_EX)
 
-            # Populate results table
-            if submission_manager is not None:
-                scores = submission_manager.get_score_table()
+            active_leaderboards = []
+            for leaderboard_name in trojai_config.active_leaderboard_names:
+                leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+                active_leaderboards.append(leaderboard)
 
-                scoreWriter = HtmlTableWriter()
-                scoreWriter.headers = ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)", "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
-                scoreWriter.value_matrix = scores
-                scoreWriter.type_hints = [pytablewriter.String, # Team
-                                          pytablewriter.RealNumber, # Cross Entropy
-                                          pytablewriter.RealNumber, # CE 95% CI
-                                          pytablewriter.RealNumber, # Brier Score
-                                          pytablewriter.RealNumber, # ROC-AUC
-                                          pytablewriter.Integer,  # Runtime
-                                          pytablewriter.String, # Execution Timestamp
-                                          pytablewriter.String, # File Timestamp
-                                          pytablewriter.String, # arsing Errors
-                                          pytablewriter.String]  # Launch Errors
-                scoreTable = scoreWriter.dumps()
+            active_leaderboards.sort(key=lambda x: x.html_leaderboard_priority, reverse=True)
 
+            html_dirpath = trojai_config.html_repo_dirpath
 
-                for line in scoreTable.splitlines():
-                    if "<th>" in line:
-                        newLine = line.replace("<th>", "<th class=\"th-sm\">")
-                        scoreTable = scoreTable.replace(line, newLine)
-                    if "<table" in line:
-                        newLine = line.replace("<table", "<table id=\"" + result_table_name + "\" class=\"table table-striped table-bordered table-sm\" cellspacing=\"0\" width=\"100%\"")
-                        scoreTable = scoreTable.replace(line, newLine)
+            html_output_dirpath = os.path.join(html_dirpath, '_includes')
 
+            written_files = []
 
-                scoreTableHtml = """
-                <!-- ******RESULTS****** -->    
-                <div class="table-responsive">
-                """ + scoreTable + """
-                </div>   
-                """
+            leaderboards_filepath = os.path.join(html_output_dirpath, 'leaderboards.html')
 
-                with open(html_dir + "/_includes/" + result_table_name + ".html", mode='w', encoding='utf-8') as f:
-                    f.write(scoreTableHtml)
+            a = Airium()
+            html_default_leaderboard = trojai_config.html_default_leaderboard_name
+            with a.ul(klass='nav nav-pills', id='leaderboardTabs', role='tablist'):
+                with a.li(klass='nav-item'):
+                    for leaderboard in active_leaderboards:
+                        if html_default_leaderboard == leaderboard.name:
+                            a.a(klass='nav-link waves-light active show', id='tab-{}'.format(leaderboard.name), href='#{}'.format(leaderboard.name), **{'data-toggle': 'tab', 'aria-controls': '{}'.format(leaderboard.name), 'aria-selected': 'true'}, _t=leaderboard.name)
+                        else:
+                            a.a(klass='nav-link waves-light', id='tab-{}'.format(leaderboard.name), href='#{}'.format(leaderboard.name), **{'data-toggle': 'tab', 'aria-controls': '{}'.format(leaderboard.name), 'aria-selected': 'false'}, _t=leaderboard.name)
 
-                scores_unique = submission_manager.get_score_table_unique()
+            with a.div(klass='tab-content card'):
+                for leaderboard in active_leaderboards:
+                    a('{{% include {}-leaderboard.html %}}'.format(leaderboard.name))
 
-                scoreUniqueWriter = HtmlTableWriter()
-                scoreUniqueWriter.headers = ["Team", "Cross Entropy", "CE 95% CI", "Brier Score", "ROC-AUC", "Runtime (s)",
-                                       "Execution Timestamp", "File Timestamp", "Parsing Errors", "Launch Errors"]
-                scoreUniqueWriter.value_matrix = scores_unique
-                scoreUniqueWriter.type_hints = [pytablewriter.String,  # Team
-                                          pytablewriter.RealNumber,  # Cross Entropy
-                                          pytablewriter.RealNumber,  # CE 95% CI
-                                          pytablewriter.RealNumber,  # Brier Score
-                                          pytablewriter.RealNumber,  # ROC-AUC
-                                          pytablewriter.Integer,  # Runtime
-                                          pytablewriter.String,  # Execution Timestamp
-                                          pytablewriter.String,  # File Timestamp
-                                          pytablewriter.String,  # arsing Errors
-                                          pytablewriter.String]  # Launch Errors
-                scoreUniqueTable = scoreUniqueWriter.dumps()
+            with open(leaderboards_filepath, 'w') as f:
+                f.write(str(a))
 
-                result_unique_table_name = result_table_name + "_unique"
+            written_files.append(leaderboards_filepath)
 
-                for line in scoreUniqueTable.splitlines():
-                    if "<th>" in line:
-                        newLine = line.replace("<th>", "<th class=\"th-sm\">")
-                        scoreUniqueTable = scoreUniqueTable.replace(line, newLine)
-                    if "<table" in line:
-                        newLine = line.replace("<table",
-                                               "<table id=\"" + result_unique_table_name + "\" class=\"table table-striped table-bordered table-sm\" cellspacing=\"0\" width=\"100%\"")
-                        scoreUniqueTable = scoreUniqueTable.replace(line, newLine)
+            # about_leaderboards_filepath = os.path.join(html_output_dirpath, 'about-leaderboards.html')
+            # a = Airium()
+            # with a.div(klass='card card-cascade wider'):
+            #     with a.div(klass='card-body card-body-cascade text-center pb-0'):
+            #         with a.div(klass='view view-cascade gradient-card-header blue-gradient'):
+            #             a.br()
+            #             a.h2(klass='pb-1 white-text card-title', _t='TrojAI Leaderboards')
+            #         a.br()
+            #
+            #         for leaderboard in active_leaderboards:
+            #             active_show = ''
+            #             if leaderboard.name == html_default_leaderboard:
+            #                 active_show = 'active show'
+            #             with a.div(klass='tab-content card'):
+            #                 with a.div(klass='tab-pane fade {}'.format(active_show), id='{}'.format('about-{}'.format(leaderboard.name)), role='tabpanel', **{'aria-labelledby': 'tab-{}'.format(leaderboard.name)}):
+            #                     a('{{% include about-{}.html %}}'.format(leaderboard.name))
+            #
+            # with open(about_leaderboards_filepath, 'w') as f:
+            #     f.write(str(a))
+            #
+            # written_files.append(about_leaderboards_filepath)
 
-                scoreUniqueTableHtml = """
-                                <!-- ******UNIQUE RESULTS****** -->    
-                                <div class="table-responsive">
-                                """ + scoreUniqueTable + """
-                                </div>   
-                                """
+            # Check for existance of about files
+            for leaderboard in active_leaderboards:
+                filepath = os.path.join(html_output_dirpath, 'about-{}.html'.format(leaderboard.name))
+                if not os.path.exists(filepath):
+                    a = Airium()
+                    with a.div(klass='card-body card-body-cascade text-center pb-0'):
+                        with a.p(klass='card-text text-left'):
+                            a('Placeholder text for {}'.format(leaderboard.name))
+                        with a.div(klass='container'):
+                            a.img(src='public/images/trojaiLogo.png', klass='img-fluid', alt='Placeholder image')
+                        with a.p():
+                            a('Placeholder image description')
 
-                with open(html_dir + "/_includes/" + result_unique_table_name + ".html", mode='w', encoding='utf-8') as f:
-                    f.write(scoreUniqueTableHtml)
+                    with open(filepath, 'w') as f:
+                        f.write(str(a))
+                    written_files.append(filepath)
 
-            if actor_manager is not None:
-                # Populate jobs table
-                activeJobs = actor_manager.get_jobs_table(execute_window, cur_epoch)
+            actor_manager = ActorManager.load_json(trojai_config)
 
-                activeJobWriter = HtmlTableWriter()
-                activeJobWriter.headers = ["Team", "Execution Timestamp", "Job Status", "File Status", "File Timestamp",
-                                           "Time until next execution"]
-                activeJobWriter.type_hints = [pytablewriter.String, pytablewriter.String, pytablewriter.String,
-                                              pytablewriter.String, pytablewriter.String, pytablewriter.String]
+            for leaderboard in active_leaderboards:
+                submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
 
-                activeJobWriter.value_matrix = activeJobs
-                jobTable = activeJobWriter.dumps()
+                is_first = False
+                if html_default_leaderboard == leaderboard.name:
+                    is_first = True
 
-                for line in jobTable.splitlines():
-                    if "<th>" in line:
-                        newLine = line.replace("<th>", "<th class=\"th-sm\">")
-                        jobTable = jobTable.replace(line, newLine)
-                    if "<table" in line:
-                        newLine = line.replace("<table", "<table id=\"" + job_table_name + "\" class=\"table table-striped table-bordered table-sm\" cellspacing=\"0\" width=\"100%\"")
-                        jobTable = jobTable.replace(line, newLine)
+                filepath = leaderboard.write_html_leaderboard(html_output_dirpath, is_first)
+                written_files.append(filepath)
 
-                jobTableHtml = """
-                <!-- ******JOBS****** -->    
-                <div class="table-responsive">
-                """ + jobTable + """
-                </div>   
-                """
-
-                with open(html_dir + "/_includes/" + job_table_name + ".html", mode='w', encoding='utf-8') as f:
-                    f.write(jobTableHtml)
+                for data_split_name in leaderboard.get_all_data_split_names():
+                    execute_window = leaderboard.get_timeout_window_time(data_split_name)
+                    filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name, data_split_name, execute_window, cur_epoch)
+                    written_files.append(filepath)
+                    filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, data_split_name)
+                    written_files.append(filepath)
+                    filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, data_split_name)
+                    written_files.append(filepath)
 
             # Push the HTML to the web
-            repo = Repo(html_dir)
-            if repo.is_dirty() or not accepting_submissions:
-
+            repo = Repo(html_dirpath)
+            if repo.is_dirty() or not trojai_config.accepting_submissions:
                 timestampUpdate = """
-                var uploadTimestamp = """ + str(cur_epoch) + """;
-                var d = new Date(0);
-                d.setUTCSeconds(uploadTimestamp);
-                var acceptingSubmissions = """ + str(accepting_submissions).lower() + """; 
-                
-                $(document).ready(function () {
-                    $('#timestamp').text(d.toISOString().split('.')[0] );
-                });
-                """
+                   var uploadTimestamp = """ + str(cur_epoch) + """;
+                   var d = new Date(0);
+                   d.setUTCSeconds(uploadTimestamp);
+                   var acceptingSubmissions = """ + str(trojai_config.accepting_submissions).lower() + """; 
+    
+                   $(document).ready(function () {
+                       $('#timestamp').text(d.toISOString().split('.')[0] );
+                   });
+                   """
 
-                with open(html_dir + "/js/time-updater.js", mode='w', encoding='utf-8') as f:
+                time_update_filepath = os.path.join(html_dirpath, 'js', 'time-updater.js')
+                with open(time_update_filepath, mode='w', encoding='utf-8') as f:
                     f.write(timestampUpdate)
 
-            allocatedNodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
-            idleNodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
-            mixNodes = int(slurm.sinfo_node_query(slurm_queue, "mix"))
-            drainingNodes = int(slurm.sinfo_node_query(slurm_queue, "draining"))
-            runningNodes = allocatedNodes # "alloc" should include mix and draining
-            downNodes = int(slurm.sinfo_node_query(slurm_queue, "down"))
-            drainedNodes = int(slurm.sinfo_node_query(slurm_queue, "drained"))
-            if downNodes > 0:
-                msg = '{} SLURM Node(s) Down in queue {}'.format(str(downNodes), slurm_queue)
-                TrojaiMail().send('trojai@nist.gov', msg, msg)
+                written_files.append(time_update_filepath)
+
+            # TODO: Update
+            allocatedNodes = 1 # int(slurm.sinfo_node_query(slurm_queue, "alloc"))
+            idleNodes = 1 # int(slurm.sinfo_node_query(slurm_queue, "idle"))
+            mixNodes = 1 # int(slurm.sinfo_node_query(slurm_queue, "mix"))
+            drainingNodes = 1 #int(slurm.sinfo_node_query(slurm_queue, "draining"))
+            runningNodes = allocatedNodes  # "alloc" should include mix and draining
+            downNodes = 1 # int(slurm.sinfo_node_query(slurm_queue, "down"))
+            drainedNodes = 1 # int(slurm.sinfo_node_query(slurm_queue, "drained"))
+
+            # TODO: Update
+            # if downNodes > 0:
+            #     msg = '{} SLURM Node(s) Down in queue {}'.format(str(downNodes), slurm_queue)
+            #     TrojaiMail().send('trojai@nist.gov', msg, msg)
 
             webDownNodes = downNodes + drainedNodes
 
+            slurm_queue = 'sts'
             acceptingSubmissionsUpdate = """
-            var """ + slurm_queue + """AcceptingSubmission = """ + str(accepting_submissions).lower() + """;
-            var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
-            var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
-            var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
-            
-             $(document).ready(function () {
-                    $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
-                    $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
-                    $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
-                    $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
-                });
-            """
+               var """ + slurm_queue + """AcceptingSubmission = """ + str(trojai_config.accepting_submissions).lower() + """;
+               var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
+               var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
+               var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
+    
+                $(document).ready(function () {
+                       $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
+                       $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
+                       $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
+                       $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
+                   });
+               """
 
-            with open(html_dir + "/js/" + slurm_queue + "-submission.js", mode='w', encoding='utf-8') as f:
+            slurm_submission_filepath = os.path.join(html_dirpath, 'js', '{}-submissions.js'.format(slurm_queue))
+
+            with open(slurm_submission_filepath, mode='w', encoding='utf-8') as f:
                 f.write(acceptingSubmissionsUpdate)
+            written_files.append(slurm_submission_filepath)
 
             git = repo.git()
             try:
                 git.pull()
-
-                gitAddList = list()
-                if actor_manager is not None:
-                    gitAddList.append(html_dir + "/_includes/" + job_table_name + ".html")
-                if submission_manager is not None:
-                    gitAddList.append(html_dir + "/_includes/" + result_table_name + ".html")
-                    gitAddList.append(html_dir + "/_includes/" + result_table_name + "_unique" + ".html")
-
-
-                gitAddList.append(html_dir + "/js/time-updater.js")
-                gitAddList.append(html_dir + "/js/" + slurm_queue + "-submission.js")
-
-                git.add(gitAddList)
+                git.add(written_files)
 
                 if commit_and_push:
                     git.commit("-m", "Actor update {}".format(time_utils.convert_epoch_to_psudo_iso(cur_epoch)))
@@ -211,9 +196,9 @@ def update_html(html_dir: str, actor_manager: ActorManager, submission_manager: 
 
 
         except:
-            msg = 'html_output threw an exception, releasing file lock "{}" regardless.{}'.format(lock_filepath, traceback.format_exc())
+            msg = 'html_output threw an exception, releasing file lock "{}" regardless.{}'.format(lock_filepath,
+                                                                                                  traceback.format_exc())
             TrojaiMail().send('trojai@nist.gov', 'html_output fallback lockfile release', msg)
             raise
         finally:
             fcntl.lockf(fh_lock, fcntl.LOCK_UN)
-

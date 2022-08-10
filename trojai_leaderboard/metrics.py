@@ -17,6 +17,7 @@ class Metric(object):
         self.write_html = write_html
         self.share_with_actor = share_with_actor
         self.store_result_in_submission = store_result_in_submission
+        self.html_priority = 0
 
     def get_name(self):
         raise NotImplementedError()
@@ -44,7 +45,7 @@ class AverageCrossEntropy(Metric):
         b = (1 - targets) * np.log(1 - predictions)
         ce = -(a + b)
 
-        return {'result': np.average(ce), 'metadata': ce}
+        return {'result': np.average(ce).item(), 'metadata': ce}
 
 class CrossEntropyConfidenceInterval(Metric):
     VALID_LEVELS = [90, 95, 98, 99]

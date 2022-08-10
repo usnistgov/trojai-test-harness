@@ -19,6 +19,7 @@ from trojai_leaderboard.actor import Actor, ActorManager
 from trojai_leaderboard.submission import Submission, SubmissionManager
 from trojai_leaderboard import time_utils
 from trojai_leaderboard.leaderboard import Leaderboard
+from trojai_leaderboard.html_output import update_html_pages
 
 
 def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard],  active_submission_managers: Dict[str, SubmissionManager]) -> None:
@@ -202,6 +203,9 @@ def main(trojai_config: TrojaiConfig) -> None:
         except:
             msg = 'Exception processing actor "{}" loop:\n{}'.format(key, traceback.format_exc())
             logging.error(msg)
+
+    # Check web-site updates
+    update_html_pages(trojai_config, commit_and_push=True)
 
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')
