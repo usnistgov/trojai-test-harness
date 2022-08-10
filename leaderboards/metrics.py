@@ -25,7 +25,7 @@ class Metric(object):
     def compute(self, predictions: np.ndarray, targets: np.ndarray):
         raise NotImplementedError()
 
-    def write_data(self, data, output_dirpath):
+    def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
         raise NotImplementedError()
 
 
@@ -145,7 +145,7 @@ class ROC_AUC(Metric):
 
         return {'result': float(auc(FPR, TPR)), 'metadata': [TPR, FPR]}
 
-    def write_data(self, data, output_dirpath):
+    def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
         TPR, FPR = data['metadata']
         # TODO: Update?
         # generate_roc_image(fpr, tpr, submission.global_results_dirpath, submission.slurm_job_name)
@@ -203,8 +203,8 @@ class ConfusionMatrix(Metric):
 
         return {'result': None, 'metadata': [TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds]}
 
-    def write_data(self, data, output_dirpath):
-        output_filepath = os.path.join(output_dirpath, '{}.json'.format(self.get_name()))
+    def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
+        output_filepath = os.path.join(output_dirpath, '{}-{}-{}.json'.format(leaderboard_name, data_split_name, self.get_name()))
         TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = data['metadata']
         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, output_filepath)
         return output_filepath

@@ -103,9 +103,9 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.slurm_queue_name
 
-    def get_timeout_window_time(self, data_split_name: str):
+    def get_submission_window_time(self, data_split_name: str):
         dataset = self.dataset_manager.get(data_split_name)
-        return dataset.timeout_time_sec
+        return dataset.submission_window_time_sec
 
     def can_submit_to_dataset(self, data_split_name: str):
         return self.dataset_manager.can_submit_to_dataset(data_split_name)

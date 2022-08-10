@@ -355,7 +355,7 @@ class Submission(object):
             self.metric_results[metric.get_name()] = metric_output['result']
 
         if metric.share_with_actor:
-            self.saved_metric_results[metric.get_name()] = metric.write_data(metric_output, metric_output_dirpath)
+            self.saved_metric_results[metric.get_name()] = metric.write_data(self.leaderboard_name, self.data_split_name, metric_output, metric_output_dirpath)
 
     def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False):
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)

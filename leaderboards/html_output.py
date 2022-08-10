@@ -94,7 +94,7 @@ def update_html_pages(trojai_config: TrojaiConfig, active_leaderboards_dict: dic
                 written_files.append(filepath)
 
                 for data_split_name in leaderboard.get_all_data_split_names():
-                    execute_window = leaderboard.get_timeout_window_time(data_split_name)
+                    execute_window = leaderboard.get_submission_window_time(data_split_name)
                     filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name, data_split_name, execute_window, cur_epoch)
                     written_files.append(filepath)
                     filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, data_split_name)

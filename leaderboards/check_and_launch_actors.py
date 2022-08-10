@@ -132,7 +132,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             # Sleep for 1 second to have distinct execu epochs
             time.sleep(1)
 
-            if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_timeout_window_time(data_split_name), exec_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
+            if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_submission_window_time(data_split_name), exec_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
                 logging.info('Team {} timeout window has not elapsed. exec_epoch: {}, last_exec_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, exec_epoch, actor.get_last_execution_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
                 actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
             else:

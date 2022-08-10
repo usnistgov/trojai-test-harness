@@ -19,7 +19,6 @@ class Dataset(object):
         self.split_name = split_name
         self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, self.dataset_name)
         self.results_dirpath = os.path.join(trojai_config.results_dirpath, self.dataset_name)
-        # self.groundtruth_dirpath = os.path.join(self.dataset_dirpath, Dataset.DATASET_GROUNDTRUTH_NAME)
         self.can_submit = can_submit
         self.slurm_queue_name = slurm_queue_name
         self.slurm_priority = slurm_priority
@@ -42,6 +41,7 @@ class Dataset(object):
         self.evaluation_metric_name = 'Cross Entropy'
 
         model_dirpath = os.path.join(self.dataset_dirpath, Dataset.MODEL_DIRNAME)
+        self.submission_window_time_sec = Dataset.BUFFER_TIME
         if os.path.exists(model_dirpath):
             num_models = len([name for name in os.listdir(model_dirpath) if os.path.isdir(os.path.join(model_dirpath, name))])
             self.timeout_time_sec = num_models * timeout_time_per_model_sec
@@ -57,9 +57,6 @@ class Dataset(object):
     def initialize_directories(self):
         os.makedirs(self.dataset_dirpath, exist_ok=True)
         os.makedirs(self.results_dirpath, exist_ok=True)
-
-    def get_ground_truth_dirpath(self):
-        return self.groundtruth_dirpath
 
     def __str__(self):
         msg = "Dataset: \n"
