@@ -212,7 +212,7 @@ class Submission(object):
         logging.info("Checking results for {}".format(self.actor_name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-        info_filepath = os.path.join(self.actor_submission_dirpath, time_str, Leaderboard.INFO_FILENAME)
+        info_filepath = os.path.join(self.actor_results_dirpath, time_str, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.slurm_output_filename)
 
         # truncate log file to N bytes
@@ -484,14 +484,21 @@ class Submission(object):
             a.th(klass='th-sm', _t=self.actor_name)
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
             for metric_name, metric in submission_metrics.items():
-                if metric_name not in self.metric_results.keys():
-                    predictions, targets = self.get_predictions_targets(leaderboard)
-                    self.compute_metric(metric, predictions, targets)
-                    # TODO: Do we want to share with g_drive any new metrics computed automatically?
+                if metric.store_result_in_submission:
+                    if metric_name not in self.metric_results.keys():
+                        predictions, targets = self.get_predictions_targets(leaderboard)
+                        self.compute_metric(metric, predictions, targets)
+                if metric.share_with_actor:
+                    if metric_name not in self.saved_metric_results.keys():
+                        predictions, targets = self.get_predictions_targets(leaderboard)
+                        self.compute_metric(metric, predictions, targets)
+                        # TODO: Do we want to share with the actor now?
+
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
                     a.th(klass='th-sm', _t=str(metric_value))
 
+            a.th(klass='th-sm', _t=self.execution_runtime)
             a.th(klass='th-sm', _t=execute_timestr)
             a.th(klass='th-sm', _t=file_timestr)
             a.th(klass='th-sm', _t=self.web_display_parse_errors)

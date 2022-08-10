@@ -159,7 +159,7 @@ class Leaderboard(object):
 
     def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool):
 
-        leaderboard_filename = '{}-leaderboards.html'.format(self.name)
+        leaderboard_filename = '{}-leaderboard.html'.format(self.name)
         leaderboard_filepath = os.path.join(html_output_dirpath, leaderboard_filename)
         active_show = ''
         if is_first:

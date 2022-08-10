@@ -57,7 +57,7 @@ def update_html_pages(trojai_config: TrojaiConfig, active_leaderboards_dict: dic
 
             with a.div(klass='tab-content card'):
                 for leaderboard in active_leaderboards:
-                    a('{{% include {}-leaderboards.html %}}'.format(leaderboard.name))
+                    a('{{% include {}-leaderboard.html %}}'.format(leaderboard.name))
 
             with open(leaderboards_filepath, 'w') as f:
                 f.write(str(a))
