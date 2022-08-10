@@ -10,11 +10,11 @@ import logging.handlers
 import fcntl
 import os
 
-from leaderboard.trojai_config import TrojaiConfig
-from leaderboard import html_output
-from leaderboard.actor import ActorManager
-from leaderboard.submission import SubmissionManager
-from leaderboard import time_utils
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards import html_output
+from leaderboards.actor import ActorManager
+from leaderboards.submission import SubmissionManager
+from leaderboards import time_utils
 
 
 def main(trojai_config: TrojaiConfig, commit_and_push: bool):
@@ -39,7 +39,7 @@ def main(trojai_config: TrojaiConfig, commit_and_push: bool):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Applies updates to the leaderboard web-site.')
+    parser = argparse.ArgumentParser(description='Applies updates to the leaderboards web-site.')
     parser.add_argument('--config-file', type=str,
                         help='The JSON file that describes all actors',
                         default='config.json')

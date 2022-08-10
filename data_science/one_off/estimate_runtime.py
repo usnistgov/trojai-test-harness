@@ -9,7 +9,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 
-from leaderboard import time_utils
+from leaderboards import time_utils
 
 
 def find_dirs(fp):

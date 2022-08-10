@@ -4,42 +4,53 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
+import fcntl
+import json
+import os.path
+
+import jsonpickle
 import logging
-import subprocess
 import traceback
 
-from leaderboard.mail_io import TrojaiMail
+from leaderboards.mail_io import TrojaiMail
 
 
-def squeue(job_name: str, queue_name: str):
-    out = subprocess.Popen(['squeue', "-n", str(job_name), "-p", str(queue_name), "-o", "%T"],
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
-    stdout, stderr = out.communicate()
+def write(filepath, obj):
+    if not filepath.endswith('.json'):
+        raise RuntimeError("Expecting a file ending in '.json'")
+    lock_file = '/var/lock/trojai-json_io-lockfile'
+    with open(lock_file, 'w') as lfh:
+        try:
+            fcntl.lockf(lfh, fcntl.LOCK_EX)
 
-    if stderr != b'':
-        logging.error("Slurm is no longer online, error = {}".format(stderr))
-        logging.error(traceback.format_exc())
-        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
-        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
-        raise RuntimeError("Slurm is no longer online, error = {}".format(stderr))
-    return stdout, stderr
+            with open(filepath, mode='w', encoding='utf-8') as f:
+                f.write(jsonpickle.encode(obj, warn=True, indent=2))
+        except Exception as ex:
+            logging.error(ex)
+            msg = 'json_io failed writing file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
+            TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
+            raise
+        finally:
+            fcntl.lockf(lfh, fcntl.LOCK_UN)
 
 
-def sinfo_node_query(queue_name: str, state: str):
-    out = subprocess.Popen(['sinfo', '-t', state, '-p', queue_name, '-o', '%D', '-h'],
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
-    stdout, stderr = out.communicate()
+def read(filepath):
+    if not filepath.endswith('.json'):
+        raise RuntimeError("Expecting a file ending in '.json'")
+    lock_file = '/var/lock/trojai-json_io-lockfile'
+    with open(lock_file, 'w') as lfh:
+        try:
+            fcntl.lockf(lfh, fcntl.LOCK_EX)
+            with open(filepath, mode='r', encoding='utf-8') as f:
+                obj = jsonpickle.decode(f.read())
+        except json.decoder.JSONDecodeError:
+            logging.error("JSON decode error for file: {}, is it a proper json?".format(filepath))
+            raise
+        except:
+            msg = 'json_io failed reading file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
+            TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
+            raise
+        finally:
+            fcntl.lockf(lfh, fcntl.LOCK_UN)
+    return obj
 
-    if stderr != b'':
-        logging.error("Slurm is no longer online, error = {}".format(stderr))
-        logging.error(traceback.format_exc())
-        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
-        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
-        return '0'
-
-    if stdout == b'':
-        return '0'
-
-    return stdout.decode('utf-8').strip()

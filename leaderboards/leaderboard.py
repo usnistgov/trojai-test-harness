@@ -2,11 +2,11 @@ import os
 import numpy as np
 from airium import Airium
 
-from leaderboard.trojai_config import TrojaiConfig
-from leaderboard import json_io
-from leaderboard.dataset import DatasetManager
-from leaderboard.metrics import *
-from leaderboard.tasks import *
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards import json_io
+from leaderboards.dataset import DatasetManager
+from leaderboards.metrics import *
+from leaderboards.tasks import *
 
 
 class Leaderboard(object):
@@ -27,6 +27,8 @@ class Leaderboard(object):
     GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
 
+    TABLE_NAMES = ['results-unique', 'results', 'jobs']
+
     def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False):
         self.name = name
         self.task_name = task_name
@@ -41,9 +43,7 @@ class Leaderboard(object):
 
         self.html_leaderboard_priority = 0
         self.html_data_split_name_priorities = {}
-        for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
-            self.html_data_split_name_priorities[split_name] = 0
-
+        self.html_table_sort_options = {}
         self.dataset_manager = DatasetManager()
 
         if add_default_data_split:
@@ -63,6 +63,22 @@ class Leaderboard(object):
                 # TODO: Add check for source data
                 has_source_data = True
                 self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority, has_source_data)
+
+        for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+            self.html_data_split_name_priorities[split_name] = 0
+            for table_name in Leaderboard.TABLE_NAMES:
+                key = '{}-{}-{}'.format(table_name, self.name, split_name)
+                if table_name == 'jobs':
+                    self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc'}
+                else:
+                    if split_name == 'sts':
+                        self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc'}
+                    else:
+                        if self.dataset_manager.has_dataset(split_name):
+                            self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name), 'order': 'asc'}
+                        else:
+                            self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'asc'}
+
 
         self.initialize_directories()
 
@@ -102,6 +118,8 @@ class Leaderboard(object):
 
     def get_evaluation_metric_name(self, data_split_name):
         dataset = self.dataset_manager.get(data_split_name)
+        return dataset.evaluation_metric_name
+
 
     def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool):
         if self.dataset_manager.has_dataset(split_name):
@@ -141,7 +159,7 @@ class Leaderboard(object):
 
     def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool):
 
-        leaderboard_filename = '{}-leaderboard.html'.format(self.name)
+        leaderboard_filename = '{}-leaderboards.html'.format(self.name)
         leaderboard_filepath = os.path.join(html_output_dirpath, leaderboard_filename)
         active_show = ''
         if is_first:
@@ -161,7 +179,7 @@ class Leaderboard(object):
                         else:
                             a.a(klass='nav-link waves-light', id='tab-{}-{}'.format(self.name, data_split), href='#{}-{}'.format(self.name, data_split), **{'data-toggle': 'tab', 'aria-controls': '{}-{}'.format(self.name, data_split), 'aria-selected': 'false'}, _t=data_split)
 
-            # Add about-leaderboard.html
+            # Add about-leaderboards.html
 
             with a.div(klass='tab-content card'):
                 for data_split in html_data_split_names:
@@ -213,21 +231,21 @@ def view_html(args):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Runs leaderboard commands')
+    parser = argparse.ArgumentParser(description='Runs leaderboards commands')
     parser.set_defaults(func=lambda args: parser.print_help())
 
     subparser = parser.add_subparsers(dest='cmd', required=True)
 
     init_parser = subparser.add_parser('init')
     init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    init_parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
-    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboard', required=True)
+    init_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
     init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits: {}, if they fail task checks then will not be added. Need to call add-dataset when they are ready.'.format(Leaderboard.DEFAULT_DATASET_SPLIT_NAMES), action='store_true')
     init_parser.set_defaults(func=init_leaderboard)
 
     add_dataset_parser = subparser.add_parser('add-dataset')
     add_dataset_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    add_dataset_parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
+    add_dataset_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     add_dataset_parser.add_argument('--split-name', type=str, help='The dataset split name', required=True)
     add_dataset_parser.add_argument('--has-source-data', action='store_true', help='Indicates that the dataset has source data that is saved on disk, format: "leaderboard_name-source_data"')
     add_dataset_parser.add_argument('--can-submit', action='store_true', help='Whether actors can submit to the dataset')
@@ -237,7 +255,7 @@ if __name__ == "__main__":
 
     html_parser = subparser.add_parser('html')
     html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    html_parser.add_argument('--name', type=str, help='The name of the leaderboard', required=True)
+    html_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     html_parser.set_defaults(func=view_html)
 
 

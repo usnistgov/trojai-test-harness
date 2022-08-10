@@ -6,7 +6,7 @@
 
 import numpy as np
 
-from leaderboard import metrics
+from leaderboards import metrics
 
 x_vals = list()
 y_vals = list()

@@ -84,7 +84,7 @@ python plot_mean_effects.py --global-results-csv-filepath=${OUTPUT_DIR}/es-globa
 #echo "Building test global csv results file from test harness directories and metadata file"
 #python compile_global_csv_results.py --test-harness-dirpath=${TEST_HARNESS_DIR} --server=holdout --metadata-filepath=${DATA_DIR}/METADATA.csv --output-dirpath=${OUTPUT_DIR}
 #
-#echo "Building leaderboard archive csv file"
+#echo "Building leaderboards archive csv file"
 #python build_leaderboard_archive.py --global-results-csv-filepath=${OUTPUT_DIR}/holdout-global-results.csv --queue=holdout --output-dirpath=${OUTPUT_DIR}
 
 

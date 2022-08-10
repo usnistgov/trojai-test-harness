@@ -12,13 +12,13 @@ from git import Repo
 from git.exc import GitCommandError
 from airium import Airium
 
-from leaderboard.actor import  ActorManager
-from leaderboard.submission import SubmissionManager
-from leaderboard import time_utils
-from leaderboard import slurm
-from leaderboard.mail_io import TrojaiMail
-from leaderboard.trojai_config import TrojaiConfig
-from leaderboard.leaderboard import Leaderboard
+from leaderboards.actor import  ActorManager
+from leaderboards.submission import SubmissionManager
+from leaderboards import time_utils
+from leaderboards import slurm
+from leaderboards.mail_io import TrojaiMail
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards.leaderboard import Leaderboard
 
 def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
@@ -55,7 +55,7 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
 
             with a.div(klass='tab-content card'):
                 for leaderboard in active_leaderboards:
-                    a('{{% include {}-leaderboard.html %}}'.format(leaderboard.name))
+                    a('{{% include {}-leaderboards.html %}}'.format(leaderboard.name))
 
             with open(leaderboards_filepath, 'w') as f:
                 f.write(str(a))

@@ -1,5 +1,5 @@
-from leaderboard.trojai_config import TrojaiConfig
-from leaderboard.metrics import *
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards.metrics import *
 import os
 
 class Dataset(object):

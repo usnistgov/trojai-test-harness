@@ -7,8 +7,8 @@
 import os
 import smtplib
 
-from leaderboard import json_io
-from leaderboard import time_utils
+from leaderboards import json_io
+from leaderboards import time_utils
 
 
 class TrojaiMail(object):

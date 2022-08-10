@@ -4,24 +4,42 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-from leaderboard import json_io
-from leaderboard import time_utils
+import logging
+import subprocess
+import traceback
+
+from leaderboards.mail_io import TrojaiMail
 
 
-class GoogleDriveFile(object):
-    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str):
-        self.email = email
-        self.name = file_name
-        self.id = file_id
-        self.modified_epoch = time_utils.convert_to_epoch(modified_timestamp)
+def squeue(job_name: str, queue_name: str):
+    out = subprocess.Popen(['squeue', "-n", str(job_name), "-p", str(queue_name), "-o", "%T"],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    stdout, stderr = out.communicate()
 
-    def __str__(self):
-        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}" '.format(self.id, self.name, self.modified_epoch, self.email)
-        return msg
+    if stderr != b'':
+        logging.error("Slurm is no longer online, error = {}".format(stderr))
+        logging.error(traceback.format_exc())
+        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
+        raise RuntimeError("Slurm is no longer online, error = {}".format(stderr))
+    return stdout, stderr
 
-    def save_json(self, file_path: str):
-        json_io.write(file_path, self)
 
-    @staticmethod
-    def load_json(file_path: str):
-        return json_io.read(file_path)
+def sinfo_node_query(queue_name: str, state: str):
+    out = subprocess.Popen(['sinfo', '-t', state, '-p', queue_name, '-o', '%D', '-h'],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    stdout, stderr = out.communicate()
+
+    if stderr != b'':
+        logging.error("Slurm is no longer online, error = {}".format(stderr))
+        logging.error(traceback.format_exc())
+        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
+        return '0'
+
+    if stdout == b'':
+        return '0'
+
+    return stdout.decode('utf-8').strip()

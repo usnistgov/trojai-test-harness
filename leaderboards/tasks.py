@@ -5,10 +5,10 @@ import time
 import typing
 import collections
 
-from leaderboard.mail_io import TrojaiMail
-from leaderboard import jsonschema_checker
-from leaderboard.dataset import Dataset
-from leaderboard.trojai_config import TrojaiConfig
+from leaderboards.mail_io import TrojaiMail
+from leaderboards import jsonschema_checker
+from leaderboards.dataset import Dataset
+from leaderboards.trojai_config import TrojaiConfig
 
 
 def check_gpu(host):
@@ -107,27 +107,27 @@ class Task(object):
         is_valid = True
 
         if not os.path.exists(dataset_dirpath):
-            logging.error('Failed to verify dataset {} for leaderboard: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
+            logging.error('Failed to verify dataset {} for leaderboards: {}; dataset_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, dataset_dirpath))
             is_valid = False
 
         if source_dataset_dirpath is not None:
             if not os.path.exists(source_dataset_dirpath):
-                logging.error('Failed to verify dataset {} for leaderboard: {}; source_dataset_dirpath {} does not exist, if it should not exist, then set the dirpath to None in the leaderboard config'.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
+                logging.error('Failed to verify dataset {} for leaderboards: {}; source_dataset_dirpath {} does not exist, if it should not exist, then set the dirpath to None in the leaderboards config'.format(dataset.dataset_name, leaderboard_name, source_dataset_dirpath))
                 is_valid = False
 
         if not os.path.exists(models_dirpath):
-            logging.error('Failed to verify dataset {} for leaderboard: {}; models_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, models_dirpath))
+            logging.error('Failed to verify dataset {} for leaderboards: {}; models_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, models_dirpath))
             is_valid = False
 
         for model_id_dir in os.listdir(models_dirpath):
             for required_filename in dataset.required_files:
                 filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
                 if not os.path.exists(filepath):
-                    logging.error('Failed to verify dataset {} for leaderboard: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
+                    logging.error('Failed to verify dataset {} for leaderboards: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
                     is_valid = False
 
         if is_valid:
-            logging.info('dataset {} for leaderboard {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
+            logging.info('dataset {} for leaderboards {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))
         return is_valid
 
     def run_basic_checks(self, vm_ip, vm_name):
@@ -342,7 +342,7 @@ class NaturalLanguageProcessingTask(Task):
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         if not os.path.exists(self.tokenizers_dirpath):
-            logging.error('Failed to verify dataset {} for leaderboard: {}; tokenizers_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.tokenizers_dirpath))
+            logging.error('Failed to verify dataset {} for leaderboards: {}; tokenizers_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.tokenizers_dirpath))
             return False
 
         return super().verify_dataset(leaderboard_name, dataset)

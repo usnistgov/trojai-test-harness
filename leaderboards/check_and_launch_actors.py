@@ -13,13 +13,13 @@ from typing import Dict
 
 import fcntl
 
-from leaderboard.trojai_config import TrojaiConfig
-from leaderboard.drive_io import DriveIO
-from leaderboard.actor import Actor, ActorManager
-from leaderboard.submission import Submission, SubmissionManager
-from leaderboard import time_utils
-from leaderboard.leaderboard import Leaderboard
-from leaderboard.html_output import update_html_pages
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards.drive_io import DriveIO
+from leaderboards.actor import Actor, ActorManager
+from leaderboards.submission import Submission, SubmissionManager
+from leaderboards import time_utils
+from leaderboards.leaderboard import Leaderboard
+from leaderboards.html_output import update_html_pages
 
 
 def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard],  active_submission_managers: Dict[str, SubmissionManager]) -> None:
@@ -41,7 +41,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
     # query drive for a submission by this actor
     actor_file_list = g_drive.query_by_email(actor.email)
 
-    # Search for entries that contain a valid leaderboard name and dataset split
+    # Search for entries that contain a valid leaderboards name and dataset split
     has_general_errors = False
     valid_submissions = {}
 
@@ -52,12 +52,12 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             valid_submissions[key] = []
 
     # Find valid files for submission
-    # TODO: Can we improve the general file status error? Currently it captures multiple error scenarios: filename split valid, correct leaderboard, if an actor can submit
+    # TODO: Can we improve the general file status error? Currently it captures multiple error scenarios: filename split valid, correct leaderboards, if an actor can submit
     for g_file in actor_file_list:
         filename = g_file.name
         filename_split = filename.split('_')
 
-        # Expected format is leaderboard-name_data-split-name_container-name.simg
+        # Expected format is leaderboards-name_data-split-name_container-name.simg
         if len(filename_split) <= 2:
             logging.info('File {} from actor {} did not have expected format'.format(filename, actor.name))
             actor.general_file_status = 'Shared File Error'
@@ -67,9 +67,9 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         leaderboard_name = filename_split[0]
         data_split_name = filename_split[1]
 
-        # check if valid leaderboard
+        # check if valid leaderboards
         if leaderboard_name not in active_leaderboards.keys():
-            logging.info('File {} from actor {} did not have a valid leaderboard name: {}'.format(filename, actor.name, leaderboard_name))
+            logging.info('File {} from actor {} did not have a valid leaderboards name: {}'.format(filename, actor.name, leaderboard_name))
             if not has_general_errors:
                 actor.general_file_status = 'Shared File Error'
                 has_general_errors = True
@@ -93,7 +93,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
 
         key = '{}_{}'.format(leaderboard_name, data_split_name)
         if key not in valid_submissions.keys():
-            logging.info('Unknown leaderboard key when adding valid submissions: {}'.format(key))
+            logging.info('Unknown leaderboards key when adding valid submissions: {}'.format(key))
             continue
 
         valid_submissions[key].append(g_file)
@@ -112,18 +112,18 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         submission_manager = active_submission_managers[leaderboard_name]
 
         if len(g_file_list) == 0:
-            logging.info('Actor {} does not have a submission from email {} for leaderboard {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
+            logging.info('Actor {} does not have a submission from email {} for leaderboards {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'None')
             actor.update_job_status(leaderboard_name, data_split_name, 'None')
 
         if len(g_file_list) > 1:
-            logging.warning('Actor {} shared {} files from email {} for leaderboard {} and data split {}'.format(actor.name, len(g_file_list), actor.email, leaderboard_name, data_split_name))
+            logging.warning('Actor {} shared {} files from email {} for leaderboards {} and data split {}'.format(actor.name, len(g_file_list), actor.email, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'Multiple files shared')
             actor.update_job_status(leaderboard_name, data_split_name, 'None')
 
         if len(g_file_list) == 1:
             g_file = g_file_list[0]
-            logging.info('Detected submission from actor {}: {} for leaderboard {} and data split {}'.format(actor.name, g_file.name, leaderboard_name, data_split_name))
+            logging.info('Detected submission from actor {}: {} for leaderboards {} and data split {}'.format(actor.name, g_file.name, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'Ok')
 
             # Check timestamp (1 second granularity)
@@ -133,7 +133,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             time.sleep(1)
 
             if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_timeout_window_time(data_split_name), exec_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
-                logging.info('Team {} timeout window has not elapsed. exec_epoch: {}, last_exec_epoch: {}, leaderboard: {}, data split: {}'.format(actor.name, exec_epoch, actor.get_last_execution_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
+                logging.info('Team {} timeout window has not elapsed. exec_epoch: {}, last_exec_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, exec_epoch, actor.get_last_execution_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
                 actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
             else:
                 if int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
@@ -184,7 +184,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
         active_submission_managers[leaderboard_name] = submission_manager
         logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
-        logging.info('Finished loading leaderboard and submission manager for: {}'.format(leaderboard_name))
+        logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))
         logging.debug(leaderboard)
         logging.debug(active_submission_managers[leaderboard_name])
 

@@ -8,8 +8,8 @@ import sklearn.metrics
 from collections import OrderedDict
 import configargparse
 
-from leaderboard import metrics
-from leaderboard import time_utils
+from leaderboards import metrics
+from leaderboards import time_utils
 
 parser = configargparse.ArgParser(default_config_files=['./config.txt'], description='Executs singularity container from TrojAI competition on a set of models '
                                              'to compute its cross entropy')

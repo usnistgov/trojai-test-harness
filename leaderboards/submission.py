@@ -18,16 +18,16 @@ from typing import Dict
 
 from airium import Airium
 
-from leaderboard.drive_io import DriveIO
-from leaderboard.mail_io import TrojaiMail
-from leaderboard.google_drive_file import GoogleDriveFile
-from leaderboard.actor import Actor
-from leaderboard import json_io
-from leaderboard import slurm
-from leaderboard import time_utils
-from leaderboard import fs_utils
-from leaderboard.leaderboard import Leaderboard
-from leaderboard.trojai_config import TrojaiConfig
+from leaderboards.drive_io import DriveIO
+from leaderboards.mail_io import TrojaiMail
+from leaderboards.google_drive_file import GoogleDriveFile
+from leaderboards.actor import Actor
+from leaderboards import json_io
+from leaderboards import slurm
+from leaderboards import time_utils
+from leaderboards import fs_utils
+from leaderboards.leaderboard import Leaderboard
+from leaderboards.trojai_config import TrojaiConfig
 
 class Submission(object):
     def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str):

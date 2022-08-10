@@ -7,11 +7,11 @@
 import os
 from typing import KeysView
 
-from leaderboard import json_io
-from leaderboard import slurm
-from leaderboard import time_utils
-from leaderboard.leaderboard import Leaderboard
-from leaderboard.trojai_config import TrojaiConfig
+from leaderboards import json_io
+from leaderboards import slurm
+from leaderboards import time_utils
+from leaderboards.leaderboard import Leaderboard
+from leaderboards.trojai_config import TrojaiConfig
 from airium import Airium
 
 
@@ -82,7 +82,7 @@ class Actor(object):
                and leaderboard_key in self.job_statuses.keys() and leaderboard_key in self.file_statuses.keys()
 
     def reset_leaderboard_submission(self, leaderboard_name, data_split_name):
-        print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
+        print('Resetting {} for leaderboards: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
         self.last_execution_epochs[leaderboard_key] = 0
         self.last_file_epochs[leaderboard_key] = 0
@@ -121,7 +121,7 @@ class Actor(object):
     def get_jobs_table_row(self, a: Airium, leaderboard_name, data_split_name, execute_window, current_epoch):
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
 
-        # Check if this is the first time we've encountered this leaderboard
+        # Check if this is the first time we've encountered this leaderboards
         if not self._has_leaderboard_metadata(leaderboard_name, data_split_name):
             self.reset_leaderboard_submission(leaderboard_name, data_split_name)
 
@@ -155,7 +155,7 @@ class Actor(object):
     #
     #     leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
     #
-    #     # Check if this is the first time we've encountered this leaderboard
+    #     # Check if this is the first time we've encountered this leaderboards
     #     if not self._has_leaderboard_metadata(leaderboard_name, dataset_split_name):
     #         self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
     #
@@ -341,7 +341,7 @@ def reset_actor(args):
             if leaderboard.can_submit_to_dataset(data_split_name):
                 actor.reset_leaderboard_submission(leaderboard.name, data_split_name)
             else:
-                print('WARNING: Unable to submit to leaderboard {} for split {}, did not reset'.format(leaderboard.name, data_split_name))
+                print('WARNING: Unable to submit to leaderboards {} for split {}, did not reset'.format(leaderboard.name, data_split_name))
 
     actor_manager.save_json(trojai_config)
 
@@ -379,8 +379,8 @@ if __name__ == "__main__":
     reset_actor_parser = subparser.add_parser('reset-actor')
     reset_actor_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     reset_actor_parser.add_argument('--email', type=str, help='The email of the team to reset', required=True)
-    reset_actor_parser.add_argument('--leaderboard', type=str, help='The name of the leaderboard to reset, if used by itself will reset all data splits', default=None)
-    reset_actor_parser.add_argument('--data-split', type=str, help='The data split name to reset associated with leaderboard. Will only reset that leaderboard and data split.', default=None)
+    reset_actor_parser.add_argument('--leaderboards', type=str, help='The name of the leaderboards to reset, if used by itself will reset all data splits', default=None)
+    reset_actor_parser.add_argument('--data-split', type=str, help='The data split name to reset associated with leaderboards. Will only reset that leaderboards and data split.', default=None)
     reset_actor_parser.set_defaults(func=reset_actor)
 
     to_csv_parser = subparser.add_parser('to-csv')
@@ -390,8 +390,8 @@ if __name__ == "__main__":
 
     html_parser = subparser.add_parser('html')
     html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    html_parser.add_argument('--leaderboard-name', type=str, help='The leaderboard name', required=True)
-    html_parser.add_argument('--data-split-name', type=str, help='The leaderboard data split name', required=True)
+    html_parser.add_argument('--leaderboards-name', type=str, help='The leaderboards name', required=True)
+    html_parser.add_argument('--data-split-name', type=str, help='The leaderboards data split name', required=True)
     html_parser.set_defaults(func=test_actor_manager_to_html)
 
     args = parser.parse_args()

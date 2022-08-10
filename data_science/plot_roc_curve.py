@@ -10,7 +10,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import sklearn.metrics
 
-from leaderboard import metrics
+from leaderboards import metrics
 from data_science import utils
 
 

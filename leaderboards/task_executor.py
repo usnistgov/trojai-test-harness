@@ -1,8 +1,8 @@
-from leaderboard.trojai_config import TrojaiConfig
-from leaderboard.leaderboard import Leaderboard
-from leaderboard.mail_io import TrojaiMail
-from leaderboard.drive_io import DriveIO
-from leaderboard import json_io
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards.leaderboard import Leaderboard
+from leaderboards.mail_io import TrojaiMail
+from leaderboards.drive_io import DriveIO
+from leaderboards import json_io
 import logging
 import traceback
 import hashlib
@@ -160,8 +160,8 @@ if __name__ == '__main__':
     parser.add_argument('--trojai-config-filepath', type=str,
                         help='The JSON file that describes the trojai round',
                         default='config.json')
-    parser.add_argument('--leaderboard-name', type=str,
-                        help='The name of the leaderboard')
+    parser.add_argument('--leaderboards-name', type=str,
+                        help='The name of the leaderboards')
     parser.add_argument('--data-split-name', type=str, help='The name of the data split that we are executing on.')
     parser.add_argument('--vm-name', type=str,
                         help='The name of the vm.',

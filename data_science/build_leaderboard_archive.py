@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 
-from leaderboard import metrics
+from leaderboards import metrics
 
 
 def find_dirs(fp):
@@ -23,7 +23,7 @@ def main(global_results_csv_filepath, queue, output_dirpath):
     results_df = pd.read_csv(global_results_csv_filepath)
 
     # create output file
-    with open(os.path.join(output_dirpath, '{}-leaderboard-summary.csv'.format(queue)), 'w') as fh:
+    with open(os.path.join(output_dirpath, '{}-leaderboards-summary.csv'.format(queue)), 'w') as fh:
         fh.write('Team, ExecutionTimeStamp, CrossEntropyLoss, CrossEntropy95ConfidenceInterval, ROC-AUC\n')
 
         # get the unique set of teams
