@@ -4,24 +4,53 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-from trojai_leaderboard import json_io
-from trojai_leaderboard import time_utils
+import fcntl
+import json
+import os.path
+
+import jsonpickle
+import logging
+import traceback
+
+from leaderboard.mail_io import TrojaiMail
 
 
-class GoogleDriveFile(object):
-    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str):
-        self.email = email
-        self.name = file_name
-        self.id = file_id
-        self.modified_epoch = time_utils.convert_to_epoch(modified_timestamp)
+def write(filepath, obj):
+    if not filepath.endswith('.json'):
+        raise RuntimeError("Expecting a file ending in '.json'")
+    lock_file = '/var/lock/trojai-json_io-lockfile'
+    with open(lock_file, 'w') as lfh:
+        try:
+            fcntl.lockf(lfh, fcntl.LOCK_EX)
 
-    def __str__(self):
-        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}" '.format(self.id, self.name, self.modified_epoch, self.email)
-        return msg
+            with open(filepath, mode='w', encoding='utf-8') as f:
+                f.write(jsonpickle.encode(obj, warn=True, indent=2))
+        except Exception as ex:
+            logging.error(ex)
+            msg = 'json_io failed writing file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
+            TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
+            raise
+        finally:
+            fcntl.lockf(lfh, fcntl.LOCK_UN)
 
-    def save_json(self, file_path: str):
-        json_io.write(file_path, self)
 
-    @staticmethod
-    def load_json(file_path: str):
-        return json_io.read(file_path)
+def read(filepath):
+    if not filepath.endswith('.json'):
+        raise RuntimeError("Expecting a file ending in '.json'")
+    lock_file = '/var/lock/trojai-json_io-lockfile'
+    with open(lock_file, 'w') as lfh:
+        try:
+            fcntl.lockf(lfh, fcntl.LOCK_EX)
+            with open(filepath, mode='r', encoding='utf-8') as f:
+                obj = jsonpickle.decode(f.read())
+        except json.decoder.JSONDecodeError:
+            logging.error("JSON decode error for file: {}, is it a proper json?".format(filepath))
+            raise
+        except:
+            msg = 'json_io failed reading file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
+            TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
+            raise
+        finally:
+            fcntl.lockf(lfh, fcntl.LOCK_UN)
+    return obj
+

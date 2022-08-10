@@ -1,8 +1,8 @@
-from trojai_leaderboard.trojai_config import TrojaiConfig
-from trojai_leaderboard.leaderboard import Leaderboard
-from trojai_leaderboard.mail_io import TrojaiMail
-from trojai_leaderboard.drive_io import DriveIO
-from trojai_leaderboard import json_io
+from leaderboard.trojai_config import TrojaiConfig
+from leaderboard.leaderboard import Leaderboard
+from leaderboard.mail_io import TrojaiMail
+from leaderboard.drive_io import DriveIO
+from leaderboard import json_io
 import logging
 import traceback
 import hashlib

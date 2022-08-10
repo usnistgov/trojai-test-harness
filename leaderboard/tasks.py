@@ -5,10 +5,10 @@ import time
 import typing
 import collections
 
-from trojai_leaderboard.mail_io import TrojaiMail
-from trojai_leaderboard import jsonschema_checker
-from trojai_leaderboard.dataset import Dataset
-from trojai_leaderboard.trojai_config import TrojaiConfig
+from leaderboard.mail_io import TrojaiMail
+from leaderboard import jsonschema_checker
+from leaderboard.dataset import Dataset
+from leaderboard.trojai_config import TrojaiConfig
 
 
 def check_gpu(host):

@@ -4,35 +4,42 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-import pickle
+import logging
+import subprocess
+import traceback
 
-from google_auth_oauthlib.flow import InstalledAppFlow
-from trojai_leaderboard.drive_io import DriveIO
-
-
-def create_auth_token(credentials_filepath, token_pickle_filepath):
-    flow = InstalledAppFlow.from_client_secrets_file(credentials_filepath, DriveIO.SCOPES)
-    creds = flow.run_local_server(port=0)
-    # Save the credentials for the next run
-    with open(token_pickle_filepath, 'wb') as token:
-        pickle.dump(creds, token)
-    return creds
+from leaderboard.mail_io import TrojaiMail
 
 
-if __name__ == "__main__":
-    import argparse
+def squeue(job_name: str, queue_name: str):
+    out = subprocess.Popen(['squeue', "-n", str(job_name), "-p", str(queue_name), "-o", "%T"],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    stdout, stderr = out.communicate()
 
-    parser = argparse.ArgumentParser(description='Build token.pickle file for authenticating Google Drive API access.')
+    if stderr != b'':
+        logging.error("Slurm is no longer online, error = {}".format(stderr))
+        logging.error(traceback.format_exc())
+        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
+        raise RuntimeError("Slurm is no longer online, error = {}".format(stderr))
+    return stdout, stderr
 
-    parser.add_argument('--token-pickle-filepath', type=str,
-                        help='Path token.pickle file holding the oauth keys. If token.pickle is missing, but credentials have been provided, token.pickle will be generated after opening a web-browser to have the user accept the app permissions',
-                        default='token.pickle')
-    parser.add_argument('--credentials-filepath',
-                        type=str,
-                        help='Path to the credentials.json file holding the Google Cloud Project with API access to trojai@nist.gov Google Drive.',
-                        default='credentials.json')
 
-    args = parser.parse_args()
-    token = args.token_pickle_filepath
-    credentials = args.credentials_filepath
-    create_auth_token(credentials, token)
+def sinfo_node_query(queue_name: str, state: str):
+    out = subprocess.Popen(['sinfo', '-t', state, '-p', queue_name, '-o', '%D', '-h'],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    stdout, stderr = out.communicate()
+
+    if stderr != b'':
+        logging.error("Slurm is no longer online, error = {}".format(stderr))
+        logging.error(traceback.format_exc())
+        msg = 'Slurm is no longer online. Error = {}.\nTraceback:\n{}'.format(stderr, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov', 'Slurm Offline', msg)
+        return '0'
+
+    if stdout == b'':
+        return '0'
+
+    return stdout.decode('utf-8').strip()

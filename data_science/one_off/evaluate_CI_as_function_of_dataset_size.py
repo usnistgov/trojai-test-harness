@@ -6,7 +6,7 @@
 
 import numpy as np
 
-from trojai_leaderboard import metrics
+from leaderboard import metrics
 
 x_vals = list()
 y_vals = list()

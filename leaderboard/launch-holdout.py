@@ -11,9 +11,9 @@ import shutil
 import subprocess
 import numpy as np
 
-from trojai_leaderboard import time_utils
-from trojai_leaderboard.trojai_config import TrojaiConfig
-from trojai_leaderboard.submission import Submission, SubmissionManager
+from leaderboard import time_utils
+from leaderboard.trojai_config import TrojaiConfig
+from leaderboard.submission import Submission, SubmissionManager
 
 # TODO: Update
 def main(config_filepath: str, trojai_config: TrojaiConfig, execute_team_name: str) -> None:

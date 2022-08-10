@@ -10,11 +10,11 @@ import logging.handlers
 import fcntl
 import os
 
-from trojai_leaderboard.trojai_config import TrojaiConfig
-from trojai_leaderboard import html_output
-from trojai_leaderboard.actor import ActorManager
-from trojai_leaderboard.submission import SubmissionManager
-from trojai_leaderboard import time_utils
+from leaderboard.trojai_config import TrojaiConfig
+from leaderboard import html_output
+from leaderboard.actor import ActorManager
+from leaderboard.submission import SubmissionManager
+from leaderboard import time_utils
 
 
 def main(trojai_config: TrojaiConfig, commit_and_push: bool):

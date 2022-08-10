@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
-from trojai_leaderboard import metrics
+from leaderboard import metrics
 from data_science import utils
 
 

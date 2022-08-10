@@ -2,11 +2,11 @@ import os
 import numpy as np
 from airium import Airium
 
-from trojai_leaderboard.trojai_config import TrojaiConfig
-from trojai_leaderboard import json_io
-from trojai_leaderboard.dataset import DatasetManager
-from trojai_leaderboard.metrics import *
-from trojai_leaderboard.tasks import *
+from leaderboard.trojai_config import TrojaiConfig
+from leaderboard import json_io
+from leaderboard.dataset import DatasetManager
+from leaderboard.metrics import *
+from leaderboard.tasks import *
 
 
 class Leaderboard(object):

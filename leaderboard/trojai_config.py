@@ -1,6 +1,6 @@
 import os
 
-from trojai_leaderboard import json_io
+from leaderboard import json_io
 
 
 class TrojaiConfig(object):

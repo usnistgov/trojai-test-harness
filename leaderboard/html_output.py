@@ -12,13 +12,13 @@ from git import Repo
 from git.exc import GitCommandError
 from airium import Airium
 
-from trojai_leaderboard.actor import  ActorManager
-from trojai_leaderboard.submission import SubmissionManager
-from trojai_leaderboard import time_utils
-from trojai_leaderboard import slurm
-from trojai_leaderboard.mail_io import TrojaiMail
-from trojai_leaderboard.trojai_config import TrojaiConfig
-from trojai_leaderboard.leaderboard import Leaderboard
+from leaderboard.actor import  ActorManager
+from leaderboard.submission import SubmissionManager
+from leaderboard import time_utils
+from leaderboard import slurm
+from leaderboard.mail_io import TrojaiMail
+from leaderboard.trojai_config import TrojaiConfig
+from leaderboard.leaderboard import Leaderboard
 
 def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
@@ -62,28 +62,6 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
 
             written_files.append(leaderboards_filepath)
 
-            # about_leaderboards_filepath = os.path.join(html_output_dirpath, 'about-leaderboards.html')
-            # a = Airium()
-            # with a.div(klass='card card-cascade wider'):
-            #     with a.div(klass='card-body card-body-cascade text-center pb-0'):
-            #         with a.div(klass='view view-cascade gradient-card-header blue-gradient'):
-            #             a.br()
-            #             a.h2(klass='pb-1 white-text card-title', _t='TrojAI Leaderboards')
-            #         a.br()
-            #
-            #         for leaderboard in active_leaderboards:
-            #             active_show = ''
-            #             if leaderboard.name == html_default_leaderboard:
-            #                 active_show = 'active show'
-            #             with a.div(klass='tab-content card'):
-            #                 with a.div(klass='tab-pane fade {}'.format(active_show), id='{}'.format('about-{}'.format(leaderboard.name)), role='tabpanel', **{'aria-labelledby': 'tab-{}'.format(leaderboard.name)}):
-            #                     a('{{% include about-{}.html %}}'.format(leaderboard.name))
-            #
-            # with open(about_leaderboards_filepath, 'w') as f:
-            #     f.write(str(a))
-            #
-            # written_files.append(about_leaderboards_filepath)
-
             # Check for existance of about files
             for leaderboard in active_leaderboards:
                 filepath = os.path.join(html_output_dirpath, 'about-{}.html'.format(leaderboard.name))
@@ -121,6 +99,12 @@ def update_html_pages(trojai_config: TrojaiConfig, commit_and_push: bool):
                     written_files.append(filepath)
                     filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, data_split_name)
                     written_files.append(filepath)
+
+
+            # configure javascript for table controls
+            for leaderboard in active_leaderboards:
+                for data_split_name in leaderboard.html_data_split_name_priorities.keys():
+                    pass
 
             # Push the HTML to the web
             repo = Repo(html_dirpath)

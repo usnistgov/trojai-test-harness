@@ -7,7 +7,7 @@
 import os
 import numpy as np
 import pandas as pd
-import trojai_leaderboard.metrics
+import leaderboard.metrics
 
 
 def find_dirs(fp):
@@ -72,7 +72,7 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
                         except:
                             predicted = np.asarray(np.nan)
                     target = row['poisoned'].to_numpy(dtype=np.float64)[0]
-                    elementwise_ce = trojai_leaderboard.metrics.elementwise_binary_cross_entropy(predicted, target)
+                    elementwise_ce = leaderboard.metrics.elementwise_binary_cross_entropy(predicted, target)
                     ce = float(np.mean(elementwise_ce))
 
                     # fh.write('TeamName,ExecutionTimeStamp,ExecutionTimeStr,ModelId,GroundTruth,Predicted\n')

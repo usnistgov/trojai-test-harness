@@ -7,11 +7,11 @@
 import os
 from typing import KeysView
 
-from trojai_leaderboard import json_io
-from trojai_leaderboard import slurm
-from trojai_leaderboard import time_utils
-from trojai_leaderboard.leaderboard import Leaderboard
-from trojai_leaderboard.trojai_config import TrojaiConfig
+from leaderboard import json_io
+from leaderboard import slurm
+from leaderboard import time_utils
+from leaderboard.leaderboard import Leaderboard
+from leaderboard.trojai_config import TrojaiConfig
 from airium import Airium
 
 

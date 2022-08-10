@@ -13,7 +13,7 @@ import sklearn.metrics
 from collections import OrderedDict
 from matplotlib import pyplot as plt
 
-from trojai_leaderboard import metrics
+from leaderboard import metrics
 from data_science import utils
 
 

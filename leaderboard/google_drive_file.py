@@ -4,60 +4,24 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-import os
-import smtplib
-
-from trojai_leaderboard import json_io
-from trojai_leaderboard import time_utils
+from leaderboard import json_io
+from leaderboard import time_utils
 
 
-class TrojaiMail(object):
+class GoogleDriveFile(object):
+    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str):
+        self.email = email
+        self.name = file_name
+        self.id = file_id
+        self.modified_epoch = time_utils.convert_to_epoch(modified_timestamp)
 
-    DEUGGING = True
+    def __str__(self):
+        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}" '.format(self.id, self.name, self.modified_epoch, self.email)
+        return msg
 
-    SERVER = "smtp.nist.gov"
-    FROM = 'trojai@nist.gov'
-    CACHE_FILEPATH = '/tmp/trojai-mail-cache.json'
+    def save_json(self, file_path: str):
+        json_io.write(file_path, self)
 
-    def __init__(self):
-        self.sent_cache = list()
-
-        if not os.path.exists(self.CACHE_FILEPATH):
-            self.save_cache()
-
-    def load_cache(self):
-        self.sent_cache = json_io.read(self.CACHE_FILEPATH)
-        # filter out old cache elements
-        stale_timeout = 3600  # 1 hour in seconds
-        current_epoch = time_utils.get_current_epoch()
-        self.sent_cache = [x for x in self.sent_cache if abs(current_epoch - x[1]) < stale_timeout]
-
-    def save_cache(self):
-        json_io.write(self.CACHE_FILEPATH, self.sent_cache)
-
-    def reset_cache(self):
-        self.sent_cache = list()
-        self.save_cache()
-
-    def send(self, to: str, subject: str, message: str):
-        if TrojaiMail.DEUGGING:
-            return
-
-        try:
-            self.load_cache()
-
-            in_cache = any([x for x in self.sent_cache if subject.lower().strip() == x[0]])
-            if not in_cache:
-                mail_message = "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n\r\n{}".format(self.FROM, to, subject, message)
-
-                # Send the mail
-                server = smtplib.SMTP(self.SERVER)
-                server.sendmail(self.FROM, to, mail_message)
-                server.quit()
-
-                current_epoch = time_utils.get_current_epoch()
-                self.sent_cache.append((subject.lower().strip(), current_epoch))
-                self.save_cache()
-        except:
-            pass
-
+    @staticmethod
+    def load_json(file_path: str):
+        return json_io.read(file_path)
