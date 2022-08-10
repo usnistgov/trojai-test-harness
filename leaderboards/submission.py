@@ -207,7 +207,6 @@ class Submission(object):
 
         return results
 
-
     def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
         logging.info("Checking results for {}".format(self.actor_name))
 
