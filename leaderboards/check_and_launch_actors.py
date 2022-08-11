@@ -60,7 +60,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         # Expected format is leaderboard-name_data-split-name_container-name.simg
         if len(filename_split) <= 2:
             logging.info('File {} from actor {} did not have expected format'.format(filename, actor.name))
-            actor.general_file_status = 'Shared File Error'
+            actor.general_file_status = 'Shared File Error (format)'
             has_general_errors = True
             continue
 
@@ -71,24 +71,18 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         if leaderboard_name not in active_leaderboards.keys():
             logging.info('File {} from actor {} did not have a valid leaderboard name: {}'.format(filename, actor.name, leaderboard_name))
             if not has_general_errors:
-                actor.general_file_status = 'Shared File Error'
+                actor.general_file_status = 'Shared File Error (leaderboard name)'
                 has_general_errors = True
             continue
 
         leaderboard = active_leaderboards[leaderboard_name]
-        submission_manager = active_submission_managers[leaderboard_name]
 
         # Check if valid data split name
         if not leaderboard.can_submit_to_dataset(data_split_name):
             logging.info('File {} from actor {} did not have a valid data split name: {}'.format(filename, actor.name, data_split_name))
             if not has_general_errors:
-                actor.general_file_status = 'Shared File Error'
+                actor.general_file_status = 'Shared File Error (data split name)'
                 has_general_errors = True
-            continue
-
-        # Check if actor already has a job waiting to be processed (may be in queue)
-        if submission_manager.has_active_submission(actor):
-            logging.info('Detected another submission for {}, named {}, but an active submission is in progress'.format(actor.name, filename))
             continue
 
         key = '{}_{}'.format(leaderboard_name, data_split_name)
@@ -110,6 +104,11 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
 
         leaderboard = active_leaderboards[leaderboard_name]
         submission_manager = active_submission_managers[leaderboard_name]
+
+        # Check if actor already has a job waiting to be processed (may be in queue)
+        if submission_manager.has_active_submission(actor):
+            logging.info('Detected another submission for {}, named {}, but an active submission is in progress'.format(actor.name, filename))
+            continue
 
         if len(g_file_list) == 0:
             logging.info('Actor {} does not have a submission from email {} for leaderboard {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
@@ -205,7 +204,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             logging.error(msg)
 
     # Check web-site updates
-    update_html_pages(trojai_config, active_leaderboards, active_submission_managers, commit_and_push=True)
+    update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, commit_and_push=True)
 
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')

@@ -103,6 +103,10 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.slurm_queue_name
 
+    def get_slurm_priority(self, data_split_name: str):
+        dataset = self.dataset_manager.get(data_split_name)
+        return dataset.slurm_priority
+
     def get_submission_window_time(self, data_split_name: str):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.submission_window_time_sec
@@ -179,8 +183,6 @@ class Leaderboard(object):
                         else:
                             a.a(klass='nav-link waves-light', id='tab-{}-{}'.format(self.name, data_split), href='#{}-{}'.format(self.name, data_split), **{'data-toggle': 'tab', 'aria-controls': '{}-{}'.format(self.name, data_split), 'aria-selected': 'false'}, _t=data_split)
 
-            # Add about-leaderboards.html
-
             with a.div(klass='tab-content card'):
                 for data_split in html_data_split_names:
                     if data_split == 'test':
@@ -190,7 +192,7 @@ class Leaderboard(object):
                     with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
                         with a.div(klass='card-body card-body-cascade'):
                             dataset = self.get_dataset(data_split)
-                            a.p(klass='card-text text-left', _t='Example submission name: "{}-{}-container_name.simg<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit))
+                            a.p(klass='card-text text-left', _t='Example submission name: "{}-{}-container_name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit))
 
                         a('{{% include jobs-{}-{}.html %}}'.format(self.name, data_split))
                         a('{{% include results-unique-{}-{}.html %}}'.format(self.name, data_split))

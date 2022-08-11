@@ -20,7 +20,7 @@ from leaderboards.mail_io import TrojaiMail
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
 
-def update_html_pages(trojai_config: TrojaiConfig, active_leaderboards_dict: dict, active_submission_managers_dict: dict, commit_and_push: bool):
+def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
 
     lock_filepath = "/var/lock/htmlpush-lockfile"
@@ -80,8 +80,6 @@ def update_html_pages(trojai_config: TrojaiConfig, active_leaderboards_dict: dic
                     with open(filepath, 'w') as f:
                         f.write(str(a))
                     written_files.append(filepath)
-
-            actor_manager = ActorManager.load_json(trojai_config)
 
             for leaderboard in active_leaderboards:
                 submission_manager = active_submission_managers_dict[leaderboard.name]

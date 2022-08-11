@@ -3,7 +3,7 @@
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
-
+import copy
 import os
 import typing
 
@@ -37,6 +37,7 @@ class Submission(object):
         self.leaderboard_name = leaderboard.name
         self.data_split_name = data_split_name
         self.slurm_queue_name = leaderboard.get_slurm_queue_name(self.data_split_name)
+        self.slurm_priority = leaderboard.get_slurm_priority(self.data_split_name)
         self.metric_results = {}
         self.saved_metric_results = {}
         self.execution_runtime = None
@@ -132,7 +133,8 @@ class Submission(object):
                 time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
                 submission_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
-                os.remove(submission_filepath)
+                if os.path.exists(submission_filepath):
+                    os.remove(submission_filepath)
             elif self.data_split_name == 'test':
                 # TODO: Implement checking for train results/submission . . .
                 # If it does not exist, then create a new submission using the test container
@@ -175,7 +177,7 @@ class Submission(object):
         results = collections.OrderedDict()
 
         # loop over each model file trojan prediction is being made for
-        logging.info('Looping over ground truth files, computing cross entropy loss.')
+        logging.info('Loading results.')
         for model_name in ground_truth_dict.keys():
             result_filepath = os.path.join(self.actor_results_dirpath, time_str, model_name + ".txt")
 
@@ -428,7 +430,7 @@ class Submission(object):
 
         # TODO: Update when the VM has GPU
         gres_options = '' #'--gres=gpu:{}'.format(num_gpus)
-
+        cpus_per_task = '8' # TODO: update to 10
 
         # New version should indicate the following:
         # 1. The filepath to the Leaderboard (used to fetch the task)
@@ -438,17 +440,15 @@ class Submission(object):
         # 5. The email for the team
         self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
         slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
-        cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
-        # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '10', gres_options, '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
+        # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
+        cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--priority', str(self.slurm_priority), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--priority', str(self.slurm_priority), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', cpus_per_task, '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
+
         out = subprocess.Popen(cmd_str_list,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
-        stdout, stderr = out.communicate()
 
-        # TODO: Remove once using SLURM
-        actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
-        actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
+        stdout, stderr = out.communicate()
 
         # Check if there are no errors reported from sbatch
         if stderr == b'':
@@ -461,9 +461,13 @@ class Submission(object):
         else:
             logging.error("The slurm script: {} resulted in errors {}".format(slurm_script_filepath, stderr.decode()))
             logging.info(stdout.decode())
+            self.active_slurm_job_name = None
             self.web_display_execution_errors += ":Slurm Script Error:"
 
     def get_result_table_row(self, a: Airium, leaderboard: Leaderboard):
+        if self.is_active_job():
+            return
+
         if self.execution_epoch == 0 or self.execution_epoch is None:
             execute_timestr = "None"
         else:
