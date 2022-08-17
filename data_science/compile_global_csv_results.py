@@ -34,16 +34,10 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
     models = metadata['model_name'].to_list()
     models.sort()
 
-    columns = list(metadata.columns)
-    columns.remove('trigger.trigger_executor.trigger_text_list')
-
     # Prep the output csv file with the headers
     global_results_csv_fp = os.path.join(output_dirpath, '{}-global-results.csv'.format(server))
     with open(global_results_csv_fp, 'w') as fh:
-        fh.write('team_name,execution_time_stamp,ground_truth,predicted,cross_entropy')
-        for col_name in columns:
-            fh.write(',{}'.format(col_name))
-        fh.write('\n')
+        fh.write('team_name,execution_time_stamp,ground_truth,predicted,cross_entropy,model_name\n')
 
         # find all team directories in the results folder
         teams = find_dirs(results_fp)
@@ -76,11 +70,17 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
                     ce = float(np.mean(elementwise_ce))
 
                     # fh.write('TeamName,ExecutionTimeStamp,ExecutionTimeStr,ModelId,GroundTruth,Predicted\n')
-                    fh.write('{},{},{},{},{}'.format(team, run, target, predicted, ce))
-                    for col_name in columns:
-                        val = row[col_name].to_numpy()[0]
-                        fh.write(',{}'.format(val))
+                    fh.write('{},{},{},{},{},{}'.format(team, run, target, predicted, ce, model))
+                    # for col_name in columns:
+                    #     val = row[col_name].to_numpy()[0]
+                    #     fh.write(',{}'.format(val))
                     fh.write('\n')
+
+    # per dataframe join
+    global_df = pd.read_csv(global_results_csv_fp)
+    result_df = pd.merge(global_df, metadata, on="model_name")
+    result_df = result_df.sort_values(by=['team_name', 'execution_time_stamp'], ascending=True)
+    result_df.to_csv(global_results_csv_fp, index=False)
 
 
 if __name__ == "__main__":
