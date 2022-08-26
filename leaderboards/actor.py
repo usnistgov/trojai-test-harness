@@ -150,33 +150,6 @@ class Actor(object):
             a.td(_t=last_file_timestamp)
             a.td(_t=time_str)
 
-    # TODO: REMOVE
-    # def get_jobs_table_entry(self, leaderboard_name, dataset_split_name, execute_window, current_epoch: int):
-    #
-    #     leaderboard_key = self.get_leaderboard_key(leaderboard_name, dataset_split_name)
-    #
-    #     # Check if this is the first time we've encountered this leaderboards
-    #     if not self._has_leaderboard_metadata(leaderboard_name, dataset_split_name):
-    #         self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
-    #
-    #     remaining_time = 0
-    #     if self.last_execution_epochs[leaderboard_key] + execute_window > current_epoch:
-    #         remaining_time = (self.last_execution_epochs[leaderboard_key] + execute_window) - current_epoch
-    #
-    #     days, hours, minutes, seconds = time_utils.convert_seconds_to_dhms(remaining_time)
-    #     time_str = "{} d, {} h, {} m, {} s".format(days, hours, minutes, seconds)
-    #
-    #     if self.last_file_epochs[leaderboard_key] == 0:
-    #         last_file_timestamp = "None"
-    #     else:
-    #         last_file_timestamp = time_utils.convert_epoch_to_iso(self.last_file_epochs[leaderboard_key])
-    #     if self.last_execution_epochs[leaderboard_key] == 0:
-    #         last_execution_timestamp = "None"
-    #     else:
-    #         last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epochs[leaderboard_key])
-    #
-    #     return [self.name, last_execution_timestamp, self.job_statuses[leaderboard_key], self.file_statuses[leaderboard_key], last_file_timestamp, time_str]
-
 
 class ActorManager(object):
     def __init__(self):
@@ -232,7 +205,7 @@ class ActorManager(object):
 
     def write_jobs_table(self, output_dirpath, leaderboard_name, dataset_split_name, execute_window, cur_epoch):
         jobs_filename = 'jobs-{}-{}.html'.format(leaderboard_name, dataset_split_name)
-        jobs_filepath = os.path.join(output_dirpath, jobs_filename)
+        jobs_filepath = os.path.join(output_dirpath, leaderboard_name, jobs_filename)
         a = Airium()
 
         with a.div(klass='card-body card-body-cascade pb-0'):

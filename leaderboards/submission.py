@@ -49,8 +49,6 @@ class Submission(object):
         self.web_display_parse_errors = "None"
         self.web_display_execution_errors = "None"
 
-
-
         # create the directory where submissions are stored
         self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, self.actor_name)
 
@@ -267,18 +265,22 @@ class Submission(object):
 
             predictions, targets = self.get_predictions_targets(leaderboard, print_details=True)
 
+            submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
+
             # Compute metrics
-            for metric_name, metric in leaderboard.get_submission_metrics(self.data_split_name).items():
+            for metric_name, metric in submission_metrics.items():
                 self.compute_metric(metric, predictions, targets)
 
             output_files = []
 
             # Gather metric output files
-            for metric_filepaths in self.saved_metric_results.values():
-                if isinstance(metric_filepaths, list):
-                    output_files.extend(metric_filepaths)
-                elif isinstance(metric_filepaths, str):
-                    output_files.append(metric_filepaths)
+            for metric_name, metric_filepaths in self.saved_metric_results.items():
+                metric = submission_metrics[metric_name]
+                if metric.share_with_actor:
+                    if isinstance(metric_filepaths, list):
+                        output_files.extend(metric_filepaths)
+                    elif isinstance(metric_filepaths, str):
+                        output_files.append(metric_filepaths)
 
             # Share metric output files with actor
             for output_file in output_files:
@@ -356,8 +358,9 @@ class Submission(object):
         if metric.store_result_in_submission:
             self.metric_results[metric.get_name()] = metric_output['result']
 
-        if metric.share_with_actor:
-            self.saved_metric_results[metric.get_name()] = metric.write_data(self.leaderboard_name, self.data_split_name, metric_output, metric_output_dirpath)
+        result = metric.write_data(self.leaderboard_name, self.data_split_name, metric_output, metric_output_dirpath)
+        if result is not None:
+            self.saved_metric_results[metric.get_name()] = result
 
     def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False):
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
@@ -424,20 +427,8 @@ class Submission(object):
         submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
         trojai_config_filepath = trojai_config.trojai_config_filepath
 
-        num_gpus = '1'
-        if self.data_split_name in trojai_config.gres_options.keys():
-            num_gpus = trojai_config.gres_options[self.data_split_name]
+        cpus_per_task = trojai_config.vm_cpu_cores
 
-        # TODO: Update when the VM has GPU
-        gres_options = '' #'--gres=gpu:{}'.format(num_gpus)
-        cpus_per_task = '8' # TODO: update to 10
-
-        # New version should indicate the following:
-        # 1. The filepath to the Leaderboard (used to fetch the task)
-        # 2. The submission filepath
-        # 3. The results dirpath
-        # 4. The team name
-        # 5. The email for the team
         self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
         slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
@@ -495,7 +486,6 @@ class Submission(object):
                     if metric_name not in self.saved_metric_results.keys():
                         predictions, targets = self.get_predictions_targets(leaderboard)
                         self.compute_metric(metric, predictions, targets)
-                        # TODO: Do we want to share with the actor now?
 
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
@@ -522,26 +512,25 @@ class SubmissionManager(object):
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
-    def gather_submissions(self, min_loss_criteria: float, execute_team_name: str) -> Dict[str, List[Submission]]:
-        # TODO: Update
-        raise NotImplementedError('Function is not updated')
-        holdout_execution_submissions = dict()
+    def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str , metric_name: str, metric_criteria: float, team_email: str) -> Dict[str, List[Submission]]:
+        execution_submissions = list()
 
-        for actor_email in self.__submissions.keys():
-            submissions = self.__submissions[actor_email]
-            accepted_submissions = list()
+        actor_submissions = self.__submissions[team_email]
+        submission_metrics = leaderboard.get_submission_metrics(data_split_name)
 
-            for submission in submissions:
-                if execute_team_name is not None and execute_team_name != submission.actor.name:
-                    break
+        for submission in actor_submissions:
+            if submission.data_split_name == data_split_name:
+                metric = submission_metrics[metric_name]
 
-                if submission.cross_entropy is not None and submission.cross_entropy < min_loss_criteria:
-                    accepted_submissions.append(submission)
+                if metric_name not in submission.metric_results.keys():
+                    predictions, targets = submission.get_predictions_targets(leaderboard, print_details=False)
+                    submission.compute_metric(metric, predictions, targets)
 
-            if len(accepted_submissions) > 0:
-                holdout_execution_submissions[actor_email] = accepted_submissions
+                metric_value = submission.metric_results[metric_name]
+                if metric.compare(metric_value, metric_criteria):
+                    execution_submissions.append(submission)
 
-        return holdout_execution_submissions
+        return execution_submissions
 
     def has_active_submission(self, actor: Actor):
         submissions = self.get_submissions_by_actor(actor)
@@ -589,7 +578,7 @@ class SubmissionManager(object):
 
     def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, data_split_name: str):
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
-        result_filepath = os.path.join(output_dirpath, result_filename)
+        result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         a = Airium()
 
         valid_submissions = {}
@@ -644,7 +633,7 @@ class SubmissionManager(object):
 
     def write_score_table(self, output_dirpath, leaderboard: Leaderboard, data_split_name: str):
         result_filename = 'results-{}-{}.html'.format(leaderboard.name, data_split_name)
-        result_filepath = os.path.join(output_dirpath, result_filename)
+        result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         a = Airium()
 
         valid_submissions = {}

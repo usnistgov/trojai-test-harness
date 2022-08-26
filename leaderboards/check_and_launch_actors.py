@@ -179,6 +179,9 @@ def main(trojai_config: TrojaiConfig) -> None:
     active_submission_managers = {}
     for leaderboard_name in trojai_config.active_leaderboard_names:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+        if leaderboard is None:
+            continue
+
         active_leaderboards[leaderboard_name] = leaderboard
         submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
         active_submission_managers[leaderboard_name] = submission_manager
@@ -223,12 +226,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Check and Launch script for TrojAI challenge participants')
-    parser.add_argument('--trojai-config-file', type=str,
+    parser.add_argument('--trojai-config-filepath', type=str,
                         help='The JSON file that describes trojai.', required=True)
 
     args = parser.parse_args()
 
-    trojai_config = TrojaiConfig.load_json(args.trojai_config_file)
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
 
     # PidFile ensures that this script is only running once
     print('Attempting to acquire PID file lock.')
@@ -249,10 +252,10 @@ if __name__ == "__main__":
             # TODO: Remove this
             logging.getLogger().addHandler(logging.StreamHandler())
 
-            logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_file))
+            logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
             main(trojai_config)
         except OSError as e:
-            print('check-and-launch was already running when called.')
+            print('check-and-launch was already running when called. {}'.format(e))
         finally:
             fcntl.lockf(f, fcntl.LOCK_UN)
 

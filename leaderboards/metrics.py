@@ -26,8 +26,10 @@ class Metric(object):
         raise NotImplementedError()
 
     def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
-        raise NotImplementedError()
+        pass
 
+    def compare(self, computed, baseline):
+        raise NotImplementedError()
 
 class AverageCrossEntropy(Metric):
     def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True, epsilon:float = 1e-12):
@@ -46,6 +48,9 @@ class AverageCrossEntropy(Metric):
         ce = -(a + b)
 
         return {'result': np.average(ce).item(), 'metadata': ce}
+
+    def compare(self, computed, baseline):
+        return computed < baseline
 
 class CrossEntropyConfidenceInterval(Metric):
     VALID_LEVELS = [90, 95, 98, 99]
@@ -98,6 +103,9 @@ class BrierScore(Metric):
         mse = np.mean(np.square(predictions - targets))
         return {'result': float(mse), 'metadata': None}
 
+    def compare(self, computed, baseline):
+        return computed > baseline
+
 class ROC_AUC(Metric):
     def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True):
         super().__init__(write_html, share_with_actor, store_result_in_submission)
@@ -144,6 +152,9 @@ class ROC_AUC(Metric):
         FPR = np.asarray(FPR).reshape(-1)
 
         return {'result': float(auc(FPR, TPR)), 'metadata': [TPR, FPR]}
+
+    def compare(self, computed, baseline):
+        return computed > baseline
 
     def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
         TPR, FPR = data['metadata']

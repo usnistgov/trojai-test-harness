@@ -14,30 +14,27 @@ import numpy as np
 from leaderboards import time_utils
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.submission import Submission, SubmissionManager
+from leaderboards.actor import ActorManager
+from leaderboards.leaderboard import Leaderboard
+from leaderboards.metrics import Metric
 
-# TODO: Update
-def main(config_filepath: str, trojai_config: TrojaiConfig, execute_team_name: str) -> None:
-    # TODO: Update
 
-    if not os.path.exists(config.results_dir):
-        logging.info('Creating results directory: {}'.format(config.results_dir))
-        os.makedirs(config.results_dir)
-    if not os.path.exists(config.submission_dir):
-        logging.info('Creating submission_dir directory: {}'.format(config.submission_dir))
-        os.makedirs(config.submission_dir)
+def main(trojai_config: TrojaiConfig,  leaderboard_name: str, team_email: str, source_data_split_name: str, evaluation_data_split_name: str, metric_name: str, metric_criteria: float) -> None:
+    actor_manager = ActorManager.load_json(trojai_config)
+    leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+    submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard_name)
 
-    handler = logging.handlers.RotatingFileHandler(config.log_file, maxBytes=100 * 1e6, backupCount=10)  # 100MB
+    handler = logging.handlers.RotatingFileHandler(trojai_config.log_filepath, maxBytes=100 * 1e6, backupCount=10)  # 100MB
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                         handlers=[handler])
 
     logging.getLogger().addHandler(logging.StreamHandler())
 
-    logging.info('Starting parsing for holdout execution')
-    logging.info(config)
+    logging.info('Starting parsing for {} execution for leaderboard {}'.format(leaderboard_name, source_data_split_name))
+    logging.info(trojai_config)
 
-    submission_manager = SubmissionManager.load_json(config.submissions_json_file)
-    logging.debug('Loaded submission_manager from filepath: {}'.format(config.submissions_json_file))
+    logging.debug('Loaded submission_manager from filepath: {}'.format(leaderboard.submissions_filepath))
     logging.debug(submission_manager)
 
     # Gather submissions based on criteria

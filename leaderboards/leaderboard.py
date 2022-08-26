@@ -27,9 +27,14 @@ class Leaderboard(object):
     GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
 
+    SLURM_QUEUE_NAMES = [GENERAL_SLURM_QUEUE_NAME, STS_SLURM_QUEUE_NAME]
+
     TABLE_NAMES = ['results', 'all-results', 'jobs']
 
     def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False):
+        if '_' in name:
+            raise RuntimeError('Invalid leaderboard name: {}, should not have any underscores "_"'.format(name))
+
         self.name = name
         self.task_name = task_name
 
@@ -60,8 +65,11 @@ class Leaderboard(object):
                     slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
                     slurm_priority = 0
 
-                # TODO: Add check for source data
-                has_source_data = True
+                source_data_filepath = os.path.join(trojai_config.datasets_dirpath, '{}-source-data'.format(self.name))
+                has_source_data = False
+
+                if os.path.exists(source_data_filepath):
+                    has_source_data = True
                 self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority, has_source_data)
 
         for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
@@ -157,14 +165,25 @@ class Leaderboard(object):
 
     @staticmethod
     def load_json(trojai_config: TrojaiConfig, name) -> 'Leaderboard':
-        leaderboard_config = json_io.read(os.path.join(trojai_config.leaderboard_configs_dirpath, '{}_config.json'.format(name)))
+        leaderboard_config_filepath = os.path.join(trojai_config.leaderboard_configs_dirpath, '{}_config.json'.format(name))
+
+        if not os.path.exists(leaderboard_config_filepath):
+            logging.error('Unable to find leaderboard config: {}'.format(leaderboard_config_filepath))
+            return None
+
+        leaderboard_config = json_io.read(leaderboard_config_filepath)
         assert leaderboard_config.task_name in Leaderboard.VALID_TASK_NAMES
         return leaderboard_config
 
     def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool):
 
         leaderboard_filename = '{}-leaderboard.html'.format(self.name)
-        leaderboard_filepath = os.path.join(html_output_dirpath, leaderboard_filename)
+        leaderboard_dirpath = os.path.join(html_output_dirpath, self.name)
+        leaderboard_filepath = os.path.join(leaderboard_dirpath, leaderboard_filename)
+
+        if not os.path.exists(leaderboard_dirpath):
+            os.makedirs(leaderboard_dirpath, exist_ok=True)
+
         active_show = ''
         if is_first:
             active_show = 'active show'
@@ -174,7 +193,7 @@ class Leaderboard(object):
 
         a = Airium()
         with a.div(klass='tab-pane fade {}'.format(active_show), id='{}'.format(self.name), role='tabpanel', **{'aria-labelledby' : 'tab-{}'.format(self.name)}):
-            a('{{% include about-{}.html %}}'.format(self.name))
+            a('{{% include {}/about-{}.html %}}'.format(self.name, self.name))
             with a.ul(klass='nav nav-pills', id='{}-tabs'.format(self.name), role='tablist'):
                 with a.li(klass='nav-item'):
                     for data_split in html_data_split_names:
@@ -192,11 +211,11 @@ class Leaderboard(object):
                     with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
                         with a.div(klass='card-body card-body-cascade'):
                             dataset = self.get_dataset(data_split)
-                            a.p(klass='card-text text-left', _t='Example submission name: "{}-{}-container_name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit))
+                            a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit))
 
-                        a('{{% include jobs-{}-{}.html %}}'.format(self.name, data_split))
-                        a('{{% include results-unique-{}-{}.html %}}'.format(self.name, data_split))
-                        a('{{% include results-{}-{}.html %}}'.format(self.name, data_split))
+                        a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
+                        a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))
+                        a('{{% include {}/results-{}-{}.html %}}'.format(self.name, self.name, data_split))
 
 
         with open(leaderboard_filepath, 'w') as f:
