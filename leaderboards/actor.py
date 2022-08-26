@@ -3,7 +3,7 @@
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
-
+import math
 import os
 from typing import KeysView
 
@@ -118,7 +118,7 @@ class Actor(object):
             return True
         return False
 
-    def get_jobs_table_row(self, a: Airium, leaderboard_name, data_split_name, execute_window, current_epoch):
+    def get_jobs_table_row(self, a: Airium, leaderboard_name: str, data_split_name: str, execute_window: int , current_epoch: int, job_color_key: dict):
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
 
         # Check if this is the first time we've encountered this leaderboard
@@ -126,8 +126,9 @@ class Actor(object):
             self.reset_leaderboard_submission(leaderboard_name, data_split_name)
 
         remaining_time = 0
-        if self.last_execution_epochs[leaderboard_key] + execute_window > current_epoch:
-            remaining_time = (self.last_execution_epochs[leaderboard_key] + execute_window) - current_epoch
+        last_execution_epoch = self.last_execution_epochs[leaderboard_key]
+        if last_execution_epoch + execute_window > current_epoch:
+            remaining_time = (last_execution_epoch + execute_window) - current_epoch
 
         days, hours, minutes, seconds = time_utils.convert_seconds_to_dhms(remaining_time)
         time_str = "{} d, {} h, {} m, {} s".format(days, hours, minutes, seconds)
@@ -141,7 +142,18 @@ class Actor(object):
         else:
             last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epochs[leaderboard_key])
 
-        with a.tr():
+        color_key_times = sorted([float(i) for i in job_color_key.keys()])
+        color_class = ''
+        # Find the color for the row
+        for color_key_time in color_key_times:
+            if math.isinf(color_key_time):
+                color_class = job_color_key['inf']
+                break
+            elif last_execution_epoch + int(color_key_time) > current_epoch:
+                color_class = job_color_key[str(int(color_key_time))]
+                break
+
+        with a.tr(klass=color_class):
             a.td(_t=self.name)
             a.td(_t=last_execution_timestamp)
             a.td(_t=self.job_statuses[leaderboard_key])
@@ -203,7 +215,7 @@ class ActorManager(object):
         ActorManager.init_file(trojai_config)
         return json_io.read(trojai_config.actors_filepath)
 
-    def write_jobs_table(self, output_dirpath, leaderboard_name, dataset_split_name, execute_window, cur_epoch):
+    def write_jobs_table(self, output_dirpath, leaderboard_name, dataset_split_name, execute_window, cur_epoch, job_color_key):
         jobs_filename = 'jobs-{}-{}.html'.format(leaderboard_name, dataset_split_name)
         jobs_filepath = os.path.join(output_dirpath, leaderboard_name, jobs_filename)
         a = Airium()
@@ -223,7 +235,7 @@ class ActorManager(object):
                             a.th(klass='th-sm', _t='Time until next execution')
                     with a.tbody():
                         for actor in self.actors.values():
-                            actor.get_jobs_table_row(a, leaderboard_name, dataset_split_name, execute_window, cur_epoch)
+                            actor.get_jobs_table_row(a, leaderboard_name, dataset_split_name, execute_window, cur_epoch, job_color_key)
 
         with open(jobs_filepath, 'w') as f:
             f.write(str(a))

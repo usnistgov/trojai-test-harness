@@ -24,6 +24,9 @@ class TrojaiConfig(object):
         self.task_evaluator_script_filepath = os.path.join(file_dirpath, 'task_executor.py')
         self.python_env = '/home/trojai/trojai-env/bin/python3'
         self.vm_cpu_cores = '10'
+        self.job_color_key = {604800: 'success-color-dark text-light',
+                              1209600: 'warning-color-dark',
+                              float('inf'): 'danger-color-dark text-light'}
 
         self.slurm_execute_script_filepath = slurm_execute_script_filepath
         if slurm_execute_script_filepath is None:
