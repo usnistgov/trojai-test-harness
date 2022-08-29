@@ -33,6 +33,7 @@ class Actor(object):
             for dataset_split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
                 self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
 
+        self.highlight_old_submissions = False
         self.disabled = False
 
     def update_all_job_status(self, value, check_value=None):
@@ -118,7 +119,7 @@ class Actor(object):
             return True
         return False
 
-    def get_jobs_table_row(self, a: Airium, leaderboard_name: str, data_split_name: str, execute_window: int , current_epoch: int, job_color_key: dict):
+    def get_jobs_table_row(self, a: Airium, leaderboard_name: str, leaderboard_highlight_old_submissions: bool, data_split_name: str, execute_window: int , current_epoch: int, job_color_key: dict):
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
 
         # Check if this is the first time we've encountered this leaderboard
@@ -144,14 +145,16 @@ class Actor(object):
 
         color_key_times = sorted([float(i) for i in job_color_key.keys()])
         color_class = ''
-        # Find the color for the row
-        for color_key_time in color_key_times:
-            if math.isinf(color_key_time):
-                color_class = job_color_key['inf']
-                break
-            elif last_execution_epoch + int(color_key_time) > current_epoch:
-                color_class = job_color_key[str(int(color_key_time))]
-                break
+
+        if self.highlight_old_submissions and leaderboard_highlight_old_submissions:
+            # Find the color for the row
+            for color_key_time in color_key_times:
+                if math.isinf(color_key_time):
+                    color_class = job_color_key['inf']
+                    break
+                elif last_execution_epoch + int(color_key_time) > current_epoch:
+                    color_class = job_color_key[str(int(color_key_time))]
+                    break
 
         with a.tr(klass=color_class):
             a.td(_t=self.name)
@@ -215,7 +218,7 @@ class ActorManager(object):
         ActorManager.init_file(trojai_config)
         return json_io.read(trojai_config.actors_filepath)
 
-    def write_jobs_table(self, output_dirpath, leaderboard_name, dataset_split_name, execute_window, cur_epoch, job_color_key):
+    def write_jobs_table(self, output_dirpath, leaderboard_name, leaderboard_highlight_old_submissions, dataset_split_name, execute_window, cur_epoch, job_color_key):
         jobs_filename = 'jobs-{}-{}.html'.format(leaderboard_name, dataset_split_name)
         jobs_filepath = os.path.join(output_dirpath, leaderboard_name, jobs_filename)
         a = Airium()
@@ -235,7 +238,7 @@ class ActorManager(object):
                             a.th(klass='th-sm', _t='Time until next execution')
                     with a.tbody():
                         for actor in self.actors.values():
-                            actor.get_jobs_table_row(a, leaderboard_name, dataset_split_name, execute_window, cur_epoch, job_color_key)
+                            actor.get_jobs_table_row(a, leaderboard_name, leaderboard_highlight_old_submissions, dataset_split_name, execute_window, cur_epoch, job_color_key)
 
         with open(jobs_filepath, 'w') as f:
             f.write(str(a))

@@ -46,6 +46,7 @@ class Leaderboard(object):
         self.submission_dirpath = os.path.join(trojai_config.submission_dirpath, self.name)
         self.submissions_filepath = os.path.join(self.submission_dirpath, 'submissions.json')
 
+        self.highlight_old_submissions = False
         self.html_leaderboard_priority = 0
         self.html_data_split_name_priorities = {}
         self.html_table_sort_options = {}
