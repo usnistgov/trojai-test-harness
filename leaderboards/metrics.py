@@ -18,6 +18,7 @@ class Metric(object):
         self.share_with_actor = share_with_actor
         self.store_result_in_submission = store_result_in_submission
         self.html_priority = 0
+        self.html_decimal_places = 5
 
     def get_name(self):
         raise NotImplementedError()

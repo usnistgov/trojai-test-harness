@@ -489,7 +489,10 @@ class Submission(object):
 
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
-                    a.th(klass='th-sm', _t=str(metric_value))
+                    if isinstance(metric_value, float):
+                        a.th(klass='th-sm', _t=str(round(metric_value, metric.html_decimal_places)))
+                    else:
+                        a.th(klass='th-sm', _t=str(metric_value))
 
             a.th(klass='th-sm', _t=self.execution_runtime)
             a.th(klass='th-sm', _t=execute_timestr)

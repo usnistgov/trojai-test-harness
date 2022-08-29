@@ -20,6 +20,61 @@ from leaderboards.mail_io import TrojaiMail
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
 
+def get_leaderboard_javascript_content(leaderboard: Leaderboard):
+    content = ''
+    html_sort_options = leaderboard.html_table_sort_options
+    for key, info_dict in html_sort_options.items():
+        column_name = info_dict['column']
+        order = info_dict['order']
+        content += """sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
+        content += "$('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
+    return content
+
+def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpath: str, leaderboard: Leaderboard, submission_manager: SubmissionManager, actor_manager: ActorManager, html_default_leaderboard: str, cur_epoch: int, is_archived: bool):
+    written_files = []
+
+    # Check for existence of about files for each leaderboard
+    html_leaderboard_dirpath = os.path.join(html_output_dirpath, leaderboard.name)
+    filepath = os.path.join(html_leaderboard_dirpath, 'about-{}.html'.format(leaderboard.name, leaderboard.name))
+
+    if not os.path.exists(html_leaderboard_dirpath):
+        os.makedirs(html_leaderboard_dirpath, exist_ok=True)
+
+    if not os.path.exists(filepath):
+        a = Airium()
+        with a.div(klass='card-body card-body-cascade text-center pb-0'):
+            with a.p(klass='card-text text-left'):
+                a('Placeholder text for {}'.format(leaderboard.name))
+            with a.div(klass='container'):
+                a.img(src='public/images/trojaiLogo.png', klass='img-fluid', alt='Placeholder image')
+            with a.p():
+                a('Placeholder image description')
+
+        with open(filepath, 'w') as f:
+            f.write(str(a))
+        written_files.append(filepath)
+
+    is_first = False
+    if html_default_leaderboard == leaderboard.name:
+        is_first = True
+
+    filepath = leaderboard.write_html_leaderboard(html_output_dirpath, is_first, is_archived)
+    written_files.append(filepath)
+
+    for data_split_name in leaderboard.get_html_data_split_names():
+        execute_window = leaderboard.get_submission_window_time(data_split_name)
+        filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name,
+                                                  leaderboard.highlight_old_submissions, data_split_name,
+                                                  execute_window, cur_epoch, trojai_config.job_color_key)
+        written_files.append(filepath)
+        filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, data_split_name)
+        written_files.append(filepath)
+        filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, data_split_name)
+        written_files.append(filepath)
+
+    return written_files
+
+
 def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, archive_leaderboards_dict: dict, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
 
@@ -84,47 +139,15 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
 
             written_files.append(leaderboards_filepath)
 
-            # Check for existence of about files for each leaderboard
-            for leaderboard in active_leaderboards:
-                html_leaderboard_dirpath = os.path.join(html_output_dirpath, leaderboard.name)
-                filepath = os.path.join(html_leaderboard_dirpath, 'about-{}.html'.format(leaderboard.name, leaderboard.name))
-
-                if not os.path.exists(html_leaderboard_dirpath):
-                    os.makedirs(html_leaderboard_dirpath, exist_ok=True)
-
-                if not os.path.exists(filepath):
-                    a = Airium()
-                    with a.div(klass='card-body card-body-cascade text-center pb-0'):
-                        with a.p(klass='card-text text-left'):
-                            a('Placeholder text for {}'.format(leaderboard.name))
-                        with a.div(klass='container'):
-                            a.img(src='public/images/trojaiLogo.png', klass='img-fluid', alt='Placeholder image')
-                        with a.p():
-                            a('Placeholder image description')
-
-                    with open(filepath, 'w') as f:
-                        f.write(str(a))
-                    written_files.append(filepath)
-
             for leaderboard in active_leaderboards:
                 submission_manager = active_submission_managers_dict[leaderboard.name]
+                leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=False)
+                written_files.extend(leaderboard_filepaths)
 
-                is_first = False
-                if html_default_leaderboard == leaderboard.name:
-                    is_first = True
-
-                filepath = leaderboard.write_html_leaderboard(html_output_dirpath, is_first)
-                written_files.append(filepath)
-
-                for data_split_name in leaderboard.get_all_data_split_names():
-                    execute_window = leaderboard.get_submission_window_time(data_split_name)
-                    filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name, leaderboard.highlight_old_submissions, data_split_name, execute_window, cur_epoch, trojai_config.job_color_key)
-                    written_files.append(filepath)
-                    filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, data_split_name)
-                    written_files.append(filepath)
-                    filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, data_split_name)
-                    written_files.append(filepath)
-
+            for leaderboard in archive_leaderboards:
+                submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+                leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True)
+                written_files.extend(leaderboard_filepaths)
 
             table_javascript_filepath = os.path.join(trojai_config.html_repo_dirpath, 'js', 'trojai-table-init.js')
 
@@ -133,21 +156,19 @@ $(document).ready(function () {
 
 var sort_col;\n
 """
-
             # configure javascript for table controls
             for leaderboard in active_leaderboards:
-                html_sort_options = leaderboard.html_table_sort_options
-                for key, info_dict in html_sort_options.items():
-                    column_name = info_dict['column']
-                    order = info_dict['order']
-                    content += """sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
-                    content += "$('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
+                content += get_leaderboard_javascript_content(leaderboard)
+
+            for leaderboard in archive_leaderboards:
+                content += get_leaderboard_javascript_content(leaderboard)
 
             content += "$('.dataTables_length').addClass('bs-select');\n});"
             with open(table_javascript_filepath, 'w') as f:
                 f.write(content)
 
             written_files.append(table_javascript_filepath)
+
             # Push the HTML to the web
             repo = Repo(html_dirpath)
             if repo.is_dirty() or not trojai_config.accepting_submissions:

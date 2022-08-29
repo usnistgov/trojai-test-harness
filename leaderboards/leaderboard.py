@@ -126,6 +126,9 @@ class Leaderboard(object):
     def get_submission_data_split_names(self):
         return self.dataset_manager.get_submission_dataset_split_names()
 
+    def get_html_data_split_names(self):
+        return self.html_data_split_name_priorities.keys()
+
     def get_all_data_split_names(self):
         return self.dataset_manager.datasets.keys()
 
@@ -176,7 +179,7 @@ class Leaderboard(object):
         assert leaderboard_config.task_name in Leaderboard.VALID_TASK_NAMES
         return leaderboard_config
 
-    def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool):
+    def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool, is_archived: bool):
 
         leaderboard_filename = '{}-leaderboard.html'.format(self.name)
         leaderboard_dirpath = os.path.join(html_output_dirpath, self.name)
@@ -212,7 +215,7 @@ class Leaderboard(object):
                     with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
                         with a.div(klass='card-body card-body-cascade'):
                             dataset = self.get_dataset(data_split)
-                            a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit))
+                            a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit and not is_archived))
 
                         a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
                         a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))
