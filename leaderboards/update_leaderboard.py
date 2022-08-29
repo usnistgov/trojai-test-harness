@@ -20,12 +20,17 @@ from leaderboards.leaderboard import Leaderboard
 def main(trojai_config: TrojaiConfig, commit_and_push: bool):
     active_leaderboards = {}
     active_submission_managers = {}
+    archive_leaderboards = {}
 
     for leaderboard_name in trojai_config.active_leaderboard_names:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
         active_leaderboards[leaderboard_name] = leaderboard
         submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
         active_submission_managers[leaderboard_name] = submission_manager
+
+    for leaderboard_name in trojai_config.archive_leaderboard_names:
+        leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+        archive_leaderboards[leaderboard_name] = leaderboard
 
     # load the instance of ActorManager from the serialized json file
     actor_manager = ActorManager.load_json(trojai_config)
@@ -34,7 +39,7 @@ def main(trojai_config: TrojaiConfig, commit_and_push: bool):
 
     # Update web-site
     logging.debug('Updating website.')
-    html_output.update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, commit_and_push=commit_and_push)
+    html_output.update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=commit_and_push)
     logging.debug('Finished updating website.')
 
 

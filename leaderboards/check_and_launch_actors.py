@@ -177,6 +177,8 @@ def main(trojai_config: TrojaiConfig) -> None:
     # load the active leaderboards
     active_leaderboards = {}
     active_submission_managers = {}
+    archive_leaderboards = {}
+
     for leaderboard_name in trojai_config.active_leaderboard_names:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
         if leaderboard is None:
@@ -189,6 +191,13 @@ def main(trojai_config: TrojaiConfig) -> None:
         logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))
         logging.debug(leaderboard)
         logging.debug(active_submission_managers[leaderboard_name])
+
+    for leaderboard_name in trojai_config.archive_leaderboard_names:
+        leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+        if leaderboard is None:
+            continue
+        archive_leaderboards[leaderboard_name] = leaderboard
+        logging.info('Archived Leaderboard {} loaded'.format(leaderboard_name))
 
     logging.info('Actor Manger has {} actors.'.format(len(actor_manager.get_keys())))
 
@@ -207,7 +216,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             logging.error(msg)
 
     # Check web-site updates
-    update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, commit_and_push=True)
+    update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=True)
 
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')

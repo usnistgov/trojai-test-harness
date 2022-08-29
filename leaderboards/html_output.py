@@ -20,7 +20,7 @@ from leaderboards.mail_io import TrojaiMail
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
 
-def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, commit_and_push: bool):
+def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, archive_leaderboards_dict: dict, commit_and_push: bool):
     cur_epoch = time_utils.get_current_epoch()
 
     lock_filepath = "/var/lock/htmlpush-lockfile"
@@ -33,6 +33,12 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
                 active_leaderboards.append(leaderboard)
 
             active_leaderboards.sort(key=lambda x: x.html_leaderboard_priority, reverse=True)
+
+            archive_leaderboards = []
+            for leaderboard_name, leaderboard in archive_leaderboards_dict.items():
+                archive_leaderboards.append(leaderboard)
+
+            archive_leaderboards.sort(key=lambda x: x.html_leaderboard_priority, reverse=True)
 
             html_dirpath = trojai_config.html_repo_dirpath
 
@@ -48,6 +54,7 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
                 if len(active_leaderboards) > 0:
                     html_default_leaderboard = active_leaderboards[0].name
             with a.ul(klass='nav nav-pills', id='leaderboardTabs', role='tablist'):
+                # Add main leaderboards
                 with a.li(klass='nav-item'):
                     for leaderboard in active_leaderboards:
                         if html_default_leaderboard == leaderboard.name:
@@ -55,8 +62,21 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
                         else:
                             a.a(klass='nav-link waves-light', id='tab-{}'.format(leaderboard.name), href='#{}'.format(leaderboard.name), **{'data-toggle': 'tab', 'aria-controls': '{}'.format(leaderboard.name), 'aria-selected': 'false'}, _t=leaderboard.name)
 
+                # Add Archive dropdown
+                if len(archive_leaderboards) > 0:
+                    with a.li(klass='nav-item dropdown'):
+                        with a.a(klass='nav-link wave-light dropdown-toggle', type='button', id='archiveDropdownMenu', **{'data-toggle': 'dropdown', 'aria-haspopup': 'true', 'aria-expanded': 'false'}):
+                            a('Archive')
+                            a.b(klass='caret')
+                        with a.div(klass='dropdown-menu'):
+                            for leaderboard in archive_leaderboards:
+                                a.a(klass='dropdown-item', id='tab-{}'.format(leaderboard.name), href='#{}'.format(leaderboard.name), **{'data-toggle': 'tab'}, _t=leaderboard.name)
+
+
             with a.div(klass='tab-content card'):
                 for leaderboard in active_leaderboards:
+                    a('{{% include {}/{}-leaderboard.html %}}'.format(leaderboard.name, leaderboard.name))
+                for leaderboard in archive_leaderboards:
                     a('{{% include {}/{}-leaderboard.html %}}'.format(leaderboard.name, leaderboard.name))
 
             with open(leaderboards_filepath, 'w') as f:
@@ -64,7 +84,7 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
 
             written_files.append(leaderboards_filepath)
 
-            # Check for existance of about files for each leaderboard
+            # Check for existence of about files for each leaderboard
             for leaderboard in active_leaderboards:
                 html_leaderboard_dirpath = os.path.join(html_output_dirpath, leaderboard.name)
                 filepath = os.path.join(html_leaderboard_dirpath, 'about-{}.html'.format(leaderboard.name, leaderboard.name))

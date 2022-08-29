@@ -37,6 +37,7 @@ class TrojaiConfig(object):
         self.control_slurm_queue_name = control_slurm_queue_name
         self.accepting_submissions = False
         self.active_leaderboard_names = list()
+        self.archive_leaderboard_names = list()
         self.html_default_leaderboard_name = ''
         self.vms = TrojaiConfig.DEFAULT_VM_CONFIGURATION
 
