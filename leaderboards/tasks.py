@@ -119,12 +119,13 @@ class Task(object):
             logging.error('Failed to verify dataset {} for leaderboards: {}; models_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, models_dirpath))
             is_valid = False
 
-        for model_id_dir in os.listdir(models_dirpath):
-            for required_filename in dataset.required_files:
-                filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
-                if not os.path.exists(filepath):
-                    logging.error('Failed to verify dataset {} for leaderboards: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
-                    is_valid = False
+        if is_valid:
+            for model_id_dir in os.listdir(models_dirpath):
+                for required_filename in dataset.required_files:
+                    filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
+                    if not os.path.exists(filepath):
+                        logging.error('Failed to verify dataset {} for leaderboards: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
+                        is_valid = False
 
         if is_valid:
             logging.info('dataset {} for leaderboards {} pass verification tests.'.format(dataset.dataset_name, leaderboard_name))

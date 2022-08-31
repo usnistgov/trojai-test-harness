@@ -14,7 +14,7 @@ class Dataset(object):
     SOURCE_DATA_NAME = 'source-data'
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool, timeout_time_per_model_sec: int=180, excluded_files=None):
-        self.dataset_name = self.get_dataset_name(leaderboard_name, split_name)
+        self.dataset_name = self.get_dataset_name(split_name)
 
         self.split_name = split_name
         self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
@@ -25,7 +25,7 @@ class Dataset(object):
         self.excluded_files = excluded_files
         self.source_dataset_dirpath = None
         if has_source_data:
-            self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, '{}-{}'.format(leaderboard_name, Dataset.SOURCE_DATA_NAME))
+            self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, '{}'.format(Dataset.SOURCE_DATA_NAME))
 
         if self.excluded_files is None:
             self.excluded_files = ['detailed_stats.csv', 'detailed_config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data.json', 'stats.json', 'METADATA.csv']
@@ -51,8 +51,8 @@ class Dataset(object):
             else:
                 self.timeout_time_sec = Dataset.DEFAULT_STS_TIMEOUT_SEC
 
-    def get_dataset_name(self, leaderboard_name, split_name):
-        return '{}-{}-{}'.format(leaderboard_name, split_name, Dataset.DATASET_SUFFIX)
+    def get_dataset_name(self, split_name):
+        return '{}-{}'.format(split_name, Dataset.DATASET_SUFFIX)
 
     def initialize_directories(self):
         os.makedirs(self.dataset_dirpath, exist_ok=True)
