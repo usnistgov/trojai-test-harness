@@ -328,7 +328,7 @@ class ImageTask(Task):
 
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
-        self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, 'tokenizers')
+        self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
         if task_script_filepath is None:
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
             task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'task_scripts'))
