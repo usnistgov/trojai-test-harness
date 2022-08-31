@@ -15,11 +15,14 @@ from leaderboards.trojai_config import TrojaiConfig
 from airium import Airium
 
 
+
 class Actor(object):
-    def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str):
+    VALID_TYPES = ['normal', 'actor']
+    def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str):
         self.email = email
         self.name = name
         self.poc_email = poc_email
+        self.type = 'normal'
 
         self.last_execution_epochs = {}
         self.last_file_epochs = {}
@@ -156,9 +159,10 @@ class Actor(object):
                     color_class = job_color_key[str(int(color_key_time))]
                     break
 
-        with a.tr(klass=color_class):
+        with a.tr():
             a.td(_t=self.name)
-            a.td(_t=last_execution_timestamp)
+            a.td(klass=color_class,_t=last_execution_timestamp)
+            a.td(_t=self.type)
             a.td(_t=self.job_statuses[leaderboard_key])
             a.td(_t=self.file_statuses[leaderboard_key])
             a.td(_t=self.general_file_status)
@@ -231,6 +235,7 @@ class ActorManager(object):
                         with a.tr():
                             a.th(klass='th-sm', _t='Team')
                             a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='Type')
                             a.th(klass='th-sm', _t='Job Status')
                             a.th(klass='th-sm', _t='File Status')
                             a.th(klass='th-sm', _t='General Status')
@@ -357,6 +362,7 @@ if __name__ == "__main__":
     add_actor_parser.add_argument('--name', type=str, help='The name of the team to add', required=True)
     add_actor_parser.add_argument('--email', type=str, help='The submission email of the team to add', required=True)
     add_actor_parser.add_argument('--poc-email', type=str, help='The point of contact email of the team to add', required=True)
+    add_actor_parser.add_argument('--type', type=str, choices=Actor.VALID_TYPES, help='The type of actor, displayed on the jobs table in the HTML', default='normal')
     add_actor_parser.set_defaults(func=add_actor)
 
     remove_actor_parser = subparser.add_parser('remove-actor')
