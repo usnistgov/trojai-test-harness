@@ -183,13 +183,13 @@ class ActorManager(object):
     def get_keys(self) -> KeysView:
         return self.actors.keys()
 
-    def add_actor(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str) -> None:
+    def add_actor(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str) -> None:
         if email in self.actors.keys():
             raise RuntimeError("Actor already exists in ActorManager: {}".format(email))
         for key in self.actors.keys():
             if name == self.actors[key].name:
                 raise RuntimeError("Actor Name already exists in ActorManager: {}".format(name))
-        created_actor = Actor(trojai_config, email, name, poc_email)
+        created_actor = Actor(trojai_config, email, name, poc_email, type)
         self.actors[email] = created_actor
         print('Created: {}'.format(created_actor))
 
@@ -279,6 +279,7 @@ def add_actor(args):
     team_name = args.name
     email = args.email
     poc_email = args.poc_email
+    type = args.type
 
     try:
         team_name = team_name.encode('ascii')
@@ -292,7 +293,7 @@ def add_actor(args):
         if char in team_name:
             raise RuntimeError('team_name cannot have invalid characters: {}'.format(invalid_chars))
 
-    actor_manager.add_actor(trojai_config, email, team_name, poc_email)
+    actor_manager.add_actor(trojai_config, email, team_name, poc_email, type)
     actor_manager.save_json(trojai_config)
 
 
