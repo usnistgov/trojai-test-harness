@@ -17,7 +17,7 @@ class Dataset(object):
         self.dataset_name = self.get_dataset_name(leaderboard_name, split_name)
 
         self.split_name = split_name
-        self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, self.dataset_name)
+        self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
         self.results_dirpath = os.path.join(trojai_config.results_dirpath, self.dataset_name)
         self.can_submit = can_submit
         self.slurm_queue_name = slurm_queue_name
@@ -25,7 +25,7 @@ class Dataset(object):
         self.excluded_files = excluded_files
         self.source_dataset_dirpath = None
         if has_source_data:
-            self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, '{}-{}'.format(leaderboard_name, Dataset.SOURCE_DATA_NAME))
+            self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, '{}-{}'.format(leaderboard_name, Dataset.SOURCE_DATA_NAME))
 
         if self.excluded_files is None:
             self.excluded_files = ['detailed_stats.csv', 'detailed_config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data.json', 'stats.json', 'METADATA.csv']
