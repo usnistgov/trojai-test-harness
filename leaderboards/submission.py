@@ -494,7 +494,11 @@ class Submission(object):
                     else:
                         a.th(klass='th-sm', _t=str(metric_value))
 
-            a.th(klass='th-sm', _t=self.execution_runtime)
+            rounded_execution_time = self.execution_runtime
+            if rounded_execution_time is not None:
+                rounded_execution_time = round(rounded_execution_time, 2)
+
+            a.th(klass='th-sm', _t=rounded_execution_time)
             a.th(klass='th-sm', _t=execute_timestr)
             a.th(klass='th-sm', _t=file_timestr)
             a.th(klass='th-sm', _t=self.web_display_parse_errors)

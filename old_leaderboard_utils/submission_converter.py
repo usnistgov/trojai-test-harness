@@ -37,7 +37,6 @@ def convert_submission(args):
             new_submission.web_display_parse_errors = old_submission.web_display_parse_errors
             new_submission.web_display_execution_errors = old_submission.web_display_execution_errors
 
-            print(new_submission)
             current_submission_manager.add_submission(actor, new_submission)
 
             # Copy contents of submission to new location
@@ -48,6 +47,11 @@ def convert_submission(args):
             new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
             new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
 
+            old_prefix = '/mnt/trojainas/'
+            new_prefix = '/home/tjb3/old-te/'
+            old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
+            old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
+
             if not os.path.exists(new_submission_container_dirpath):
                 os.makedirs(new_submission_container_dirpath)
 
@@ -56,18 +60,18 @@ def convert_submission(args):
 
             if os.path.exists(old_submission_container_dirpath):
                 print('Copying old submission for {}:{} into new'.format(actor.name, time_str))
-                shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath)
+                shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, dirs_exist_ok=True)
             else:
                 print('Warning, unable to locate old submissions dirpath: {}'.format(old_submission_container_dirpath))
 
 
             if os.path.exists(old_submission_results_dirpath):
                 print('Copying old submission for {}:{} results into new'.format(actor.name, time_str))
-                shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath)
+                shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, dirs_exist_ok=True)
             else:
                 print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
 
-
+    current_submission_manager.save_json(leaderboard.submissions_filepath)
 
 
 
