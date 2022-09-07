@@ -18,7 +18,7 @@ class Dataset(object):
 
         self.split_name = split_name
         self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
-        self.results_dirpath = os.path.join(trojai_config.results_dirpath, self.dataset_name)
+        self.results_dirpath = os.path.join(trojai_config.results_dirpath, '{}-dataset'.format(leaderboard_name), self.dataset_name)
         self.can_submit = can_submit
         self.slurm_queue_name = slurm_queue_name
         self.slurm_priority = slurm_priority

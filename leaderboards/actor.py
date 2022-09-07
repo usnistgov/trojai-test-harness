@@ -18,7 +18,7 @@ from airium import Airium
 
 class Actor(object):
     VALID_TYPES = ['normal', 'actor']
-    def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str):
+    def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str, reset: bool = True):
         self.email = email
         self.name = name
         self.poc_email = poc_email
@@ -32,9 +32,10 @@ class Actor(object):
         self.job_statuses = {}
         self.file_statuses = {}
 
-        for leaderboard_name in trojai_config.active_leaderboard_names:
-            for dataset_split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
-                self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
+        if reset:
+            for leaderboard_name in trojai_config.active_leaderboard_names:
+                for dataset_split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+                    self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
 
         self.highlight_old_submissions = False
         self.disabled = False

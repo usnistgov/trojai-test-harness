@@ -57,7 +57,7 @@ class Submission(object):
             os.makedirs(self.actor_submission_dirpath)
 
         # create the directory where results are stored
-        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), leaderboard.name, self.actor_name)
+        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(leaderboard.name), self.actor_name)
         if not os.path.isdir(self.actor_results_dirpath):
             logging.info("Results directory for " + self.actor_name + " does not exist, creating ...")
             os.makedirs(self.actor_results_dirpath)
@@ -575,7 +575,7 @@ class SubmissionManager(object):
             submissions.save_json(filepath)
 
     @staticmethod
-    def load_json(filepath: str, leaderboard_name: str):
+    def load_json(filepath: str, leaderboard_name: str) -> 'SubmissionManager':
         SubmissionManager.init_file(filepath, leaderboard_name)
         return json_io.read(filepath)
 
