@@ -30,6 +30,10 @@ def main(args):
                 dataset_name = split_name
 
             source = os.path.join(round_dataset_dirpath, dataset_name)
+            if not os.path.exists(source):
+                print('Unable to find source: {}'.format(source))
+                continue
+
             link_filepath = os.path.join(trojai_round_dataset_dirpath, link_name)
 
             os.symlink(source, link_filepath)
