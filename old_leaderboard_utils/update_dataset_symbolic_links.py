@@ -24,11 +24,11 @@ def main(args):
             if '_' in link_name:
                 link_name = link_name.replace('_', '-')
 
-            if 'tokenizers' not in split_name or 'source_data' not in split_name:
-                dataset_name = '{}-{}'.format(round_name, split_name)
-            else:
+            if 'tokenizers' in split_name or 'source_data' in split_name:
                 dataset_name = split_name
-
+            else:
+                dataset_name = '{}-{}'.format(round_name, split_name)
+            
             source = os.path.join(round_dataset_dirpath, dataset_name)
             if not os.path.exists(source):
                 print('Unable to find source: {}'.format(source))
