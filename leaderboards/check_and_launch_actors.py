@@ -204,15 +204,14 @@ def main(trojai_config: TrojaiConfig) -> None:
 
     g_drive = DriveIO(trojai_config.token_pickle_filepath)
     # Loop over actors, checking if there is a submission for each
-    for key in actor_manager.get_keys():
+    for actor in actor_manager.get_actors():
         try:
-            actor = actor_manager.get(key)
             logging.info('**************************************************')
             logging.info('Processing {}:'.format(actor.name))
             logging.info('**************************************************')
             process_team(trojai_config, g_drive, actor, active_leaderboards, active_submission_managers)
         except:
-            msg = 'Exception processing actor "{}" loop:\n{}'.format(key, traceback.format_exc())
+            msg = 'Exception processing actor "{}" loop:\n{}'.format(actor.name, traceback.format_exc())
             logging.error(msg)
 
     # Check web-site updates

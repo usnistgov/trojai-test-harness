@@ -3,7 +3,6 @@
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
-import copy
 import os
 import typing
 
@@ -14,14 +13,13 @@ import subprocess
 import logging
 import traceback
 from typing import List
-from typing import Dict
 
 from airium import Airium
 
 from leaderboards.drive_io import DriveIO
 from leaderboards.mail_io import TrojaiMail
 from leaderboards.google_drive_file import GoogleDriveFile
-from leaderboards.actor import Actor
+from leaderboards.actor import Actor, ActorManager
 from leaderboards import json_io
 from leaderboards import slurm
 from leaderboards import time_utils
@@ -32,8 +30,7 @@ from leaderboards.trojai_config import TrojaiConfig
 class Submission(object):
     def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str):
         self.g_file = g_file
-        self.actor_name = actor.name
-        self.actor_email = actor.email
+        self.actor_uuid = actor.uuid
         self.leaderboard_name = leaderboard.name
         self.data_split_name = data_split_name
         self.slurm_queue_name = leaderboard.get_slurm_queue_name(self.data_split_name)
@@ -50,24 +47,24 @@ class Submission(object):
         self.web_display_execution_errors = "None"
 
         # create the directory where submissions are stored
-        self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, self.actor_name)
+        self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, actor.name)
 
         if not os.path.isdir(self.actor_submission_dirpath):
-            logging.info("Submission directory for " + self.actor_name + " does not exist, creating ...")
+            logging.info("Submission directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_submission_dirpath)
 
         # create the directory where results are stored
-        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(leaderboard.name), self.actor_name)
+        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(leaderboard.name), actor.name)
         if not os.path.isdir(self.actor_results_dirpath):
-            logging.info("Results directory for " + self.actor_name + " does not exist, creating ...")
+            logging.info("Results directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_results_dirpath)
 
     def __str__(self) -> str:
-        msg = 'file name: "{}", from email: "{}"'.format(self.g_file.name, self.actor_email)
+        msg = 'file name: "{}", from actor uuid: "{}"'.format(self.g_file.name, self.actor_uuid)
         return msg
 
-    def get_slurm_job_name(self):
-        return '{}_{}_{}'.format(self.actor_name, self.leaderboard_name, self.data_split_name)
+    def get_slurm_job_name(self, actor: Actor):
+        return '{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name)
 
     def is_active_job(self):
         if self.active_slurm_job_name is None:
@@ -99,10 +96,10 @@ class Submission(object):
     def check(self, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
 
         if self.active_slurm_job_name is None:
-            logging.info('Submission "{}_{}" by team "{}" is not active.'.format(self.leaderboard_name, self.data_split_name, self.actor_name))
+            logging.info('Submission "{}_{}" by team "{}" is not active.'.format(self.leaderboard_name, self.data_split_name, actor.name))
             return
 
-        logging.info('Checking status submission from actor "{}".'.format(self.actor_name))
+        logging.info('Checking status submission from actor "{}".'.format(actor.name))
 
         stdout, stderr = slurm.squeue(self.active_slurm_job_name, self.slurm_queue_name)  # raises RuntimeError on failure
 
@@ -208,7 +205,7 @@ class Submission(object):
         return results
 
     def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
-        logging.info("Checking results for {}".format(self.actor_name))
+        logging.info("Checking results for {}".format(actor.name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
         info_filepath = os.path.join(self.actor_results_dirpath, time_str, Leaderboard.INFO_FILENAME)
@@ -233,7 +230,7 @@ class Submission(object):
         try:
             # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
             logging.info('**************************************************')
-            logging.info('Processing {}: Results'.format(self.actor_name))
+            logging.info('Processing {}: Results'.format(actor.name))
             logging.info('**************************************************')
 
             # initialize error strings to empty
@@ -243,7 +240,7 @@ class Submission(object):
             # Get the actual file that was downloaded for the submission
             logging.info('Loading metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
             orig_g_file = self.g_file
-            submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.actor_name + ".metadata.json")
+            submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, time_str, actor.name + ".metadata.json")
             if os.path.exists(submission_metadata_filepath):
                 try:
                     self.g_file = GoogleDriveFile.load_json(submission_metadata_filepath)
@@ -286,7 +283,7 @@ class Submission(object):
             for output_file in output_files:
                 try:
                     if os.path.exists(output_file):
-                        g_drive.upload_and_share(output_file, self.actor_email)
+                        g_drive.upload_and_share(output_file, actor.email)
                     else:
                         logging.error('Unable to upload file: {}'.format(output_file))
                         if ":File Upload:" not in self.web_display_parse_errors:
@@ -328,7 +325,7 @@ class Submission(object):
         # upload log file to drive
         try:
             if os.path.exists(slurm_log_filepath):
-                g_drive.upload_and_share(slurm_log_filepath, self.actor_email)
+                g_drive.upload_and_share(slurm_log_filepath, actor.email)
             else:
                 logging.error('Failed to find slurm output log file: {}'.format(slurm_log_filepath))
                 self.web_display_parse_errors += ":Log File Missing:"
@@ -400,9 +397,8 @@ class Submission(object):
         return predictions, targets
 
 
-
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
-        logging.info('Executing submission {} by {}'.format(self.g_file.name, self.actor_name))
+        logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
 
         time_str = time_utils.convert_epoch_to_psudo_iso(execution_epoch)
 
@@ -416,7 +412,7 @@ class Submission(object):
             logging.debug('Creating submission directory: {}'.format(submission_dirpath))
             os.makedirs(submission_dirpath)
 
-        self.active_slurm_job_name = self.get_slurm_job_name()
+        self.active_slurm_job_name = self.get_slurm_job_name(actor)
         self.execution_epoch = execution_epoch
 
         slurm_script_filepath = trojai_config.slurm_execute_script_filepath
@@ -455,7 +451,7 @@ class Submission(object):
             self.active_slurm_job_name = None
             self.web_display_execution_errors += ":Slurm Script Error:"
 
-    def get_result_table_row(self, a: Airium, leaderboard: Leaderboard):
+    def get_result_table_row(self, a: Airium, actor: Actor, leaderboard: Leaderboard):
         if self.is_active_job():
             return
 
@@ -475,7 +471,7 @@ class Submission(object):
             self.web_display_parse_errors = "None"
 
         with a.tr():
-            a.th(klass='th-sm', _t=self.actor_name)
+            a.th(klass='th-sm', _t=actor.name)
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
             for metric_name, metric in submission_metrics.items():
                 if metric.store_result_in_submission:
@@ -512,17 +508,16 @@ class SubmissionManager(object):
 
     def __str__(self):
         msg = ""
-        for a in self.__submissions.keys():
+        for a, submissions in self.__submissions.items():
             msg = msg + "Actor: {}: \n".format(a)
-            submissions = self.__submissions[a]
             for s in submissions:
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
-    def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str , metric_name: str, metric_criteria: float, team_email: str) -> Dict[str, List[Submission]]:
+    def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor) -> List[Submission]:
         execution_submissions = list()
 
-        actor_submissions = self.__submissions[team_email]
+        actor_submissions = self.__submissions[actor.uuid]
         submission_metrics = leaderboard.get_submission_metrics(data_split_name)
 
         for submission in actor_submissions:
@@ -551,10 +546,10 @@ class SubmissionManager(object):
         self.get_submissions_by_actor(actor).append(submission)
 
     def get_submissions_by_actor(self, actor: Actor) -> List[Submission]:
-        if actor.email not in self.__submissions.keys():
-            self.__submissions[actor.email] = list()
+        if actor.uuid not in self.__submissions.keys():
+            self.__submissions[actor.uuid] = list()
 
-        return self.__submissions[actor.email]
+        return self.__submissions[actor.uuid]
 
     def get_number_submissions(self) -> int:
         count = 0
@@ -583,19 +578,19 @@ class SubmissionManager(object):
         SubmissionManager.init_file(filepath, leaderboard_name)
         return json_io.read(filepath)
 
-    def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, data_split_name: str):
+    def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str):
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         a = Airium()
 
         valid_submissions = {}
 
-        for actor_email, submission_list in self.__submissions.items():
-            valid_submissions[actor_email] = list()
+        for actor_uuid, submission_list in self.__submissions.items():
+            valid_submissions[actor_uuid] = list()
 
             for submission in submission_list:
                 if submission.data_split_name == data_split_name:
-                    valid_submissions[actor_email].append(submission)
+                    valid_submissions[actor_uuid].append(submission)
 
 
         with a.div(klass='card-body card-body-cascade pb-0'):
@@ -616,8 +611,7 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
-                        for key in valid_submissions.keys():
-                            submissions = valid_submissions[key]
+                        for actor_uuid, submissions in valid_submissions.items():
                             best_submission_score = 9999
                             best_submission = None
                             for s in submissions:
@@ -631,26 +625,27 @@ class SubmissionManager(object):
                                         best_submission = s
 
                             if best_submission is not None:
-                                best_submission.get_result_table_row(a, leaderboard)
+                                actor = actor_manager.get_from_uuid(actor_uuid)
+                                best_submission.get_result_table_row(a, actor, leaderboard)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))
 
         return result_filepath
 
-    def write_score_table(self, output_dirpath, leaderboard: Leaderboard, data_split_name: str):
+    def write_score_table(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str):
         result_filename = 'results-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         a = Airium()
 
         valid_submissions = {}
 
-        for actor_email, submission_list in self.__submissions.items():
-            valid_submissions[actor_email] = list()
+        for actor_uuid, submission_list in self.__submissions.items():
+            valid_submissions[actor_uuid] = list()
 
             for submission in submission_list:
                 if submission.data_split_name == data_split_name:
-                    valid_submissions[actor_email].append(submission)
+                    valid_submissions[actor_uuid].append(submission)
 
         with a.div(klass='card-body card-body-cascade pb-0'):
             a.h2(klass='pb-q card-title', _t='All Results')
@@ -671,10 +666,10 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
-                        for key in valid_submissions.keys():
-                            submissions = valid_submissions[key]
+                        for actor_uuid, submissions in valid_submissions.items():
+                            actor = actor_manager.get_from_uuid(actor_uuid)
                             for s in submissions:
-                                s.get_result_table_row(a, leaderboard)
+                                s.get_result_table_row(a, actor, leaderboard)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))

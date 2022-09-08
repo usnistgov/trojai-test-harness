@@ -5,7 +5,7 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 import math
 import os
-from typing import KeysView
+from typing import KeysView, ValuesView
 
 from leaderboards import json_io
 from leaderboards import slurm
@@ -13,16 +13,18 @@ from leaderboards import time_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.trojai_config import TrojaiConfig
 from airium import Airium
+import uuid
 
 
 
 class Actor(object):
     VALID_TYPES = ['normal', 'actor']
     def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str, reset: bool = True):
+        self.uuid = uuid.uuid1()
         self.email = email
         self.name = name
         self.poc_email = poc_email
-        self.type = 'normal'
+        self.type = type
 
         self.last_execution_epochs = {}
         self.last_file_epochs = {}
@@ -177,35 +179,53 @@ class ActorManager(object):
 
     def __str__(self):
         msg = "Actors: \n"
-        for actor in self.actors:
+        for actor_id, actor in self.actors.items():
             msg = msg + "  " + actor.__str__() + "\n"
         return msg
 
     def get_keys(self) -> KeysView:
         return self.actors.keys()
 
+    def get_actors(self) -> ValuesView:
+        return self.actors.values()
+
     def add_actor(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str) -> None:
-        if email in self.actors.keys():
-            raise RuntimeError("Actor already exists in ActorManager: {}".format(email))
-        for key in self.actors.keys():
-            if name == self.actors[key].name:
+        for actor in self.actors.values():
+            if email == actor.email:
+                raise RuntimeError("Actor already exists in ActorManager: {}".format(email))
+            if name == actor.name:
                 raise RuntimeError("Actor Name already exists in ActorManager: {}".format(name))
         created_actor = Actor(trojai_config, email, name, poc_email, type)
-        self.actors[email] = created_actor
+        self.actors[created_actor.uuid] = created_actor
         print('Created: {}'.format(created_actor))
 
     def remove_actor(self, email) -> None:
-        if email in self.actors.keys():
-            del self.actors[email]
-            print('Removed {} from actor manager'.format(email))
-        else:
-            raise RuntimeError('Invalid key in ActorManager: {}'.format(email))
+        actor = self.get(email)
+        del self.actors[actor.uuid]
+        print('Removed {} from actor manager'.format(email))
 
     def get(self, email) -> Actor:
-        if email in self.actors:
-            return self.actors[email]
+
+        actors = []
+        for actor in self.actors.values():
+            if actor.email == email:
+                actors.append(actor)
+
+        if len(actors) == 0:
+            raise RuntimeError('Unable to find email in ActorManager: {}'.format(email))
+
+        if len(actors) > 1:
+            raise RuntimeError('Multiple actors share the same email in ActorManager: {}'.format(email))
+
+        return actors[0]
+
+
+    def get_from_uuid(self, uuid) ->Actor:
+        if uuid in self.actors.keys():
+            return self.actors[uuid]
         else:
-            raise RuntimeError('Invalid key in ActorManager: {}'.format(email))
+            raise RuntimeError('Invalid uuid key {}, not found in actor manager'.format(uuid))
+
 
     def save_json(self, trojai_config: TrojaiConfig) -> None:
         json_io.write(trojai_config.actors_filepath, self)
@@ -261,8 +281,7 @@ class ActorManager(object):
         write_header = True
 
         with open(output_file, 'w') as file:
-            for actorKey in self.get_keys():
-                actor = self.get(actorKey)
+            for actor in self.actors.values():
                 if write_header:
                     for key in actor.__dict__.keys():
                         file.write(key + ',')
@@ -346,10 +365,10 @@ def actor_to_csv(args):
     actor_manager = ActorManager.load_json(trojai_config)
     actor_manager.convert_to_csv(args.output_filepath)
 
-def test_actor_manager_to_html(args):
-    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
-    actor_manager = ActorManager.load_json(trojai_config)
-    actor_manager.get_jobs_table(args.leaderboard_name, args.data_split_name, 0, 0)
+# def test_actor_manager_to_html(args):
+#     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+#     actor_manager = ActorManager.load_json(trojai_config)
+#     actor_manager.write_jobs_table(args.leaderboard_name, args.data_split_name, 0, 0)
 
 if __name__ == "__main__":
     import argparse
@@ -384,11 +403,13 @@ if __name__ == "__main__":
     to_csv_parser.add_argument('--output-filepath', type=str, help='The output filepath for the csv', default='actors.csv')
     to_csv_parser.set_defaults(func=actor_to_csv)
 
-    html_parser = subparser.add_parser('html')
-    html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    html_parser.add_argument('--leaderboards-name', type=str, help='The leaderboards name', required=True)
-    html_parser.add_argument('--data-split-name', type=str, help='The leaderboards data split name', required=True)
-    html_parser.set_defaults(func=test_actor_manager_to_html)
+    # html_parser = subparser.add_parser('html')
+    # html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    # html_parser.add_argument('--leaderboards-name', type=str, help='The leaderboards name', required=True)
+    # html_parser.add_argument('--data-split-name', type=str, help='The leaderboards data split name', required=True)
+    # html_parser.set_defaults(func=test_actor_manager_to_html)
+
+    # TODO: Add update function to safely update various attributes of an actor
 
     args = parser.parse_args()
 

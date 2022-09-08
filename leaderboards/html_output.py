@@ -67,9 +67,9 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
                                                   leaderboard.highlight_old_submissions, data_split_name,
                                                   execute_window, cur_epoch, trojai_config.job_color_key)
         written_files.append(filepath)
-        filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, data_split_name)
+        filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, actor_manager, data_split_name)
         written_files.append(filepath)
-        filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, data_split_name)
+        filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, actor_manager, data_split_name)
         written_files.append(filepath)
 
     return written_files
