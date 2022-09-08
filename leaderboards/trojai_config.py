@@ -68,7 +68,7 @@ class TrojaiConfig(object):
         json_io.write(filepath, self)
 
     @staticmethod
-    def load_json(filepath):
+    def load_json(filepath) -> 'TrojaiConfig':
         return json_io.read(filepath)
 
 
