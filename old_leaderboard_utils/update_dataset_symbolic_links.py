@@ -7,6 +7,7 @@ def main(args):
     round_names = args.round_names
     split_names = args.split_names
     trojai_datasets_dirpath = trojai_config.datasets_dirpath
+    use_round_name_prefix = args.use_round_name_prefix
 
     for round_name in round_names:
         trojai_round_dataset_dirpath = os.path.join(trojai_datasets_dirpath, round_name)
@@ -27,8 +28,11 @@ def main(args):
             if 'tokenizers' in split_name or 'source_data' in split_name:
                 dataset_name = split_name
             else:
-                dataset_name = '{}-{}'.format(round_name, split_name)
-            
+                if use_round_name_prefix:
+                    dataset_name = '{}-{}'.format(round_name, split_name)
+                else:
+                    dataset_name = split_name
+
             source = os.path.join(round_dataset_dirpath, dataset_name)
             if not os.path.exists(source):
                 print('Unable to find source: {}'.format(source))
@@ -51,8 +55,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Utility to creates symbolic links to the datasets')
     parser.add_argument('--dataset-dirpath', type=str, help='The main dataset directory path')
     parser.add_argument('--trojai-config-filepath', type=str, help='The filepath the main trojai config')
-    parser.add_argument('--round-names', nargs='+', help='The names of the rounds', default='round')
+    parser.add_argument('--round-names', nargs='+', help='The names of the rounds')
     parser.add_argument('--split-names', nargs='+', help='The dataset split names')
+    parser.add_argument('--use-round-name-prefix', action='store_true', help='The prefix to be added to the split name')
 
     args = parser.parse_args()
 
