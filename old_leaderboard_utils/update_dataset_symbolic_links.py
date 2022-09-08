@@ -36,6 +36,10 @@ def main(args):
 
             link_filepath = os.path.join(trojai_round_dataset_dirpath, link_name)
 
+            if os.path.exists(link_filepath):
+                print('Link path already exists: {}'.format(link_filepath))
+                continue
+
             os.symlink(source, link_filepath)
 
 
