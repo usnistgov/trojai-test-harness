@@ -1,7 +1,7 @@
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.submission import SubmissionManager, Submission
-from leaderboards.actor import Actor
+from leaderboards.actor import Actor, ActorManager
 from leaderboards.google_drive_file import GoogleDriveFile
 from actor_executor import submission
 from actor_executor import time_utils
@@ -12,6 +12,7 @@ import shutil
 
 def convert_submission(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
     prior_round_submission_manager = submission.SubmissionManager.load_json(args.submission_filepath)
@@ -23,13 +24,21 @@ def convert_submission(args):
     # Create new submission to be added to new format
     for actor_email, submission_list in prior_round_submission_manager.submissions().items():
         for old_submission in submission_list:
-            actor = Actor(trojai_config, old_submission.actor['email'], old_submission.actor['name'], old_submission.actor['poc_email'], 'normal', reset=False)
+            old_actor_email = old_submission.actor['email']
+            try:
+                actor = actor_manager.get(old_actor_email)
+            except:
+                print('Failed to get actor from submission for email: {}'.format(old_actor_email))
+                continue
+
+            if actor is None:
+                print('Failed to get actor from submission for email: {}'.format(old_actor_email))
+                continue
 
             new_g_file = GoogleDriveFile(old_submission.file.email, old_submission.file.name, old_submission.file.id, time_utils.convert_epoch_to_iso(old_submission.file.modified_epoch))
 
             new_submission = Submission(new_g_file, actor, leaderboard, data_split_name)
-            new_submission.actor_email = actor_email
-            new_submission.actor_name = old_submission.actor['name']
+            new_submission.actor_uuid = actor.uuid
             new_submission.execution_runtime = old_submission.execution_runtime
             new_submission.model_execution_runtimes = old_submission.model_execution_runtimes
             new_submission.execution_epoch = old_submission.execution_epoch
