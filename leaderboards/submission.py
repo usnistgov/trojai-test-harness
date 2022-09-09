@@ -39,6 +39,7 @@ class Submission(object):
         self.saved_metric_results = {}
         self.execution_runtime = None
         self.model_execution_runtimes = None
+        self.submission_epoch = time_utils.get_current_epoch()
         self.execution_epoch = None
         self.active_slurm_job_name = None
         self.slurm_output_filename = None
@@ -46,15 +47,17 @@ class Submission(object):
         self.web_display_parse_errors = "None"
         self.web_display_execution_errors = "None"
 
+        submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+
         # create the directory where submissions are stored
-        self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, actor.name)
+        self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, actor.name, submission_epoch_str)
 
         if not os.path.isdir(self.actor_submission_dirpath):
             logging.info("Submission directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_submission_dirpath)
 
         # create the directory where results are stored
-        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(leaderboard.name), actor.name)
+        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(leaderboard.name), actor.name, '{}-submission'.format(submission_epoch_str))
         if not os.path.isdir(self.actor_results_dirpath):
             logging.info("Results directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_results_dirpath)
@@ -125,8 +128,7 @@ class Submission(object):
 
             if self.data_split_name == 'sts':
                 # delete the container file to avoid filling up disk space for the STS server
-                time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-                submission_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.g_file.name)
+                submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 if os.path.exists(submission_filepath):
                     os.remove(submission_filepath)
@@ -148,8 +150,7 @@ class Submission(object):
 
             if self.data_split_name == 'sts':
                 # delete the container file to avoid filling up disk space for the STS server
-                time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-                submission_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.g_file.name)
+                submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 os.remove(submission_filepath)
             elif self.data_split_name == 'test':
@@ -167,14 +168,15 @@ class Submission(object):
     def load_ground_truth(self, leaderboard: Leaderboard) -> typing.OrderedDict[str, float]:
         return leaderboard.load_ground_truth(self.data_split_name)
 
-    def load_results(self, ground_truth_dict: typing.OrderedDict[str, float], time_str: str) -> typing.OrderedDict[str, float]:
+    def load_results(self, ground_truth_dict: typing.OrderedDict[str, float]) -> typing.OrderedDict[str, float]:
+
         # Dictionary storing results -- key = model name, value = prediction
         results = collections.OrderedDict()
 
         # loop over each model file trojan prediction is being made for
         logging.info('Loading results.')
         for model_name in ground_truth_dict.keys():
-            result_filepath = os.path.join(self.actor_results_dirpath, time_str, model_name + ".txt")
+            result_filepath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str(), model_name + ".txt")
 
             # Check for result file, if its there we read it in
             if os.path.exists(result_filepath):
@@ -207,9 +209,8 @@ class Submission(object):
     def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
         logging.info("Checking results for {}".format(actor.name))
 
-        time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-        info_filepath = os.path.join(self.actor_results_dirpath, time_str, Leaderboard.INFO_FILENAME)
-        slurm_log_filepath = os.path.join(self.actor_submission_dirpath, time_str, self.slurm_output_filename)
+        info_filepath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str(), Leaderboard.INFO_FILENAME)
+        slurm_log_filepath = os.path.join(self.actor_submission_dirpath, self.slurm_output_filename)
 
         # truncate log file to N bytes
         fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
@@ -240,7 +241,7 @@ class Submission(object):
             # Get the actual file that was downloaded for the submission
             logging.info('Loading metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
             orig_g_file = self.g_file
-            submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, time_str, actor.name + ".metadata.json")
+            submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, actor.name + ".metadata.json")
             if os.path.exists(submission_metadata_filepath):
                 try:
                     self.g_file = GoogleDriveFile.load_json(submission_metadata_filepath)
@@ -345,10 +346,11 @@ class Submission(object):
 
         actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
-    def compute_metric(self, metric, predictions, targets):
-        time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
+    def get_execute_time_str(self):
+        return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
-        metric_output_dirpath = os.path.join(self.actor_results_dirpath, time_str)
+    def compute_metric(self, metric, predictions, targets):
+        metric_output_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
 
         metric_output = metric.compute(predictions, targets)
 
@@ -360,8 +362,6 @@ class Submission(object):
             self.saved_metric_results[metric.get_name()] = result
 
     def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False):
-        time_str = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
-
         try:
             ground_truth_dict = self.load_ground_truth(leaderboard)
         except:
@@ -372,7 +372,7 @@ class Submission(object):
             raise
 
         # load the results from disk
-        results = self.load_results(ground_truth_dict, time_str)
+        results = self.load_results(ground_truth_dict)
 
         default_result = leaderboard.get_default_prediction_result()
         if print_details:
@@ -400,14 +400,12 @@ class Submission(object):
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
 
-        time_str = time_utils.convert_epoch_to_psudo_iso(execution_epoch)
-
-        result_dirpath = os.path.join(self.actor_results_dirpath, time_str)
+        result_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
         if not os.path.exists(result_dirpath):
             logging.debug('Creating result directory: {}'.format(result_dirpath))
             os.makedirs(result_dirpath)
 
-        submission_dirpath = os.path.join(self.actor_submission_dirpath, time_str)
+        submission_dirpath = os.path.join(self.actor_submission_dirpath)
         if not os.path.exists(submission_dirpath):
             logging.debug('Creating submission directory: {}'.format(submission_dirpath))
             os.makedirs(submission_dirpath)
@@ -455,10 +453,12 @@ class Submission(object):
         if self.is_active_job():
             return
 
-        if self.execution_epoch == 0 or self.execution_epoch is None:
-            execute_timestr = "None"
-        else:
-            execute_timestr = time_utils.convert_epoch_to_iso(self.execution_epoch)
+        submission_timestr = time_utils.convert_epoch_to_iso(self.submission_epoch)
+
+        # if self.execution_epoch == 0 or self.execution_epoch is None:
+        #     execute_timestr = "None"
+        # else:
+        #     execute_timestr = time_utils.convert_epoch_to_iso(self.execution_epoch)
         if self.g_file.modified_epoch == 0 or self.g_file.modified_epoch is None:
             file_timestr = "None"
         else:
@@ -495,7 +495,7 @@ class Submission(object):
                 rounded_execution_time = round(rounded_execution_time, 2)
 
             a.th(klass='th-sm', _t=rounded_execution_time)
-            a.th(klass='th-sm', _t=execute_timestr)
+            a.th(klass='th-sm', _t=submission_timestr)
             a.th(klass='th-sm', _t=file_timestr)
             a.th(klass='th-sm', _t=self.web_display_parse_errors)
             a.th(klass='th-sm', _t=self.web_display_execution_errors)
@@ -606,7 +606,7 @@ class SubmissionManager(object):
                                     a.th(klass='th-sm', _t=metric_name)
 
                             a.th(klass='th-sm', _t='Runtime (s)')
-                            a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='Submission Timestamp')
                             a.th(klass='th-sm', _t='File Timestamp')
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
@@ -661,7 +661,7 @@ class SubmissionManager(object):
                                     a.th(klass='th-sm', _t=metric_name)
 
                             a.th(klass='th-sm', _t='Runtime (s)')
-                            a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='Submission Timestamp')
                             a.th(klass='th-sm', _t='File Timestamp')
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')

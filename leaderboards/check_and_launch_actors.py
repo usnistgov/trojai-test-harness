@@ -125,14 +125,13 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             logging.info('Detected submission from actor {}: {} for leaderboard {} and data split {}'.format(actor.name, g_file.name, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'Ok')
 
-            # Check timestamp (1 second granularity)
-            exec_epoch = time_utils.get_current_epoch()
-
-            # Sleep for 1 second to have distinct execu epochs
+            # Sleep for 1 second to have distinct execute epochs
             time.sleep(1)
 
-            if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_submission_window_time(data_split_name), exec_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
-                logging.info('Team {} timeout window has not elapsed. exec_epoch: {}, last_exec_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, exec_epoch, actor.get_last_execution_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
+            check_epoch = time_utils.get_current_epoch()
+
+            if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_submission_window_time(data_split_name), check_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
+                logging.info('Team {} timeout window has not elapsed. check_epoch: {}, last_exec_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, check_epoch, actor.get_last_execution_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
                 actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
             else:
                 if int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
@@ -140,6 +139,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
                     submission = Submission(g_file, actor, leaderboard, data_split_name)
                     submission_manager.add_submission(actor, submission)
                     logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.g_file.name, actor.email))
+                    exec_epoch = time_utils.get_current_epoch()
                     submission.execute(actor, trojai_config, exec_epoch)
                 else:
                     logging.info('Submission found is the same as the last execution run for team {}; new file name: {}, new file epoch: {}, last file epoch: {}'.format(actor.name, g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
@@ -153,7 +153,7 @@ def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, ac
         for submission in actor_submission_list:
             # if the actor has any in flight submissions
             if submission.active_slurm_job_name is not None:
-                logging.info('Found live submission "{}" from "{}"'.format(submission.g_file.name, submission.actor_name))
+                logging.info('Found live submission "{}" from "{}"'.format(submission.g_file.name, actor.name))
 
                 if leaderboard_name not in active_leaderboards:
                     logging.warning('Leaderboard: {}, not found for submission: {}'.format(leaderboard_name, submission))
