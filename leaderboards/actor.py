@@ -18,7 +18,7 @@ import uuid
 
 
 class Actor(object):
-    VALID_TYPES = ['normal', 'actor']
+    VALID_TYPES = ['public', 'contracted']
     def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str, reset: bool = True):
         self.uuid = uuid.uuid1()
         self.email = email
@@ -383,7 +383,7 @@ if __name__ == "__main__":
     add_actor_parser.add_argument('--name', type=str, help='The name of the team to add', required=True)
     add_actor_parser.add_argument('--email', type=str, help='The submission email of the team to add', required=True)
     add_actor_parser.add_argument('--poc-email', type=str, help='The point of contact email of the team to add', required=True)
-    add_actor_parser.add_argument('--type', type=str, choices=Actor.VALID_TYPES, help='The type of actor, displayed on the jobs table in the HTML', default='normal')
+    add_actor_parser.add_argument('--type', type=str, choices=Actor.VALID_TYPES, help='The type of actor, displayed on the jobs table in the HTML', default='public')
     add_actor_parser.set_defaults(func=add_actor)
 
     remove_actor_parser = subparser.add_parser('remove-actor')
