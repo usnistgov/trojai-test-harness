@@ -88,6 +88,7 @@ class Task(object):
         self.default_prediction_result = 0.5
 
         self.remote_home = remote_home
+        self.remote_dataset_dirpath = os.path.join(self.remote_home, 'datasets', leaderboard_name)
         self.remote_scratch = remote_scratch
 
         task_dirpath = os.path.dirname(os.path.realpath(__file__))
@@ -180,19 +181,20 @@ class Task(object):
 
         dataset_dirpath = dataset.dataset_dirpath
         source_dataset_dirpath = dataset.source_dataset_dirpath
+        remote_dataset_dirpath = self.remote_dataset_dirpath
 
         # copy in round training dataset and source data
         if source_dataset_dirpath is not None:
-            sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, self.remote_home)
+            sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, remote_dataset_dirpath)
             errors += check_subprocess_error(sc, ':Copy in:', '{} source dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} source dataset copy failed'.format(vm_name))
-        sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, self.remote_home)
+        sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath)
         errors += check_subprocess_error(sc, ':Copy in:', '{} training dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} training dataset copy failed'.format(vm_name))
 
         # copy in models
         source_params = []
         for excluded_file in dataset.excluded_files:
             source_params.append('--exclude={}'.format(excluded_file))
-        sc = rsync_dir_to_vm(vm_ip, dataset_dirpath, self.remote_home, source_params=source_params)
+        sc = rsync_dir_to_vm(vm_ip, dataset_dirpath, remote_dataset_dirpath, source_params=source_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} model dataset {} copy in may have failed'.format(vm_name, dataset.dataset_name), send_mail=True, subject='{} dataset copy failed'.format(vm_name))
 
         return errors
@@ -232,8 +234,8 @@ class Task(object):
         return errors
 
     def get_basic_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
-        remote_models_dirpath = os.path.join(self.remote_home, dataset.dataset_name, Dataset.MODEL_DIRNAME)
-        remote_training_dataset_dirpath = os.path.join(self.remote_home, training_dataset.dataset_name)
+        remote_models_dirpath = os.path.join(self.remote_dataset_dirpath, dataset.dataset_name, Dataset.MODEL_DIRNAME)
+        remote_training_dataset_dirpath = os.path.join(self.remote_dataset_dirpath, training_dataset.dataset_name)
         submission_name = os.path.basename(submission_filepath)
         task_script_filepath = os.path.join(self.remote_home, os.path.basename(self.task_script_filepath))
 
@@ -241,7 +243,7 @@ class Task(object):
 
         if dataset.source_dataset_dirpath is not None:
             source_data_dirname = os.path.basename(dataset.source_dataset_dirpath)
-            remote_source_data_dirpath = os.path.join(self.remote_home, source_data_dirname)
+            remote_source_data_dirpath = os.path.join(self.remote_dataset_dirpath, source_data_dirname)
             args.extend(['--source-dir', remote_source_data_dirpath])
 
         return args
@@ -338,7 +340,7 @@ class NaturalLanguageProcessingTask(Task):
 
     def get_custom_execute_args(self, submission_filepath: str, dataset: Dataset, training_dataset: Dataset):
         tokenizer_dirname = os.path.basename(self.tokenizers_dirpath)
-        remote_tokenizer_dirpath = os.path.join(self.remote_home, tokenizer_dirname)
+        remote_tokenizer_dirpath = os.path.join(self.remote_dataset_dirpath, tokenizer_dirname)
         return ['--tokenizer-dir', remote_tokenizer_dirpath]
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
@@ -352,7 +354,7 @@ class NaturalLanguageProcessingTask(Task):
         errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset)
 
         # Copy in tokenizers
-        sc = rsync_dir_to_vm(vm_ip, self.tokenizers_dirpath, self.remote_home)
+        sc = rsync_dir_to_vm(vm_ip, self.tokenizers_dirpath, self.remote_dataset_dirpath)
         errors += check_subprocess_error(sc, ':Copy in:', '{} tokenizers copy in may have failed'.format(vm_name), send_mail=True, subject='{} tokenizers copy failed'.format(vm_name))
 
         return errors
