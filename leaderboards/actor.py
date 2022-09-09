@@ -292,15 +292,8 @@ class ActorManager(object):
                     file.write(str(actor.__dict__[key]) + ',')
                 file.write('\n')
 
-def add_actor(args):
-    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+def add_actor_helper(trojai_config: TrojaiConfig, team_name: str, email: str, poc_email: str, type = str):
     actor_manager = ActorManager.load_json(trojai_config)
-
-    team_name = args.name
-    email = args.email
-    poc_email = args.poc_email
-    type = args.type
-
     try:
         team_name = team_name.encode('ascii')
     except:
@@ -316,6 +309,13 @@ def add_actor(args):
     actor_manager.add_actor(trojai_config, email, team_name, poc_email, type)
     actor_manager.save_json(trojai_config)
 
+def add_actor(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    team_name = args.name
+    email = args.email
+    poc_email = args.poc_email
+    type = args.type
+    add_actor_helper(trojai_config, team_name, email, poc_email, type)
 
 def remove_actor(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
