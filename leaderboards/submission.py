@@ -63,6 +63,8 @@ class Submission(object):
             logging.info("Results directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_results_dirpath)
 
+        self.execution_results_dirpath = None
+
     def __str__(self) -> str:
         msg = 'file name: "{}", from actor uuid: "{}"'.format(self.g_file.name, self.actor_uuid)
         return msg
@@ -177,7 +179,7 @@ class Submission(object):
         # loop over each model file trojan prediction is being made for
         logging.info('Loading results.')
         for model_name in ground_truth_dict.keys():
-            result_filepath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str(), model_name + ".txt")
+            result_filepath = os.path.join(self.execution_results_dirpath, model_name + ".txt")
 
             # Check for result file, if its there we read it in
             if os.path.exists(result_filepath):
@@ -210,7 +212,7 @@ class Submission(object):
     def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
         logging.info("Checking results for {}".format(actor.name))
 
-        info_filepath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str(), Leaderboard.INFO_FILENAME)
+        info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.actor_submission_dirpath, self.slurm_output_filename)
 
         # truncate log file to N bytes
@@ -351,7 +353,7 @@ class Submission(object):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
     def compute_metric(self, metric, predictions, targets):
-        metric_output_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
+        metric_output_dirpath = os.path.join(self.execution_results_dirpath)
 
         metric_output = metric.compute(predictions, targets)
 
@@ -401,10 +403,11 @@ class Submission(object):
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
 
-        result_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
-        if not os.path.exists(result_dirpath):
-            logging.debug('Creating result directory: {}'.format(result_dirpath))
-            os.makedirs(result_dirpath)
+        self.execution_results_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
+
+        if not os.path.exists(self.execution_results_dirpath):
+            logging.debug('Creating result directory: {}'.format(self.execution_results_dirpath))
+            os.makedirs(self.execution_results_dirpath)
 
         submission_dirpath = os.path.join(self.actor_submission_dirpath)
         if not os.path.exists(submission_dirpath):
@@ -425,9 +428,9 @@ class Submission(object):
         cpus_per_task = trojai_config.vm_cpu_cores
 
         self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
-        slurm_output_filepath = os.path.join(result_dirpath, self.slurm_output_filename)
+        slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
-        cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--priority', str(self.slurm_priority), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--priority', str(self.slurm_priority), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', cpus_per_task, '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
+        cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--priority', str(self.slurm_priority), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--priority', str(self.slurm_priority), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', cpus_per_task, '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
 
         out = subprocess.Popen(cmd_str_list,
