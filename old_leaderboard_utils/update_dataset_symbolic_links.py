@@ -4,13 +4,14 @@ from leaderboards.trojai_config import TrojaiConfig
 def main(args):
     dataset_dirpath = args.dataset_dirpath
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
-    round_names = args.round_names
+    old_round_names = args.old_round_names
+    new_round_names = args.new_round_names
     split_names = args.split_names
     trojai_datasets_dirpath = trojai_config.datasets_dirpath
     use_round_name_prefix = args.use_round_name_prefix
 
-    for round_name in round_names:
-        trojai_round_dataset_dirpath = os.path.join(trojai_datasets_dirpath, round_name)
+    for i, round_name in enumerate(old_round_names):
+        trojai_round_dataset_dirpath = os.path.join(trojai_datasets_dirpath, new_round_names[i])
 
         round_dataset_dirpath = os.path.join(dataset_dirpath, round_name)
 
@@ -55,7 +56,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Utility to creates symbolic links to the datasets')
     parser.add_argument('--dataset-dirpath', type=str, help='The main dataset directory path')
     parser.add_argument('--trojai-config-filepath', type=str, help='The filepath the main trojai config')
-    parser.add_argument('--round-names', nargs='+', help='The names of the rounds')
+    parser.add_argument('--old-round-names', nargs='+', help='The names of the rounds')
+    parser.add_argument('--new-round-names', nargs='+', help='The names to map the old round names too')
     parser.add_argument('--split-names', nargs='+', help='The dataset split names')
     parser.add_argument('--use-round-name-prefix', action='store_true', help='The prefix to be added to the split name')
 
