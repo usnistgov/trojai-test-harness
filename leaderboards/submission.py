@@ -28,7 +28,7 @@ from leaderboards.leaderboard import Leaderboard
 from leaderboards.trojai_config import TrojaiConfig
 
 class Submission(object):
-    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str):
+    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer'):
         self.g_file = g_file
         self.actor_uuid = actor.uuid
         self.leaderboard_name = leaderboard.name
@@ -46,6 +46,7 @@ class Submission(object):
         self.confusion_output_filename = None
         self.web_display_parse_errors = "None"
         self.web_display_execution_errors = "None"
+        self.provenance = provenance
 
         submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
