@@ -3,7 +3,8 @@ from leaderboards.leaderboard import Leaderboard
 from leaderboards.submission import SubmissionManager, Submission
 from leaderboards.actor import ActorManager
 from leaderboards.google_drive_file import GoogleDriveFile
-from actor_executor import submission, time_utils
+from leaderboards import json_io
+from leaderboards import time_utils
 
 import os
 import shutil
@@ -14,16 +15,16 @@ def convert_submission(args):
     actor_manager = ActorManager.load_json(trojai_config)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
-    prior_round_submission_manager = submission.SubmissionManager.load_json(args.submission_filepath)
+    prior_round_submission_manager = json_io.read(args.submission_filepath)
     current_submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
 
     data_split_name = args.data_split_name
 
 
     # Create new submission to be added to new format
-    for actor_email, submission_list in prior_round_submission_manager.submissions().items():
+    for actor_email, submission_list in prior_round_submission_manager['_Submissionanager__submissions'].items():
         for old_submission in submission_list:
-            old_actor_email = old_submission.actor['email']
+            old_actor_email = old_submission['actor']['email']
             try:
                 actor = actor_manager.get(old_actor_email)
             except:
@@ -34,24 +35,24 @@ def convert_submission(args):
                 print('Failed to get actor from submission for email: {}'.format(old_actor_email))
                 continue
 
-            new_g_file = GoogleDriveFile(old_submission.file.email, old_submission.file.name, old_submission.file.id, time_utils.convert_epoch_to_iso(old_submission.file.modified_epoch))
+            new_g_file = GoogleDriveFile(old_submission['file']['email'], old_submission['file']['name'], old_submission['file']['id'], time_utils.convert_epoch_to_iso(old_submission['file']['modified_epoch']))
 
             new_submission = Submission(new_g_file, actor, leaderboard, data_split_name)
             new_submission.actor_uuid = actor.uuid
-            new_submission.execution_runtime = old_submission.execution_runtime
-            new_submission.model_execution_runtimes = old_submission.model_execution_runtimes
-            new_submission.execution_epoch = old_submission.execution_epoch
-            new_submission.slurm_output_filename = old_submission.slurm_output_filename
-            new_submission.web_display_parse_errors = old_submission.web_display_parse_errors
-            new_submission.web_display_execution_errors = old_submission.web_display_execution_errors
+            new_submission.execution_runtime = old_submission['execution_runtime']
+            new_submission.model_execution_runtimes = old_submission['model_execution_runtimes']
+            new_submission.execution_epoch = old_submission['execution_epoch']
+            new_submission.slurm_output_filename = old_submission['slurm_output_filename']
+            new_submission.web_display_parse_errors = old_submission['web_display_parse_errors']
+            new_submission.web_display_execution_errors = old_submission['web_display_execution_errors']
 
             current_submission_manager.add_submission(actor, new_submission)
 
             # Copy contents of submission to new location
-            time_str = time_utils.convert_epoch_to_psudo_iso(old_submission.execution_epoch)
+            time_str = time_utils.convert_epoch_to_psudo_iso(old_submission['execution_epoch'])
 
-            old_submission_container_dirpath = os.path.join(old_submission.global_submission_dirpath, actor.name, time_str)
-            old_submission_results_dirpath = os.path.join(old_submission.global_results_dirpath, actor.name, time_str)
+            old_submission_container_dirpath = os.path.join(old_submission['global_submission_dirpath'], actor.name, time_str)
+            old_submission_results_dirpath = os.path.join(old_submission['global_results_dirpath'], actor.name, time_str)
             new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
             new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
 
