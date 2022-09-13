@@ -61,10 +61,10 @@ def convert_submission(args):
             new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
             new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
 
-            old_prefix = '/mnt/trojainas/'
-            new_prefix = '/home/tjb3/old-te/'
-            old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
-            old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
+            # old_prefix = '/mnt/trojainas/'
+            # new_prefix = '/home/tjb3/old-te/'
+            # old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
+            # old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
 
             if not os.path.exists(new_submission_container_dirpath):
                 os.makedirs(new_submission_container_dirpath)
