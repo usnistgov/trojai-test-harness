@@ -3,8 +3,8 @@ from leaderboards.leaderboard import Leaderboard
 from leaderboards.submission import SubmissionManager, Submission
 from leaderboards.actor import Actor, ActorManager
 from leaderboards.google_drive_file import GoogleDriveFile
-from actor_executor import submission
-from actor_executor import time_utils
+from old_leaderboard_utils.actor_executor import submission
+from old_leaderboard_utils.actor_executor import time_utils
 
 import os
 import shutil
