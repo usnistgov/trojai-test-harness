@@ -1,10 +1,9 @@
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.submission import SubmissionManager, Submission
-from leaderboards.actor import Actor, ActorManager
+from leaderboards.actor import ActorManager
 from leaderboards.google_drive_file import GoogleDriveFile
-from old_leaderboard_utils.actor_executor import submission
-from old_leaderboard_utils.actor_executor import time_utils
+from actor_executor import submission, time_utils
 
 import os
 import shutil
