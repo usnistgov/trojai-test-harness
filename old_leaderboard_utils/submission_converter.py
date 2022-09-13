@@ -14,7 +14,7 @@ def dst_check_copy(src, dst, *, follow_symlinks=True):
     if os.path.exists(dst):
         return dst
     else:
-        return shutil.copy2(src, dst, follow_symlinks)
+        return shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
 
 
 def convert_submission(args):
