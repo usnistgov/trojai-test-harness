@@ -11,6 +11,8 @@ import shutil
 
 
 def convert_submission(args):
+    old_prefix = args.old_prefix
+    new_prefix = args.new_prefix
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     actor_manager = ActorManager.load_json(trojai_config)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
@@ -61,10 +63,9 @@ def convert_submission(args):
             new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
             new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
 
-            # old_prefix = '/mnt/trojainas/'
-            # new_prefix = '/home/tjb3/old-te/'
-            # old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
-            # old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
+            if old_prefix is not None and new_prefix is not None:
+                old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
+                old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
 
             if not os.path.exists(new_submission_container_dirpath):
                 os.makedirs(new_submission_container_dirpath)
@@ -102,6 +103,8 @@ if __name__ == '__main__':
     parser.add_argument('--submission-filepath', type=str, help='The filepath to the old round submission', required=True)
     parser.add_argument('--leaderboard-name', type=str, help='The name of the leaderboard that the submissions will be added too', required=True)
     parser.add_argument('--data-split-name', type=str, help='The data split name that the submissions should be added too', required=True)
+    parser.add_argument('--old-prefix', type=str, help='The name of the old prefix that was in the old submission for renaming directory paths', default=None)
+    parser.add_argument('--new-prefix', type=str, help='The name of the new prefix that is the current location of the old submissions for renaming directory paths', default=None)
     parser.set_defaults(func=convert_submission)
 
     args = parser.parse_args()
