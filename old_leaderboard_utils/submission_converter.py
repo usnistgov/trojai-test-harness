@@ -30,8 +30,23 @@ def convert_submission(args):
             try:
                 actor = actor_manager.get(old_actor_email)
             except:
-                print('Failed to get actor from submission for email: {}'.format(old_actor_email))
-                continue
+                print('Failed to get actor from submission for email: {}... Attempting prior emails'.format(old_actor_email))
+
+                found_actors = []
+
+                for cur_actor in actor_manager.get_actors():
+                    for email in cur_actor.prior_emails:
+                        if email == old_actor_email:
+                            found_actors.append(cur_actor)
+                            break
+
+                if len(found_actors) > 1:
+                    print('Found multiple actors with the same prior emails: {}'.format(found_actors))
+                    continue
+                else:
+                    actor = found_actors[0]
+
+
 
             if actor is None:
                 print('Failed to get actor from submission for email: {}'.format(old_actor_email))
