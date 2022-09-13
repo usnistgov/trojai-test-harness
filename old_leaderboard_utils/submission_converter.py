@@ -10,13 +10,6 @@ import os
 import shutil
 
 
-def dst_check_copy(src, dst, *, follow_symlinks=True):
-    if os.path.exists(dst):
-        return dst
-    else:
-        return shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
-
-
 def convert_submission(args):
     old_prefix = args.old_prefix
     new_prefix = args.new_prefix
@@ -101,14 +94,14 @@ def convert_submission(args):
 
             if os.path.exists(old_submission_container_dirpath):
                 print('Copying old submission for {}:{} into new'.format(actor.name, time_str))
-                shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, copy_function=dst_check_copy, dirs_exist_ok=True)
+                shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, dirs_exist_ok=True)
             else:
                 print('Warning, unable to locate old submissions dirpath: {}'.format(old_submission_container_dirpath))
 
 
             if os.path.exists(old_submission_results_dirpath):
                 print('Copying old submission for {}:{} results into new'.format(actor.name, time_str))
-                shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, copy_function=dst_check_copy, dirs_exist_ok=True)
+                shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, dirs_exist_ok=True)
             else:
                 print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
 
