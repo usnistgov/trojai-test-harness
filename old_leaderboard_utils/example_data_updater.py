@@ -13,9 +13,9 @@ def convert_old_dataset_example_data(args):
         dataset_dirpath = os.path.join(datasets_dirpath, round_name)
         if not os.path.exists(dataset_dirpath):
             print('Unable to locate round dataset: {}'.format(dataset_dirpath))
-            
+
         for data_split_name in data_split_names:
-            dataset_models_dirpath = os.path.join(dataset_dirpath, data_split_name, 'models')
+            dataset_models_dirpath = os.path.join(dataset_dirpath, '{}-{}'.format(round_name, data_split_name), 'models')
 
             print('Updating {}'.format(dataset_models_dirpath))
             if not os.path.exists(dataset_models_dirpath):
