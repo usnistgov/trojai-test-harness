@@ -24,6 +24,7 @@ class Actor(object):
         self.email = email
         self.name = name
         self.poc_email = poc_email
+        self.prior_emails = []
         self.type = type
 
         self.last_execution_epochs = {}
