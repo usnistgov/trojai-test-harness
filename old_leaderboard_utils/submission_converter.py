@@ -27,6 +27,7 @@ def convert_submission(args):
     for actor_email, submission_list in prior_round_submission_manager['_SubmissionManager__submissions'].items():
         for old_submission in submission_list:
             old_actor_email = old_submission['actor']['email']
+            old_actor_name = old_submission['actor']['name']
             try:
                 actor = actor_manager.get(old_actor_email)
             except:
@@ -73,8 +74,8 @@ def convert_submission(args):
             # Copy contents of submission to new location
             time_str = time_utils.convert_epoch_to_psudo_iso(old_submission['execution_epoch'])
 
-            old_submission_container_dirpath = os.path.join(old_submission['global_submission_dirpath'], actor.name, time_str)
-            old_submission_results_dirpath = os.path.join(old_submission['global_results_dirpath'], actor.name, time_str)
+            old_submission_container_dirpath = os.path.join(old_submission['global_submission_dirpath'], old_actor_name, time_str)
+            old_submission_results_dirpath = os.path.join(old_submission['global_results_dirpath'], old_actor_name, time_str)
             new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
             new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
 
