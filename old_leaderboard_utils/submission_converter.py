@@ -39,8 +39,13 @@ def convert_submission(args):
 
             new_submission = Submission(new_g_file, actor, leaderboard, data_split_name)
             new_submission.actor_uuid = actor.uuid
-            new_submission.execution_runtime = old_submission['execution_runtime']
-            new_submission.model_execution_runtimes = old_submission['model_execution_runtimes']
+
+            if 'execution_runtime' in old_submission:
+                new_submission.execution_runtime = old_submission['execution_runtime']
+
+            if 'model_execution_runtimes' in old_submission:
+                new_submission.model_execution_runtimes = old_submission['model_execution_runtimes']
+
             new_submission.execution_epoch = old_submission['execution_epoch']
             new_submission.slurm_output_filename = old_submission['slurm_output_filename']
             new_submission.web_display_parse_errors = old_submission['web_display_parse_errors']
