@@ -22,7 +22,7 @@ def convert_submission(args):
 
 
     # Create new submission to be added to new format
-    for actor_email, submission_list in prior_round_submission_manager['_Submissionanager__submissions'].items():
+    for actor_email, submission_list in prior_round_submission_manager['_SubmissionManager__submissions'].items():
         for old_submission in submission_list:
             old_actor_email = old_submission['actor']['email']
             try:
