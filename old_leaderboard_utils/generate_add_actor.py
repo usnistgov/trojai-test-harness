@@ -10,7 +10,7 @@ def generate_add_actor(args):
         actor_poc_email = actor['poc_email']
         actor_type = 'contractor'
 
-        print('python add-actor --trojai-config-filepath {} --name {} --email {} --poc-email {} --type {}'.format(args.trojai_config_filepath, actor_name, actor_email, actor_poc_email, actor_type))
+        print('python actor.py add-actor --trojai-config-filepath {} --name {} --email {} --poc-email {} --type {}'.format(args.trojai_config_filepath, actor_name, actor_email, actor_poc_email, actor_type))
 
 
 
