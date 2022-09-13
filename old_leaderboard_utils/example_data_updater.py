@@ -23,7 +23,7 @@ def convert_old_dataset_example_data(args):
                 continue
 
 
-            for model_name in os.listdir(dataset_model_dirpath):
+            for model_name in os.listdir(dataset_models_dirpath):
                 dataset_model_dirpath = os.path.join(dataset_models_dirpath, model_name)
 
                 if not os.path.exists(dataset_model_dirpath):
