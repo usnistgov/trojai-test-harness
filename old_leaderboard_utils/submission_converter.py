@@ -83,8 +83,8 @@ def convert_submission(args):
 
                 old_submission_container_dirpath = os.path.join(old_submission['global_submission_dirpath'], old_actor_name, time_str)
                 old_submission_results_dirpath = os.path.join(old_submission['global_results_dirpath'], old_actor_name, time_str)
-                new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
-                new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
+                new_submission_container_dirpath = new_submission.actor_submission_dirpath
+                new_submission_results_dirpath = new_submission.execution_results_dirpath
 
                 if old_prefix is not None and new_prefix is not None:
                     old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
