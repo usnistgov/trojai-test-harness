@@ -371,10 +371,12 @@ class Submission(object):
         try:
             ground_truth_dict = self.load_ground_truth(leaderboard)
         except:
+
             msg = 'Unable to load ground truth results: "{}-{}".\n{}'.format(leaderboard.name, self.data_split_name,
                                                                              traceback.format_exc())
             logging.error(msg)
-            TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
+            if print_details:
+                TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
             raise
 
         # load the results from disk
@@ -389,7 +391,7 @@ class Submission(object):
         predictions = np.array(list(results.values())).reshape(-1, 1)
         targets = np.array(list(ground_truth_dict.values())).reshape(-1, 1)
 
-        if not np.any(np.isfinite(predictions)):
+        if not np.any(np.isfinite(predictions)) and print_details:
             logging.warning('Found no parse-able results from container execution.')
             self.web_display_parse_errors += ":No Results:"
 
