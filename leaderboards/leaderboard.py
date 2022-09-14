@@ -66,7 +66,7 @@ class Leaderboard(object):
                     slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
                     slurm_priority = 0
 
-                source_data_filepath = os.path.join(trojai_config.datasets_dirpath, self.name, '{}-source-data'.format(self.name))
+                source_data_filepath = os.path.join(trojai_config.datasets_dirpath, self.name, 'source-data')
                 has_source_data = False
 
                 if os.path.exists(source_data_filepath):
