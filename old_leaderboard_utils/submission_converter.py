@@ -50,6 +50,7 @@ def convert_submission(args):
                     continue
                 else:
                     actor = found_actors[0]
+                    print('Found alternate actor {} for '.format(actor.name, old_actor_email))
 
 
 
