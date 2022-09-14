@@ -78,15 +78,15 @@ class Leaderboard(object):
             for table_name in Leaderboard.TABLE_NAMES:
                 key = '{}-{}-{}'.format(self.name, split_name, table_name)
                 if table_name == 'jobs':
-                    self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc', 'split_name': split_name}
+                    self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'desc', 'split_name': split_name}
                 else:
                     if split_name == 'sts':
-                        self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc', 'split_name': split_name}
+                        self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'desc', 'split_name': split_name}
                     else:
                         if self.dataset_manager.has_dataset(split_name):
                             self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name), 'order': 'asc', 'split_name': split_name}
                         else:
-                            self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'asc', 'split_name': split_name}
+                            self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'asc', 'split_name': split_name}
 
 
         self.initialize_directories()

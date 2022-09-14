@@ -27,7 +27,7 @@ class Actor(object):
         self.prior_emails = []
         self.type = type
 
-        self.last_execution_epochs = {}
+        self.last_submission_epochs = {}
         self.last_file_epochs = {}
 
         self.general_file_status = 'None'
@@ -59,8 +59,8 @@ class Actor(object):
     def get_last_file_epoch(self, leaderboard_name, data_split_name):
         return self.last_file_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)]
 
-    def get_last_execution_epoch(self, leaderboard_name, data_split_name):
-        return self.last_execution_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)]
+    def get_last_submission_epoch(self, leaderboard_name, data_split_name):
+        return self.last_submission_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)]
 
     def update_job_status(self, leaderboard_name, data_split_name, value):
         self.job_statuses[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
@@ -68,16 +68,16 @@ class Actor(object):
     def update_file_status(self, leaderboard_name, data_split_name, value):
         self.file_statuses[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
 
-    def update_last_execution_epoch(self, leaderboard_name, data_split_name, value):
-        self.last_execution_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
+    def update_last_submission_epoch(self, leaderboard_name, data_split_name, value):
+        self.last_submission_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
 
     def update_last_file_epoch(self, leaderboard_name, data_split_name, value):
         self.last_file_epochs[self.get_leaderboard_key(leaderboard_name, data_split_name)] = value
 
     def get_leaderboard_key(self, leaderboard_name, data_split_name):
         key = '{}_{}'.format(leaderboard_name, data_split_name)
-        if key not in self.last_execution_epochs.keys() or key not in self.last_file_epochs.keys() or key not in self.job_statuses.keys() or key not in self.file_statuses.keys():
-            self.last_execution_epochs[key] = 0
+        if key not in self.last_submission_epochs.keys() or key not in self.last_file_epochs.keys() or key not in self.job_statuses.keys() or key not in self.file_statuses.keys():
+            self.last_submission_epochs[key] = 0
             self.last_file_epochs[key] = 0
             self.job_statuses[key] = 'None'
             self.file_statuses[key] = 'None'
@@ -86,13 +86,13 @@ class Actor(object):
 
     def _has_leaderboard_metadata(self, leaderboard_name, data_split_name):
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
-        return leaderboard_key in self.last_file_epochs.keys() and leaderboard_key in self.last_execution_epochs.keys() \
+        return leaderboard_key in self.last_file_epochs.keys() and leaderboard_key in self.last_submission_epochs.keys() \
                and leaderboard_key in self.job_statuses.keys() and leaderboard_key in self.file_statuses.keys()
 
     def reset_leaderboard_submission(self, leaderboard_name, data_split_name):
         print('Resetting {} for leaderboard: {} and data split {}'.format(self.email, leaderboard_name, data_split_name))
         leaderboard_key = self.get_leaderboard_key(leaderboard_name, data_split_name)
-        self.last_execution_epochs[leaderboard_key] = 0
+        self.last_submission_epochs[leaderboard_key] = 0
         self.last_file_epochs[leaderboard_key] = 0
         self.job_statuses[leaderboard_key] = 'None'
         self.file_statuses[leaderboard_key] = 'None'
@@ -121,7 +121,7 @@ class Actor(object):
 
     def can_submit_time_window(self, leaderboard_name, dataset_split_name, execute_window_seconds, cur_epoch) -> bool:
         # Check if the actor is allowed to execute again or not
-        last_execution_epoch = self.get_last_execution_epoch(leaderboard_name, dataset_split_name)
+        last_execution_epoch = self.get_last_submission_epoch(leaderboard_name, dataset_split_name)
         if last_execution_epoch + execute_window_seconds <= cur_epoch:
             return True
         return False
@@ -134,7 +134,7 @@ class Actor(object):
             self.reset_leaderboard_submission(leaderboard_name, data_split_name)
 
         remaining_time = 0
-        last_execution_epoch = self.last_execution_epochs[leaderboard_key]
+        last_execution_epoch = self.last_submission_epochs[leaderboard_key]
         if last_execution_epoch + execute_window > current_epoch:
             remaining_time = (last_execution_epoch + execute_window) - current_epoch
 
@@ -145,10 +145,10 @@ class Actor(object):
             last_file_timestamp = "None"
         else:
             last_file_timestamp = time_utils.convert_epoch_to_iso(self.last_file_epochs[leaderboard_key])
-        if self.last_execution_epochs[leaderboard_key] == 0:
-            last_execution_timestamp = "None"
+        if self.last_submission_epochs[leaderboard_key] == 0:
+            last_submission_timestamp = "None"
         else:
-            last_execution_timestamp = time_utils.convert_epoch_to_iso(self.last_execution_epochs[leaderboard_key])
+            last_submission_timestamp = time_utils.convert_epoch_to_iso(self.last_submission_epochs[leaderboard_key])
 
         color_key_times = sorted([float(i) for i in job_color_key.keys()])
         color_class = ''
@@ -165,7 +165,7 @@ class Actor(object):
 
         with a.tr():
             a.td(_t=self.name)
-            a.td(klass=color_class,_t=last_execution_timestamp)
+            a.td(klass=color_class,_t=last_submission_timestamp)
             a.td(_t=self.type)
             a.td(_t=self.job_statuses[leaderboard_key])
             a.td(_t=self.file_statuses[leaderboard_key])
@@ -256,7 +256,7 @@ class ActorManager(object):
                     with a.thead():
                         with a.tr():
                             a.th(klass='th-sm', _t='Team')
-                            a.th(klass='th-sm', _t='Execution Timestamp')
+                            a.th(klass='th-sm', _t='Submission Timestamp')
                             a.th(klass='th-sm', _t='Type')
                             a.th(klass='th-sm', _t='Job Status')
                             a.th(klass='th-sm', _t='File Status')

@@ -131,7 +131,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             check_epoch = time_utils.get_current_epoch()
 
             if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_submission_window_time(data_split_name), check_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
-                logging.info('Team {} timeout window has not elapsed. check_epoch: {}, last_exec_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, check_epoch, actor.get_last_execution_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
+                logging.info('Team {} timeout window has not elapsed. check_epoch: {}, last_submission_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, check_epoch, actor.get_last_submission_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
                 actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
             else:
                 if int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):

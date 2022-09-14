@@ -449,7 +449,7 @@ class Submission(object):
             job_id = int(stdout.strip())
             actor.update_job_status(self.leaderboard_name, self.data_split_name, 'Queued')
             actor.update_file_status(self.leaderboard_name, self.data_split_name, 'Ok')
-            actor.update_last_execution_epoch(self.leaderboard_name, self.data_split_name, execution_epoch)
+            actor.update_last_submission_epoch(self.leaderboard_name, self.data_split_name, self.submission_epoch)
             actor.update_last_file_epoch(self.leaderboard_name, self.data_split_name, self.g_file.modified_epoch)
             logging.info("Slurm job executed with job id: {}".format(job_id))
         else:

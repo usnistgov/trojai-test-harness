@@ -30,7 +30,7 @@ def get_leaderboard_javascript_content(leaderboard: Leaderboard):
 
         if not leaderboard.has_dataset(split_name):
             continue
-            
+
         content += """sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
         content += "$('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
     return content
