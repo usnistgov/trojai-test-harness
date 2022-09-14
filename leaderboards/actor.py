@@ -366,7 +366,7 @@ def actor_to_csv(args):
     actor_manager = ActorManager.load_json(trojai_config)
     actor_manager.convert_to_csv(args.output_filepath)
 
-def fix_actor_manager(args):
+def apply_fix_actor_manager(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     actor_manager = ActorManager.load_json(trojai_config)
 
@@ -421,7 +421,7 @@ if __name__ == "__main__":
 
     fix_actor_manager = subparser.add_parser('fix')
     fix_actor_manager.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    fix_actor_manager.set_defaults(func=fix_actor_manager)
+    fix_actor_manager.set_defaults(func=apply_fix_actor_manager)
 
     # html_parser = subparser.add_parser('html')
     # html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
