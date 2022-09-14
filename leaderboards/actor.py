@@ -197,7 +197,7 @@ class ActorManager(object):
             if name == actor.name:
                 raise RuntimeError("Actor Name already exists in ActorManager: {}".format(name))
         created_actor = Actor(trojai_config, email, name, poc_email, type)
-        self.actors[created_actor.uuid] = created_actor
+        self.actors[str(created_actor.uuid)] = created_actor
         print('Created: {}'.format(created_actor))
 
     def remove_actor(self, email) -> None:
@@ -222,8 +222,8 @@ class ActorManager(object):
 
 
     def get_from_uuid(self, uuid) ->Actor:
-        if uuid in self.actors.keys():
-            return self.actors[uuid]
+        if str(uuid) in self.actors.keys():
+            return self.actors[str(uuid)]
         else:
             raise RuntimeError('Invalid uuid key {}, not found in actor manager'.format(uuid))
 
@@ -293,7 +293,7 @@ class ActorManager(object):
                     file.write(str(actor.__dict__[key]) + ',')
                 file.write('\n')
 
-def add_actor_helper(trojai_config: TrojaiConfig, team_name: str, email: str, poc_email: str, type = str):
+def add_actor_helper(trojai_config: TrojaiConfig, team_name: str, email: str, poc_email: str, type: str):
     actor_manager = ActorManager.load_json(trojai_config)
     try:
         team_name = team_name.encode('ascii')
@@ -366,6 +366,21 @@ def actor_to_csv(args):
     actor_manager = ActorManager.load_json(trojai_config)
     actor_manager.convert_to_csv(args.output_filepath)
 
+def fix_actor_manager(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+
+    fixed_actors = {}
+    for uuid, actor in actor_manager.actors.items():
+        actor.uuid = str(uuid)
+        fixed_actors[str(uuid)] = actor
+
+    actor_manager.actors = fixed_actors
+
+    actor_manager.save_json(trojai_config)
+
+
+
 # def test_actor_manager_to_html(args):
 #     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
 #     actor_manager = ActorManager.load_json(trojai_config)
@@ -403,6 +418,10 @@ if __name__ == "__main__":
     to_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     to_csv_parser.add_argument('--output-filepath', type=str, help='The output filepath for the csv', default='actors.csv')
     to_csv_parser.set_defaults(func=actor_to_csv)
+
+    fix_actor_manager = subparser.add_parser('fix')
+    fix_actor_manager.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    fix_actor_manager.set_defaults(func=fix_actor_manager)
 
     # html_parser = subparser.add_parser('html')
     # html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
