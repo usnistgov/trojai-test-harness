@@ -20,7 +20,7 @@ import uuid
 class Actor(object):
     VALID_TYPES = ['public', 'performer']
     def __init__(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str, reset: bool = True):
-        self.uuid = uuid.uuid1()
+        self.uuid = str(uuid.uuid1())
         self.email = email
         self.name = name
         self.poc_email = poc_email
