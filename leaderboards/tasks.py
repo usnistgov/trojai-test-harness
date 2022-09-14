@@ -325,7 +325,7 @@ class ImageTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         if task_script_filepath is None:
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
-            task_scripts_dirpath = os.path.join(task_dirpath, '..', 'vm_scripts')
+            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
             task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
