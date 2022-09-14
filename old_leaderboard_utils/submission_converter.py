@@ -73,6 +73,7 @@ def convert_submission(args):
             new_submission.slurm_output_filename = old_submission['slurm_output_filename']
             new_submission.web_display_parse_errors = old_submission['web_display_parse_errors']
             new_submission.web_display_execution_errors = old_submission['web_display_execution_errors']
+            new_submission.execution_results_dirpath = os.path.join(new_submission.actor_results_dirpath, new_submission.get_execute_time_str())
 
             current_submission_manager.add_submission(actor, new_submission)
 
