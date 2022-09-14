@@ -13,6 +13,7 @@ import shutil
 def convert_submission(args):
     old_prefix = args.old_prefix
     new_prefix = args.new_prefix
+    copy_data = args.copy_data
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     actor_manager = ActorManager.load_json(trojai_config)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
@@ -74,36 +75,37 @@ def convert_submission(args):
 
             current_submission_manager.add_submission(actor, new_submission)
 
-            # Copy contents of submission to new location
-            time_str = time_utils.convert_epoch_to_psudo_iso(old_submission['execution_epoch'])
+            if copy_data:
+                # Copy contents of submission to new location
+                time_str = time_utils.convert_epoch_to_psudo_iso(old_submission['execution_epoch'])
 
-            old_submission_container_dirpath = os.path.join(old_submission['global_submission_dirpath'], old_actor_name, time_str)
-            old_submission_results_dirpath = os.path.join(old_submission['global_results_dirpath'], old_actor_name, time_str)
-            new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
-            new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
+                old_submission_container_dirpath = os.path.join(old_submission['global_submission_dirpath'], old_actor_name, time_str)
+                old_submission_results_dirpath = os.path.join(old_submission['global_results_dirpath'], old_actor_name, time_str)
+                new_submission_container_dirpath = os.path.join(new_submission.actor_submission_dirpath, time_str)
+                new_submission_results_dirpath = os.path.join(new_submission.actor_results_dirpath, time_str)
 
-            if old_prefix is not None and new_prefix is not None:
-                old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
-                old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
+                if old_prefix is not None and new_prefix is not None:
+                    old_submission_container_dirpath = old_submission_container_dirpath.replace(old_prefix, new_prefix)
+                    old_submission_results_dirpath = old_submission_results_dirpath.replace(old_prefix, new_prefix)
 
-            if not os.path.exists(new_submission_container_dirpath):
-                os.makedirs(new_submission_container_dirpath)
+                if not os.path.exists(new_submission_container_dirpath):
+                    os.makedirs(new_submission_container_dirpath)
 
-            if not os.path.exists(new_submission_results_dirpath):
-                os.makedirs(new_submission_results_dirpath)
+                if not os.path.exists(new_submission_results_dirpath):
+                    os.makedirs(new_submission_results_dirpath)
 
-            if os.path.exists(old_submission_container_dirpath):
-                print('Copying old submission for {}:{} into new'.format(actor.name, time_str))
-                shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, dirs_exist_ok=True)
-            else:
-                print('Warning, unable to locate old submissions dirpath: {}'.format(old_submission_container_dirpath))
+                if os.path.exists(old_submission_container_dirpath):
+                    print('Copying old submission for {}:{} into new'.format(actor.name, time_str))
+                    shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, dirs_exist_ok=True)
+                else:
+                    print('Warning, unable to locate old submissions dirpath: {}'.format(old_submission_container_dirpath))
 
 
-            if os.path.exists(old_submission_results_dirpath):
-                print('Copying old submission for {}:{} results into new'.format(actor.name, time_str))
-                shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, dirs_exist_ok=True)
-            else:
-                print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
+                if os.path.exists(old_submission_results_dirpath):
+                    print('Copying old submission for {}:{} results into new'.format(actor.name, time_str))
+                    shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, dirs_exist_ok=True)
+                else:
+                    print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
 
     current_submission_manager.save_json(leaderboard.submissions_filepath)
 
@@ -124,6 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-split-name', type=str, help='The data split name that the submissions should be added too', required=True)
     parser.add_argument('--old-prefix', type=str, help='The name of the old prefix that was in the old submission for renaming directory paths', default=None)
     parser.add_argument('--new-prefix', type=str, help='The name of the new prefix that is the current location of the old submissions for renaming directory paths', default=None)
+    parser.add_argument('--copy-data', action='store_true', help='Whether to copy all data for the submissions')
     parser.set_defaults(func=convert_submission)
 
     args = parser.parse_args()
