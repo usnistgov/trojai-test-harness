@@ -371,9 +371,9 @@ def apply_fix_actor_manager(args):
     actor_manager = ActorManager.load_json(trojai_config)
 
     fixed_actors = {}
-    for uuid, actor in actor_manager.actors.items():
-        actor.uuid = str(uuid)
-        fixed_actors[str(uuid)] = actor
+    for actor in actor_manager.get_actors():
+        actor.uuid = str(actor.uuid)
+        fixed_actors[str(actor.uuid)] = actor
 
     actor_manager.actors = fixed_actors
 
@@ -388,6 +388,11 @@ def apply_fix_actor_manager(args):
 
 if __name__ == "__main__":
     import argparse
+
+    uuid_test = uuid.uuid1()
+
+    test_str = str(uuid_test)
+    print(test_str)
 
     parser = argparse.ArgumentParser(description='Creates an actor, and adds it to the actors.json')
     parser.set_defaults(func=lambda args: parser.print_help())
