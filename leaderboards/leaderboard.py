@@ -78,15 +78,15 @@ class Leaderboard(object):
             for table_name in Leaderboard.TABLE_NAMES:
                 key = '{}-{}-{}'.format(self.name, split_name, table_name)
                 if table_name == 'jobs':
-                    self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc'}
+                    self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc', 'split_name': split_name}
                 else:
                     if split_name == 'sts':
-                        self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc'}
+                        self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'desc', 'split_name': split_name}
                     else:
                         if self.dataset_manager.has_dataset(split_name):
-                            self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name), 'order': 'asc'}
+                            self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name), 'order': 'asc', 'split_name': split_name}
                         else:
-                            self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'asc'}
+                            self.html_table_sort_options[key] = {'column': 'Execution Timestamp', 'order': 'asc', 'split_name': split_name}
 
 
         self.initialize_directories()
@@ -182,7 +182,7 @@ class Leaderboard(object):
         assert leaderboard_config.task_name in Leaderboard.VALID_TASK_NAMES
         return leaderboard_config
 
-    def write_html_leaderboard(self, html_output_dirpath: str, is_first: bool, is_archived: bool):
+    def write_html_leaderboard(self, is_trojai_accepting_submissions: bool, html_output_dirpath: str, is_first: bool, is_archived: bool):
 
         leaderboard_filename = '{}-leaderboard.html'.format(self.name)
         leaderboard_dirpath = os.path.join(html_output_dirpath, self.name)
@@ -221,7 +221,7 @@ class Leaderboard(object):
                     with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
                         with a.div(klass='card-body card-body-cascade'):
                             dataset = self.get_dataset(data_split)
-                            a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit and not is_archived))
+                            a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit and not is_archived and is_trojai_accepting_submissions))
 
                         a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
                         a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))

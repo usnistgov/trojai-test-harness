@@ -26,6 +26,11 @@ def get_leaderboard_javascript_content(leaderboard: Leaderboard):
     for key, info_dict in html_sort_options.items():
         column_name = info_dict['column']
         order = info_dict['order']
+        split_name = info_dict['split_name']
+
+        if not leaderboard.has_dataset(split_name):
+            continue
+            
         content += """sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
         content += "$('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
     return content
@@ -58,7 +63,7 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
     if html_default_leaderboard == leaderboard.name:
         is_first = True
 
-    filepath = leaderboard.write_html_leaderboard(html_output_dirpath, is_first, is_archived)
+    filepath = leaderboard.write_html_leaderboard(trojai_config.accepting_submissions, html_output_dirpath, is_first, is_archived)
     written_files.append(filepath)
 
     for data_split_name in leaderboard.get_html_data_split_names():
