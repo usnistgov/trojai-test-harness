@@ -213,7 +213,7 @@ class Leaderboard(object):
                 for data_split in html_data_split_names:
                     if not self.has_dataset(data_split):
                         continue
-                        
+
                     if data_split == 'test':
                         active_show = 'active show'
                     else:

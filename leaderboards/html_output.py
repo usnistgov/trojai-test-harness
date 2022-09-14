@@ -62,6 +62,9 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
     written_files.append(filepath)
 
     for data_split_name in leaderboard.get_html_data_split_names():
+        if not leaderboard.has_dataset(data_split_name):
+            continue
+            
         execute_window = leaderboard.get_submission_window_time(data_split_name)
         filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name,
                                                   leaderboard.highlight_old_submissions, data_split_name,
