@@ -69,6 +69,7 @@ def convert_submission(args):
             if 'model_execution_runtimes' in old_submission:
                 new_submission.model_execution_runtimes = old_submission['model_execution_runtimes']
 
+            new_submission.submission_epoch = old_submission['execution_epoch']
             new_submission.execution_epoch = old_submission['execution_epoch']
             new_submission.slurm_output_filename = old_submission['slurm_output_filename']
             new_submission.web_display_parse_errors = old_submission['web_display_parse_errors']
