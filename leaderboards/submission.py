@@ -28,7 +28,7 @@ from leaderboards.leaderboard import Leaderboard
 from leaderboards.trojai_config import TrojaiConfig
 
 class Submission(object):
-    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer'):
+    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer', submission_epoch: int=None):
         self.g_file = g_file
         self.actor_uuid = actor.uuid
         self.leaderboard_name = leaderboard.name
@@ -39,7 +39,10 @@ class Submission(object):
         self.saved_metric_results = {}
         self.execution_runtime = None
         self.model_execution_runtimes = None
-        self.submission_epoch = time_utils.get_current_epoch()
+        self.submission_epoch = submission_epoch
+        if self.submission_epoch is None:
+            self.submission_epoch = time_utils.get_current_epoch()
+
         self.execution_epoch = None
         self.active_slurm_job_name = None
         self.slurm_output_filename = None

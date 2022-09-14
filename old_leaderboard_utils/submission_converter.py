@@ -60,7 +60,7 @@ def convert_submission(args):
 
             new_g_file = GoogleDriveFile(old_submission['file']['email'], old_submission['file']['name'], old_submission['file']['id'], time_utils.convert_epoch_to_iso(old_submission['file']['modified_epoch']))
 
-            new_submission = Submission(new_g_file, actor, leaderboard, data_split_name)
+            new_submission = Submission(new_g_file, actor, leaderboard, data_split_name, submission_epoch=old_submission['execution_epoch'])
             new_submission.actor_uuid = actor.uuid
 
             if 'execution_runtime' in old_submission:
@@ -69,7 +69,6 @@ def convert_submission(args):
             if 'model_execution_runtimes' in old_submission:
                 new_submission.model_execution_runtimes = old_submission['model_execution_runtimes']
 
-            new_submission.submission_epoch = old_submission['execution_epoch']
             new_submission.execution_epoch = old_submission['execution_epoch']
             new_submission.slurm_output_filename = old_submission['slurm_output_filename']
             new_submission.web_display_parse_errors = old_submission['web_display_parse_errors']
