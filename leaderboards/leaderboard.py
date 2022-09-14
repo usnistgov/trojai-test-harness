@@ -100,6 +100,9 @@ class Leaderboard(object):
     def get_dataset(self, data_split_name):
         return self.dataset_manager.get(data_split_name)
 
+    def has_dataset(self, data_split_name):
+        return self.dataset_manager.has_dataset(data_split_name)
+
     def load_ground_truth(self, data_split_name):
         dataset = self.dataset_manager.get(data_split_name)
         return self.task.load_ground_truth(dataset)
@@ -208,6 +211,9 @@ class Leaderboard(object):
 
             with a.div(klass='tab-content card'):
                 for data_split in html_data_split_names:
+                    if not self.has_dataset(data_split):
+                        continue
+                        
                     if data_split == 'test':
                         active_show = 'active show'
                     else:
