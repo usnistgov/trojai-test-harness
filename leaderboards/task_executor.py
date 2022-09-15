@@ -3,27 +3,12 @@ from leaderboards.leaderboard import Leaderboard
 from leaderboards.mail_io import TrojaiMail
 from leaderboards.drive_io import DriveIO
 from leaderboards import json_io
+from leaderboards import hash_utils
 import logging
 import traceback
-import hashlib
 import os
 
 
-def compute_hash(filepath, buf_size=65536):
-    sha256 = hashlib.sha256()
-    pre, ext = os.path.splitext(filepath)
-    output_filepath = pre + '.sha256'
-
-    if not os.path.exists(output_filepath):
-        with open(filepath, 'rb') as f:
-            while True:
-                data = f.read(buf_size)
-                if not data:
-                    break
-                sha256.update(data)
-
-        with open(output_filepath, 'w') as f:
-            f.write(sha256.hexdigest())
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
          vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str):
@@ -75,7 +60,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
             submission_filepath = os.path.join(submission_dir, submission_name)
 
     # Step 2) Compute hash of container (if it does not exist)
-    compute_hash(submission_filepath)
+    hash_utils.compute_hash(submission_filepath)
 
     # Step 3) Run basic VM task checks: check_gpu
     errors += task.run_basic_checks(vm_ip, vm_name)

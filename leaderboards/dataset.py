@@ -32,6 +32,16 @@ class Dataset(object):
 
         self.required_files = ['model.pt', 'ground_truth.csv', 'clean-example-data', 'reduced-config.json']
 
+        if self.split_name == 'sts':
+            self.auto_delete_submission = True
+        else:
+            self.auto_delete_submission = False
+
+        self.auto_execute_split_names = []
+
+        if self.split_name == 'test':
+            self.auto_execute_split_names.append('train')
+
         self.submission_metrics = dict()
 
         for metric in Dataset.ALL_METRICS:

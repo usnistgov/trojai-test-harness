@@ -4,6 +4,7 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 import os
+import time
 import typing
 
 import collections
@@ -26,6 +27,7 @@ from leaderboards import time_utils
 from leaderboards import fs_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.trojai_config import TrojaiConfig
+from leaderboards import hash_utils
 
 class Submission(object):
     def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer', submission_epoch: int=None):
@@ -75,6 +77,10 @@ class Submission(object):
     def get_slurm_job_name(self, actor: Actor):
         return '{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name)
 
+    def get_submission_hash(self):
+        submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
+        return hash_utils.load_hash(submission_filepath)
+
     def is_active_job(self):
         if self.active_slurm_job_name is None:
             return False
@@ -102,7 +108,7 @@ class Submission(object):
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
             return False
 
-    def check(self, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
+    def check(self, trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
 
         if self.active_slurm_job_name is None:
             logging.info('Submission "{}_{}" by team "{}" is not active.'.format(self.leaderboard_name, self.data_split_name, actor.name))
@@ -132,22 +138,39 @@ class Submission(object):
             # if the job was not found, and this was a previously active submission, the results are ready for processing
             self.process_results(actor, leaderboard, g_drive, log_file_byte_limit)
 
-            if self.data_split_name == 'sts':
-                # delete the container file to avoid filling up disk space for the STS server
+            if leaderboard.is_auto_delete_submission(self.data_split_name):
+                # delete the container file to avoid filling up disk space
                 submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 if os.path.exists(submission_filepath):
                     os.remove(submission_filepath)
-            elif self.data_split_name == 'test':
-                # TODO: Implement checking for train results/submission . . .
-                # If it does not exist, then create a new submission using the test container
-                # use submission_manager to find valid submissions ... alternatively could use the actor_submission list...
+            else:
+                auto_execute_split_names = leaderboard.get_auto_execute_split_names(self.data_split_name)
+                if len(auto_execute_split_names) > 0:
+                    # Check to see if we need to launch for split name
+                    current_hash = self.get_submission_hash()
+                    actor_submissions = submission_manager.get_submissions_by_actor(actor)
 
-                pass
-            elif self.data_split_name == 'train':
-                # TODO: Check for matching test container
-                pass
+                    for auto_execute_split_name in auto_execute_split_names:
+                        found_matching_submission = False
 
+                        for submission in actor_submissions:
+                            if submission.data_split_name == auto_execute_split_name:
+                                submission_hash = submission.get_submission_hash()
+                                if submission_hash == current_hash:
+                                    found_matching_submission = True
+                                    break
+
+                        if found_matching_submission:
+                            logging.info('Found a matching submission between {} and {}'.format(self.data_split_name, auto_execute_split_name))
+                        else:
+                            # Did not find matching hash, setting up new submission for auto execute split name
+                            new_submission = Submission(self.g_file, actor, leaderboard, auto_execute_split_name, 'auto-{}'.format(auto_execute_split_name), self.submission_epoch)
+                            submission_manager.add_submission(actor, new_submission)
+                            logging.info('Added submission file name "{}" to manager for email "{}" when auto submitting for {}'.format(new_submission.g_file.name, actor.email, auto_execute_split_name))
+                            time.sleep(1)
+                            exec_epoch = time_utils.get_current_epoch()
+                            new_submission.execute(actor, trojai_config, exec_epoch)
         else:
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
 

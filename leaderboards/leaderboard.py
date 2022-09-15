@@ -119,6 +119,14 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.slurm_priority
 
+    def is_auto_delete_submission(self, data_split_name: str):
+        dataset = self.dataset_manager.get(data_split_name)
+        return dataset.auto_delete_submission
+
+    def get_auto_execute_split_names(self, data_split_name: str):
+        dataset = self.dataset_manager.get(data_split_name)
+        return dataset.auto_execute_split_names
+
     def get_submission_window_time(self, data_split_name: str):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.submission_window_time_sec

@@ -160,7 +160,7 @@ def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, ac
                     continue
 
                 leaderboard = active_leaderboards[submission.leaderboard_name]
-                submission.check(g_drive, actor, leaderboard, submission_manager, trojai_config.log_file_byte_limit)
+                submission.check(trojai_config, g_drive, actor, leaderboard, submission_manager, trojai_config.log_file_byte_limit)
 
     # look for any new submissions
     # This might modify the SubmissionManager instance
