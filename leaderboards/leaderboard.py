@@ -221,7 +221,10 @@ class Leaderboard(object):
                     with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
                         with a.div(klass='card-body card-body-cascade'):
                             dataset = self.get_dataset(data_split)
-                            a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit and not is_archived and is_trojai_accepting_submissions))
+                            if is_archived:
+                                a.p(klass='card-text text-left', _t='Accepting submissions: {}'.format(dataset.can_submit and not is_archived and is_trojai_accepting_submissions))
+                            else:
+                                a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit and not is_archived and is_trojai_accepting_submissions))
 
                         a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
                         a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))
