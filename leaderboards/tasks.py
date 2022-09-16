@@ -191,17 +191,20 @@ class Task(object):
         sc = create_directory_on_vm(vm_ip, remote_dataset_dirpath)
         errors += check_subprocess_error(sc, ':Create directory:', '{} failed to create directory {}'.format(vm_name, remote_dataset_dirpath), send_mail=True, subject='{} failed to create directory {}'.format(vm_name, remote_dataset_dirpath))
 
+        copy_dataset_params = ['--copy-links']
+
         # copy in round training dataset and source data
         if source_dataset_dirpath is not None:
-            sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, remote_dataset_dirpath)
+            sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, remote_dataset_dirpath, source_params=copy_dataset_params)
             errors += check_subprocess_error(sc, ':Copy in:', '{} source dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} source dataset copy failed'.format(vm_name))
-        sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath)
+        sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath, source_params=copy_dataset_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} training dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} training dataset copy failed'.format(vm_name))
 
         # copy in models
         source_params = []
         for excluded_file in dataset.excluded_files:
             source_params.append('--exclude={}'.format(excluded_file))
+        source_params.extend(copy_dataset_params)
         sc = rsync_dir_to_vm(vm_ip, dataset_dirpath, remote_dataset_dirpath, source_params=source_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} model dataset {} copy in may have failed'.format(vm_name, dataset.dataset_name), send_mail=True, subject='{} dataset copy failed'.format(vm_name))
 
@@ -362,7 +365,8 @@ class NaturalLanguageProcessingTask(Task):
         errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset)
 
         # Copy in tokenizers
-        sc = rsync_dir_to_vm(vm_ip, self.tokenizers_dirpath, self.remote_dataset_dirpath)
+        copy_dataset_params = ['--copy-links']
+        sc = rsync_dir_to_vm(vm_ip, self.tokenizers_dirpath, self.remote_dataset_dirpath, source_params=copy_dataset_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} tokenizers copy in may have failed'.format(vm_name), send_mail=True, subject='{} tokenizers copy failed'.format(vm_name))
 
         return errors
