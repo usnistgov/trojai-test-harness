@@ -650,6 +650,9 @@ class SubmissionManager(object):
                             best_submission_score = None
                             best_submission = None
                             for s in submissions:
+                                if s.is_active_job():
+                                    continue
+
                                 if evaluation_metric_name in s.metric_results.keys():
                                     metric_score = s.metric_results[evaluation_metric_name]
                                 else:
