@@ -451,7 +451,9 @@ class Submission(object):
         submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
         trojai_config_filepath = trojai_config.trojai_config_filepath
 
-        cpus_per_task = trojai_config.vm_cpu_cores
+        cpus_per_task = 10
+        if self.slurm_queue_name in trojai_config.vm_cpu_cores_per_partition:
+            cpus_per_task = trojai_config.vm_cpu_cores_per_partition[self.slurm_queue_name]
 
         self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
         slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
