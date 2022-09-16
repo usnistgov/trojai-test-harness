@@ -69,7 +69,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += task.run_submission_checks(submission_filepath)
 
     # Step 5) Run basic VM cleanups (scratch)
-    # errors += task.cleanup_vm(vm_ip, vm_name)
+    errors += task.cleanup_vm(vm_ip, vm_name)
 
     # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
     errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset)
@@ -81,7 +81,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += task.copy_out_results(vm_ip, vm_name, result_dirpath)
 
     # Step 9) Re-run basic VM cleanups
-    # errors += task.cleanup_vm(vm_ip, vm_name)
+    errors += task.cleanup_vm(vm_ip, vm_name)
 
     logging.info('**************************************************')
     logging.info('Container Execution Complete for team: {}'.format(team_name))
