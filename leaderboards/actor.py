@@ -415,7 +415,7 @@ if __name__ == "__main__":
     reset_actor_parser = subparser.add_parser('reset-actor')
     reset_actor_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     reset_actor_parser.add_argument('--email', type=str, help='The email of the team to reset', required=True)
-    reset_actor_parser.add_argument('--leaderboards', type=str, help='The name of the leaderboards to reset, if used by itself will reset all data splits', default=None)
+    reset_actor_parser.add_argument('--leaderboard', type=str, help='The name of the leaderboard to reset, if used by itself will reset all data splits', default=None)
     reset_actor_parser.add_argument('--data-split', type=str, help='The data split name to reset associated with leaderboards. Will only reset that leaderboards and data split.', default=None)
     reset_actor_parser.set_defaults(func=reset_actor)
 
