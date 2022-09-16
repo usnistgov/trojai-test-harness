@@ -52,9 +52,19 @@ MODEL_ARCHITECTURE=`cat $ACTIVE_DIR/config.json | python3 -c "import sys, json; 
 #TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
 TOKENIZER_FILEPATH=$TOKENIZER_DIR/"$MODEL_ARCHITECTURE".pt
 
-singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro \
-  --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv \
-  "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt \
-  --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/example_data --tokenizer_filepath $TOKENIZER_FILEPATH \
-  --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
-  --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+if [ -z "${SOURCE_DATA_DIR-}" ]; then
+  singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro \
+    --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv \
+    "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt \
+    --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/clean-example_data --tokenizer_filepath $TOKENIZER_FILEPATH \
+    --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
+    --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+else
+  singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro \
+    --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv \
+    "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt \
+    --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/clean-example_data --tokenizer_filepath $TOKENIZER_FILEPATH \
+    --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
+    --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR \
+    --source_dataset_dirpath $SOURCE_DATA_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+fi
