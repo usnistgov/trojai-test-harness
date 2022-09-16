@@ -88,7 +88,6 @@ class Submission(object):
         stdout, stderr = slurm.squeue(self.active_slurm_job_name, self.slurm_queue_name)  # raises RuntimeError on failure
 
         stdoutSplitNL = str(stdout).split("\\n")
-        logging.info('squeue results: {}'.format(stdoutSplitNL))
 
         # Check if we got a valid response from squeue
         if len(stdoutSplitNL) == 3:
