@@ -643,18 +643,24 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
+                        submission_metrics = leaderboard.get_submission_metrics(data_split_name)
+                        evaluation_metric_name = leaderboard.get_evaluation_metric_name(data_split_name)
+                        metric = submission_metrics[evaluation_metric_name]
+
                         for actor_uuid, submissions in valid_submissions.items():
-                            best_submission_score = 9999
+                            best_submission_score = None
                             best_submission = None
                             for s in submissions:
-
-                                evaluation_metric_name = leaderboard.get_evaluation_metric_name(s.data_split_name)
-
                                 if evaluation_metric_name in s.metric_results.keys():
                                     metric_score = s.metric_results[evaluation_metric_name]
+                                else:
+                                    predictions, targets = s.get_predictions_targets(leaderboard)
+                                    s.compute_metric(metric, predictions, targets)
+                                    metric_score = s.metric_results[evaluation_metric_name]
 
-                                    if best_submission_score > metric_score:
-                                        best_submission = s
+                                if best_submission_score is None or metric.compare(metric_score, best_submission_score):
+                                    best_submission_score = metric_score
+                                    best_submission = s
 
                             if best_submission is not None:
                                 actor = actor_manager.get_from_uuid(actor_uuid)
