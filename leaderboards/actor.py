@@ -146,7 +146,7 @@ class Actor(object):
         else:
             last_file_timestamp = time_utils.convert_epoch_to_iso(self.last_file_epochs[leaderboard_key])
         if self.last_submission_epochs[leaderboard_key] == 0:
-            last_submission_timestamp = "None"
+            last_submission_timestamp = ""
         else:
             last_submission_timestamp = time_utils.convert_epoch_to_iso(self.last_submission_epochs[leaderboard_key])
 
