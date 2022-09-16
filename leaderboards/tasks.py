@@ -69,7 +69,7 @@ def scp_dir_from_vm(host, remote_dirpath, source_dirpath):
     return child.wait()
 
 
-def check_subprocess_error(sc, msg, errors, send_mail=False, subject=''):
+def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
     if sc != 0:
         message = '{}, status code: {}'.format(msg, sc)
         logging.error(message)
