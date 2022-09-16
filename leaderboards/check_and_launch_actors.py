@@ -106,7 +106,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
         submission_manager = active_submission_managers[leaderboard_name]
 
         # Check if actor already has a job waiting to be processed (may be in queue)
-        if submission_manager.has_active_submission(actor):
+        if submission_manager.has_active_submission(actor, data_split_name):
             logging.info('Detected another submission for {}, named {}, but an active submission is in progress'.format(actor.name, key))
             continue
 

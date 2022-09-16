@@ -566,11 +566,12 @@ class SubmissionManager(object):
 
         return execution_submissions
 
-    def has_active_submission(self, actor: Actor):
+    def has_active_submission(self, actor: Actor, data_split_name: str):
         submissions = self.get_submissions_by_actor(actor)
         for submission in submissions:
-            if submission.is_active_job():
-                return True
+            if submission.data_split_name == data_split_name:
+                if submission.is_active_job():
+                    return True
         return False
 
 
