@@ -30,6 +30,10 @@ def cleanup_scratch(host):
     child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'rm', '-rf', '/mnt/scratch/*'])
     return child.wait()
 
+def create_directory_on_vm(host, dirpath: str):
+    params = ['ssh', '-q', 'trojai@'+host, 'mkdir', '-p', dirpath]
+    child = subprocess.Popen(params)
+    return child.wait()
 
 def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], remote_params = []):
     params = []
@@ -182,6 +186,10 @@ class Task(object):
         dataset_dirpath = dataset.dataset_dirpath
         source_dataset_dirpath = dataset.source_dataset_dirpath
         remote_dataset_dirpath = self.remote_dataset_dirpath
+
+        # Create datasets dirpath
+        sc = create_directory_on_vm(vm_ip, remote_dataset_dirpath)
+        errors += check_subprocess_error(sc, ':Create directory:', '{} failed to create directory {}'.format(vm_name, remote_dataset_dirpath), send_mail=True, subject='{} failed to create directory {}'.format(vm_name, remote_dataset_dirpath))
 
         # copy in round training dataset and source data
         if source_dataset_dirpath is not None:
