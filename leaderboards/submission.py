@@ -430,7 +430,7 @@ class Submission(object):
 
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
-
+        self.execution_epoch = execution_epoch
         self.execution_results_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
 
         if not os.path.exists(self.execution_results_dirpath):
@@ -443,7 +443,6 @@ class Submission(object):
             os.makedirs(submission_dirpath)
 
         self.active_slurm_job_name = self.get_slurm_job_name(actor)
-        self.execution_epoch = execution_epoch
 
         slurm_script_filepath = trojai_config.slurm_execute_script_filepath
         task_executor_script_filepath = trojai_config.task_evaluator_script_filepath
