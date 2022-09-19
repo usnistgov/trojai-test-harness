@@ -1,3 +1,4 @@
+import datetime
 import os
 import numpy as np
 from airium import Airium
@@ -147,6 +148,13 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.evaluation_metric_name
 
+    def get_timeout_time_sec(self, data_split_name):
+        dataset = self.dataset_manager.get(data_split_name)
+        return dataset.timeout_time_sec
+
+    def get_num_models(self, data_split_name):
+        dataset = self.dataset_manager.get(data_split_name)
+        return dataset.get_num_models()
 
     def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool):
         if self.dataset_manager.has_dataset(split_name):
@@ -229,10 +237,16 @@ class Leaderboard(object):
                     with a.div(klass='tab-pane fade {}'.format(active_show), id='{}-{}'.format(self.name, data_split), role='tabpanel', **{'aria-labelledby': 'tab-{}-{}'.format(self.name, data_split)}):
                         with a.div(klass='card-body card-body-cascade'):
                             dataset = self.get_dataset(data_split)
+
+                            required_format = 'Required filename format: "{}_{}_&lt;Submission Name&gt;.simg"'.format(self.name, data_split)
+                            accepting_submissions_info = 'Accepting submissions: {}'.format(dataset.can_submit and not is_archived and is_trojai_accepting_submissions)
+                            model_info = 'Number of models in {}, {}: {}'.format(self.name, data_split, self.get_num_models(data_split))
+                            time_info = 'Execution timeout (hh:mm:ss): {}'.format(str(datetime.timedelta(seconds=self.get_timeout_time_sec(data_split))))
+
                             if is_archived:
-                                a.p(klass='card-text text-left', _t='Accepting submissions: {}'.format(dataset.can_submit and not is_archived and is_trojai_accepting_submissions))
+                                a.p(klass='card-text text-left', _t='{}<br>{}'.format(accepting_submissions_info, model_info))
                             else:
-                                a.p(klass='card-text text-left', _t='Example submission name: "{}_{}_container-name.simg"<br>Accepting submissions: {}'.format(self.name, data_split, dataset.can_submit and not is_archived and is_trojai_accepting_submissions))
+                                a.p(klass='card-text text-left', _t='{}<br>{}<br>{}<br>{}'.format(required_format, accepting_submissions_info, model_info, time_info))
 
                         a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
                         a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))

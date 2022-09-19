@@ -14,9 +14,8 @@ class Dataset(object):
     SOURCE_DATA_NAME = 'source-data'
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool, timeout_time_per_model_sec: int=180, excluded_files=None):
-        self.dataset_name = self.get_dataset_name(split_name)
-
         self.split_name = split_name
+        self.dataset_name = self.get_dataset_name()
         self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
         self.results_dirpath = os.path.join(trojai_config.results_dirpath, '{}-dataset'.format(leaderboard_name), self.dataset_name)
         self.can_submit = can_submit
@@ -50,19 +49,26 @@ class Dataset(object):
 
         self.evaluation_metric_name = 'Cross Entropy'
 
-        model_dirpath = os.path.join(self.dataset_dirpath, Dataset.MODEL_DIRNAME)
+        num_models = self.get_num_models()
+
         self.submission_window_time_sec = Dataset.BUFFER_TIME
-        if os.path.exists(model_dirpath):
-            num_models = len([name for name in os.listdir(model_dirpath) if os.path.isdir(os.path.join(model_dirpath, name))])
+        if num_models > 0:
             self.timeout_time_sec = num_models * timeout_time_per_model_sec
         else:
             if self.split_name == 'sts':
-                self.timeout_time_sec = Dataset.DEFAULT_TIMEOUT_SEC
-            else:
                 self.timeout_time_sec = Dataset.DEFAULT_STS_TIMEOUT_SEC
+            else:
+                self.timeout_time_sec = Dataset.DEFAULT_TIMEOUT_SEC
 
-    def get_dataset_name(self, split_name):
-        return '{}-{}'.format(split_name, Dataset.DATASET_SUFFIX)
+    def get_num_models(self):
+        model_dirpath = os.path.join(self.dataset_dirpath, Dataset.MODEL_DIRNAME)
+        if os.path.exists(model_dirpath):
+            return len([name for name in os.listdir(model_dirpath) if os.path.isdir(os.path.join(model_dirpath, name))])
+        else:
+            return 0
+
+    def get_dataset_name(self):
+        return '{}-{}'.format(self.split_name, Dataset.DATASET_SUFFIX)
 
     def initialize_directories(self):
         os.makedirs(self.dataset_dirpath, exist_ok=True)

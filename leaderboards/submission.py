@@ -503,7 +503,7 @@ class Submission(object):
             self.web_display_parse_errors = "None"
 
         with a.tr():
-            a.th(klass='th-sm', _t=actor.name)
+            a.td(_t=actor.name)
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
             for metric_name, metric in submission_metrics.items():
                 if metric.store_result_in_submission:
@@ -518,19 +518,19 @@ class Submission(object):
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
                     if isinstance(metric_value, float):
-                        a.th(klass='th-sm', _t=str(round(metric_value, metric.html_decimal_places)))
+                        a.td(_t=str(round(metric_value, metric.html_decimal_places)))
                     else:
-                        a.th(klass='th-sm', _t=str(metric_value))
+                        a.td(_t=str(metric_value))
 
             rounded_execution_time = self.execution_runtime
             if rounded_execution_time is not None:
                 rounded_execution_time = round(rounded_execution_time, 2)
 
-            a.th(klass='th-sm', _t=rounded_execution_time)
-            a.th(klass='th-sm', _t=submission_timestr)
-            a.th(klass='th-sm', _t=file_timestr)
-            a.th(klass='th-sm', _t=self.web_display_parse_errors)
-            a.th(klass='th-sm', _t=self.web_display_execution_errors)
+            a.td(_t=rounded_execution_time)
+            a.td(_t=submission_timestr)
+            a.td(_t=file_timestr)
+            a.td(_t=self.web_display_parse_errors)
+            a.td(_t=self.web_display_execution_errors)
 
 class SubmissionManager(object):
     def __init__(self, leaderboard_name):
