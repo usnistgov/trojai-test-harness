@@ -259,8 +259,8 @@ if __name__ == "__main__":
             logging.basicConfig(level=logging.INFO,
                                 format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                                 handlers=[handler])
-            # TODO: Remove this
-            logging.getLogger().addHandler(logging.StreamHandler())
+            # Enable when debugging
+            # logging.getLogger().addHandler(logging.StreamHandler())
 
             logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
             main(trojai_config)
