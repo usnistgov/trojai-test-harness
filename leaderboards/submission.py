@@ -108,7 +108,10 @@ class Submission(object):
             return False
 
     def has_errors(self):
-        if self.web_display_parse_errors == 'None' or self.web_display_execution_errors == 'None':
+        if self.web_display_parse_errors == 'None' or self.web_display_execution_errors == 'None' \
+                or self.web_display_execution_errors == ':Container Parameters (metaparameters):' \
+                or self.web_display_execution_errors == ':Container Parameters (metaparameters schema):' \
+                or self.web_display_execution_errors == ':Container Parameters (learned parameters):':
             return False
         else:
             return True
