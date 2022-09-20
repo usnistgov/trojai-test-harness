@@ -107,6 +107,12 @@ class Submission(object):
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
             return False
 
+    def has_errors(self):
+        if self.web_display_parse_errors == 'None' or self.web_display_execution_errors == 'None':
+            return False
+        else:
+            return True
+
     def check(self, trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
 
         if self.active_slurm_job_name is None:
@@ -144,32 +150,35 @@ class Submission(object):
                 if os.path.exists(submission_filepath):
                     os.remove(submission_filepath)
             else:
-                auto_execute_split_names = leaderboard.get_auto_execute_split_names(self.data_split_name)
-                if len(auto_execute_split_names) > 0:
-                    # Check to see if we need to launch for split name
-                    current_hash = self.get_submission_hash()
-                    actor_submissions = submission_manager.get_submissions_by_actor(actor)
+                if self.has_errors():
+                    logging.info('Submission contains errors, so will not auto execute other data splits')
+                else:
+                    auto_execute_split_names = leaderboard.get_auto_execute_split_names(self.data_split_name)
+                    if len(auto_execute_split_names) > 0:
+                        # Check to see if we need to launch for split name
+                        current_hash = self.get_submission_hash()
+                        actor_submissions = submission_manager.get_submissions_by_actor(actor)
 
-                    for auto_execute_split_name in auto_execute_split_names:
-                        found_matching_submission = False
+                        for auto_execute_split_name in auto_execute_split_names:
+                            found_matching_submission = False
 
-                        for submission in actor_submissions:
-                            if submission.data_split_name == auto_execute_split_name:
-                                submission_hash = submission.get_submission_hash()
-                                if submission_hash == current_hash:
-                                    found_matching_submission = True
-                                    break
+                            for submission in actor_submissions:
+                                if submission.data_split_name == auto_execute_split_name:
+                                    submission_hash = submission.get_submission_hash()
+                                    if submission_hash == current_hash:
+                                        found_matching_submission = True
+                                        break
 
-                        if found_matching_submission:
-                            logging.info('Found a matching submission between {} and {}'.format(self.data_split_name, auto_execute_split_name))
-                        else:
-                            # Did not find matching hash, setting up new submission for auto execute split name
-                            new_submission = Submission(self.g_file, actor, leaderboard, auto_execute_split_name, 'auto-{}'.format(auto_execute_split_name), self.submission_epoch)
-                            submission_manager.add_submission(actor, new_submission)
-                            logging.info('Added submission file name "{}" to manager for email "{}" when auto submitting for {}'.format(new_submission.g_file.name, actor.email, auto_execute_split_name))
-                            time.sleep(1)
-                            exec_epoch = time_utils.get_current_epoch()
-                            new_submission.execute(actor, trojai_config, exec_epoch)
+                            if found_matching_submission:
+                                logging.info('Found a matching submission between {} and {}'.format(self.data_split_name, auto_execute_split_name))
+                            else:
+                                # Did not find matching hash, setting up new submission for auto execute split name
+                                new_submission = Submission(self.g_file, actor, leaderboard, auto_execute_split_name, 'auto-{}'.format(auto_execute_split_name), self.submission_epoch)
+                                submission_manager.add_submission(actor, new_submission)
+                                logging.info('Added submission file name "{}" to manager for email "{}" when auto submitting for {}'.format(new_submission.g_file.name, actor.email, auto_execute_split_name))
+                                time.sleep(1)
+                                exec_epoch = time_utils.get_current_epoch()
+                                new_submission.execute(actor, trojai_config, exec_epoch)
         else:
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
 
