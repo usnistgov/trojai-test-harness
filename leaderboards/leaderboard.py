@@ -248,7 +248,9 @@ class Leaderboard(object):
                             else:
                                 a.p(klass='card-text text-left', _t='{}<br>{}<br>{}<br>{}'.format(required_format, accepting_submissions_info, model_info, time_info))
 
-                        a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
+                        if not is_archived:
+                            a('{{% include {}/jobs-{}-{}.html %}}'.format(self.name, self.name, data_split))
+
                         a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))
                         a('{{% include {}/results-{}-{}.html %}}'.format(self.name, self.name, data_split))
 

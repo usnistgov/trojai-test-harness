@@ -1,6 +1,3 @@
 #!/bin/bash
 
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/check-and-launch-actors.py --config-file /mnt/trojainas/config-es.json
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/check-and-launch-actors.py --config-file /mnt/trojainas/config-sts.json
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/update_leaderboard.py --config-file /mnt/trojainas/config-es.json
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/update_leaderboard.py --config-file /mnt/trojainas/config-sts.json --commit-and-push
+PYTHONPATH=/mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai-test-harness /home/trojai/trojai-test-harness-env/bin/python3 -u /mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai-test-harness/leaderboards/check_and_launch_actors.py --trojai-config-filepath /mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai_config.json

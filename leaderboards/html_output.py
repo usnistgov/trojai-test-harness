@@ -71,10 +71,11 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
             continue
 
         execute_window = leaderboard.get_submission_window_time(data_split_name)
-        filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name,
-                                                  leaderboard.highlight_old_submissions, data_split_name,
-                                                  execute_window, cur_epoch, trojai_config.job_color_key)
-        written_files.append(filepath)
+        if not is_archived:
+            filepath = actor_manager.write_jobs_table(html_output_dirpath, leaderboard.name,
+                                                      leaderboard.highlight_old_submissions, data_split_name,
+                                                      execute_window, cur_epoch, trojai_config.job_color_key)
+            written_files.append(filepath)
         filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, actor_manager, data_split_name)
         written_files.append(filepath)
         filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, actor_manager, data_split_name)
