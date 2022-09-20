@@ -62,17 +62,17 @@ class Leaderboard(object):
 
                 if split_name == 'sts':
                     slurm_queue_name = Leaderboard.STS_SLURM_QUEUE_NAME
-                    slurm_priority = 0
+                    slurm_nice = 0
                 else:
                     slurm_queue_name = Leaderboard.GENERAL_SLURM_QUEUE_NAME
-                    slurm_priority = 0
+                    slurm_nice = 0
 
                 source_data_filepath = os.path.join(trojai_config.datasets_dirpath, self.name, 'source-data')
                 has_source_data = False
 
                 if os.path.exists(source_data_filepath):
                     has_source_data = True
-                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_priority, has_source_data)
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data)
 
         for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
             self.html_data_split_name_priorities[split_name] = 0
@@ -116,9 +116,9 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.slurm_queue_name
 
-    def get_slurm_priority(self, data_split_name: str):
+    def get_slurm_nice(self, data_split_name: str):
         dataset = self.dataset_manager.get(data_split_name)
-        return dataset.slurm_priority
+        return dataset.slurm_nice
 
     def is_auto_delete_submission(self, data_split_name: str):
         dataset = self.dataset_manager.get(data_split_name)
@@ -156,11 +156,11 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.get_num_models()
 
-    def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_priority: int, has_source_data: bool):
+    def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool):
         if self.dataset_manager.has_dataset(split_name):
             raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
 
-        dataset = Dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_priority, has_source_data)
+        dataset = Dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data)
         if self.task.verify_dataset(self.name, dataset):
             self.dataset_manager.add_dataset(dataset)
             return True
@@ -277,7 +277,7 @@ def add_dataset_to_leaderboard(args):
         slurm_queue_name = args.slurm_queue_name
 
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_priority, args.has_source_data):
+    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data):
         leaderboard.save_json(trojai_config)
 
         print('Added dataset {} to {}'.format(args.split_name, args.name))
@@ -312,7 +312,7 @@ if __name__ == "__main__":
     add_dataset_parser.add_argument('--has-source-data', action='store_true', help='Indicates that the dataset has source data that is saved on disk, format: "leaderboard_name-source_data"')
     add_dataset_parser.add_argument('--can-submit', action='store_true', help='Whether actors can submit to the dataset')
     add_dataset_parser.add_argument('--slurm-queue-name', type=str, help='The name of the slurm queue')
-    add_dataset_parser.add_argument('--slurm-priority', type=int, help='The priority when launching jobs for this dataset', default=0)
+    add_dataset_parser.add_argument('--slurm-nice', type=int, help='The nice value when launching jobs for this dataset (0 is highest priority)', default=0)
     add_dataset_parser.set_defaults(func=add_dataset_to_leaderboard)
 
     html_parser = subparser.add_parser('html')
