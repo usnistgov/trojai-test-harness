@@ -13,7 +13,7 @@ class Dataset(object):
     MODEL_DIRNAME = 'models'
     SOURCE_DATA_NAME = 'source-data'
 
-    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, timeout_time_per_model_sec: int=180, excluded_files=None):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, timeout_time_per_model_sec: int=600, excluded_files=None):
         self.split_name = split_name
         self.dataset_name = self.get_dataset_name()
         self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
