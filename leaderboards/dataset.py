@@ -27,7 +27,7 @@ class Dataset(object):
             self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, '{}'.format(Dataset.SOURCE_DATA_NAME))
 
         if self.excluded_files is None:
-            self.excluded_files = ['detailed_stats.csv', 'config.json', 'ground_truth.csv', 'log.txt', 'machine.log', 'poisoned-example-data', 'stats.json', 'METADATA.csv', 'trigger_*', 'DATA_LICENSE.txt', 'METADATA_DICTIONARY.csv', 'models-packaged', 'README.txt']
+            self.excluded_files = ['detailed_stats.csv', 'config.json', 'ground_truth.csv', 'log.txt', 'log-per-class.txt', 'machine.log', 'poisoned-example-data', 'stats.json', 'METADATA.csv', 'trigger_*', 'DATA_LICENSE.txt', 'METADATA_DICTIONARY.csv', 'models-packaged', 'README.txt']
 
         self.required_files = ['model.pt', 'ground_truth.csv', 'clean-example-data', 'reduced-config.json']
 
