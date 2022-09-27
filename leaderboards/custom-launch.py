@@ -127,12 +127,12 @@ if __name__ == "__main__":
 
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
 
-    handler = logging.handlers.RotatingFileHandler(trojai_config.log_filepath, maxBytes=100 * 1e6, backupCount=10)  # 100MB
+    # handler = logging.handlers.RotatingFileHandler(trojai_config.log_filepath, maxBytes=100 * 1e6, backupCount=10)  # 100MB
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
-                        handlers=[handler])
+                        handlers=[logging.StreamHandler()])
 
-    logging.getLogger().addHandler(logging.StreamHandler())
+    # logging.getLogger().addHandler(logging.StreamHandler())
 
     main(trojai_config, args.container_leaderboard_name, args.container_data_split_name,
          args.execution_leaderboard_name, args.execution_data_split_name, args.execution_submission_filename,
