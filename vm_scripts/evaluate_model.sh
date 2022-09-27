@@ -40,9 +40,6 @@ set -- "${EXTRA_ARGS[@]}"
 
 echo "Launching task: $TASK_SCRIPT"
 
-TROJAI_HOME=/home/trojai
-SCRATCH_HOME="/mnt/scratch"
-
 ACTIVE_DIR="$TROJAI_HOME/active_$GPU_ID"
 
 CONTAINER_EXEC="$SCRATCH_HOME/$CONTAINER_NAME"
