@@ -48,7 +48,7 @@ class AverageCrossEntropy(Metric):
         b = (1 - targets) * np.log(1 - predictions)
         ce = -(a + b)
 
-        return {'result': np.average(ce).item(), 'metadata': ce}
+        return {'result': np.average(ce).item(), 'metadata': {'cross_entropy': ce}}
 
     def compare(self, computed, baseline):
         return computed < baseline
@@ -88,7 +88,7 @@ class CrossEntropyConfidenceInterval(Metric):
             ci = standard_error * 2.58
         else:
             raise RuntimeError('Unsupported confidence interval level: {}. Must be in [90, 95, 98, 99]'.format(self.level))
-        return {'result': float(ci), 'metadata': ce}
+        return {'result': float(ci), 'metadata': None}
 
 class BrierScore(Metric):
     def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True):
@@ -152,13 +152,14 @@ class ROC_AUC(Metric):
         TPR = np.asarray(TPR).reshape(-1)
         FPR = np.asarray(FPR).reshape(-1)
 
-        return {'result': float(auc(FPR, TPR)), 'metadata': [TPR, FPR]}
+        return {'result': float(auc(FPR, TPR)), 'metadata': {'tpr': TPR, 'fpr': FPR}}
 
     def compare(self, computed, baseline):
         return computed > baseline
 
     def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
-        TPR, FPR = data['metadata']
+        TPR = data['metadata']['tpr']
+        FPR = data['metadata']['fpr']
         # TODO: Update?
         # generate_roc_image(fpr, tpr, submission.global_results_dirpath, submission.slurm_job_name)
 
@@ -213,10 +214,17 @@ class ConfusionMatrix(Metric):
         FPR = np.asarray(FPR).reshape(-1)
         thresholds = np.asarray(thresholds).reshape(-1)
 
-        return {'result': None, 'metadata': [TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds]}
+        return {'result': None, 'metadata': {'tp_counts': TP_counts, 'fp_counts': FP_counts, 'fn_counts': FN_counts, 'tn_counts': TN_counts, 'tpr': TPR, 'fpr': FPR, 'thresholds': thresholds}}
 
     def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
         output_filepath = os.path.join(output_dirpath, '{}-{}-{}.json'.format(leaderboard_name, data_split_name, self.get_name()))
-        TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = data['metadata']
+        TP_counts = data['metadata']['tp_counts']
+        FP_counts = data['metadata']['fp_counts']
+        FN_counts = data['metadata']['fn_counts']
+        TN_counts = data['metadata']['tn_counts']
+        TPR = data['metadata']['tpr']
+        FPR = data['metadata']['fpr']
+        thresholds = data['metadata']['thresholds']
+
         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, output_filepath)
         return output_filepath

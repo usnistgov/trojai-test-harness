@@ -5,6 +5,12 @@ from collections import OrderedDict
 import numpy as np
 import os
 
+from leaderboards.trojai_config import TrojaiConfig
+from leaderboards.submission import SubmissionManager, Submission
+from leaderboards.leaderboard import Leaderboard
+from leaderboards.actor import Actor, ActorManager
+from leaderboards import time_utils
+
 class JSONConfigFileParser(configargparse.ConfigFileParser):
     def get_syntax_description(self):
         return ["Config file syntax alled based on JSON format"]
@@ -30,81 +36,38 @@ class JSONConfigFileParser(configargparse.ConfigFileParser):
         items = dict(items)
         return json.dumps(items, indent=2, sort_keys=True)
 
-def elementwise_binary_cross_entropy(predictions: np.ndarray, targets: np.ndarray, epsilon=1e-12) -> np.ndarray:
-    predictions = predictions.astype(np.float64)
-    targets = targets.astype(np.float64)
-    predictions = np.clip(predictions, epsilon, 1.0 - epsilon)
-    a = targets * np.log(predictions)
-    b = (1 - targets) * np.log(1 - predictions)
-    ce = -(a + b)
-    return ce
 
-def parse_dataset_mapping(values):
-    result = {}
-    if values is not None:
-        for item in values:
-            item_split = item.split('=')
-            key = item_split[0].strip()
-            if len(item_split) > 1:
-                value = '='.join(item_split[1:])
-
-            result[key] = value
-    return result
-
-def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, overwrite_csv=True, metadata_filename='METADATA.csv', ground_truth_filename='ground_truth.csv', skip_leftovers=True):
-
-    round_name = os.path.basename(round_dataset_dirpath)
+def build_round_dataset_csv(leaderboard: Leaderboard, output_dirpath, overwrite_csv=True, metadata_filename='METADATA.csv', ground_truth_filename='ground_truth.csv'):
+    round_name = leaderboard.name
     output_filepath = os.path.join(output_dirpath, '{}_METADATA.csv'.format(round_name))
+
+    all_df_list = []
 
     if os.path.exists(output_filepath) and not overwrite_csv:
         print('Skipping building round metadata: {} already exists and overwrite is disabled.'.format(output_filepath))
         return pd.read_csv(output_filepath)
 
-    all_df_list = []
+    for split_name in leaderboard.get_all_data_split_names():
+        dataset = leaderboard.get_dataset(split_name)
+        dataset_dirpath = dataset.dataset_dirpath
 
-    for dir in os.listdir(round_dataset_dirpath):
-
-        round_dirpath = os.path.join(round_dataset_dirpath, dir)
-
-        if skip_leftovers:
-            if 'leftover' in dir:
-                print('Skipping leftovers: {}'.format(round_dirpath))
-                continue
-
-        metadata_filepath = os.path.join(round_dirpath, metadata_filename)
+        metadata_filepath = os.path.join(dataset_dirpath, metadata_filename)
 
         if not os.path.exists(metadata_filepath):
             print('Skipping {}, it does not contain the metadata file: {}'.format(dir, metadata_filepath))
             continue
 
-        dataset_name_split = dir.split('-')
-        if len(dataset_name_split) == 3:
-            data_split_name = dataset_name_split[1]
-        else:
-            data_split_name = dir
-
         df = pd.read_csv(metadata_filepath)
 
         # Add column for data_split
-        new_df = df.assign(data_split=data_split_name)
+        new_df = df.assign(data_split=split_name)
 
         # Add column for ground_truth
         new_df = new_df.assign(ground_truth='NaN')
 
-        models_dir = os.path.join(round_dirpath, 'models')
+        models_dir = os.path.join(dataset_dirpath, 'models')
 
-        if not os.path.exists(models_dir):
-            print('{} does not have a models dir, attempting to find ids in {}'.format(models_dir, round_dirpath))
-
-            model_dir = os.path.join(round_dirpath, 'id-00000001')
-            if os.path.exists(model_dir):
-                models_dir = round_dirpath
-                print('Found model id in {}, using {} as model dir'.format(model_dir, models_dir))
-            else:
-                print('Failed to find model ids for: {}'.format(model_dir))
-                models_dir = None
-
-        if models_dir is not None:
+        if os.path.exists(models_dir):
             # Add ground truth values into data
             for model_name in os.listdir(models_dir):
                 model_dirpath = os.path.join(models_dir, model_name)
@@ -121,6 +84,8 @@ def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, overwrite_csv
                 with open(ground_truth_filepath, 'r') as f:
                     data = float(f.read())
                     new_df.loc[new_df['model_name'] == model_name, 'ground_truth'] = data
+        else:
+            print('{} does not exist'.format(models_dir))
 
         all_df_list.append(new_df)
 
@@ -151,8 +116,8 @@ def build_round_dataset_csv(round_dataset_dirpath, output_dirpath, overwrite_csv
 
     return all_df
 
-def build_round_results(df, round_results_dirpath, output_dirpath, result_dataset_mapping, overwrite_csv=True):
-    round_name = os.path.basename(round_results_dirpath)
+def build_round_results(trojai_config: TrojaiConfig, leaderboard: Leaderboard, df: pd.DataFrame, output_dirpath, overwrite_csv=True):
+    round_name = leaderboard.name
     output_filepath = os.path.join(output_dirpath, '{}_RESULTS.csv'.format(round_name))
 
     if os.path.exists(output_filepath) and not overwrite_csv:
@@ -161,60 +126,55 @@ def build_round_results(df, round_results_dirpath, output_dirpath, result_datase
 
     all_dfs = []
 
-    for result_name, data_split_str in result_dataset_mapping.items():
-        round_result_dirpath = os.path.join(round_results_dirpath, result_name)
-        teams_round_results_dirpath = os.path.join(round_result_dirpath, 'results')
+    submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+    actor_manager = ActorManager.load_json(trojai_config)
+    default_result = leaderboard.get_default_prediction_result()
 
-        if not os.path.exists(teams_round_results_dirpath):
-            print('Failed to find round results directory: {}'.format(teams_round_results_dirpath))
-            continue
+    for actor in actor_manager.get_actors():
+        submissions = submission_manager.get_submissions_by_actor(actor)
+        for data_split in leaderboard.get_all_data_split_names():
+            leaderboard_metrics = leaderboard.get_submission_metrics(data_split)
 
-        for team_name in os.listdir(teams_round_results_dirpath):
-            team_result_dirpath = os.path.join(teams_round_results_dirpath, team_name)
-            for timestamp in os.listdir(team_result_dirpath):
-                team_timestamp_result_dirpath = os.path.join(team_result_dirpath, timestamp)
+            all_model_ids = list(df.loc[df['data_split'] == data_split, 'model_name'].unique())
 
-                team_results = {}
+            predictions = []
+            targets = []
+            metrics = {}
+            for submission in submissions:
+                if submission.data_split_name == data_split:
+
+                    raw_predictions_np, raw_targets_np = submission.get_predictions_targets(leaderboard, update_nan_with_default=False, print_details=False)
+                    predictions_np = np.copy(raw_predictions_np)
+                    predictions_np[np.isnan(predictions_np)] = default_result
 
 
-                for result_file in os.listdir(team_timestamp_result_dirpath):
-                    if result_file.startswith('id-') and result_file.endswith('.txt'):
-                        with open(os.path.join(team_timestamp_result_dirpath, result_file), 'r') as f:
-                            data = f.read()
-                            model_id = result_file.split('.')[0]
-                            if data == '':
-                                data = float('nan')
-                            try:
-                                team_results[model_id] = float(data)
-                            except ValueError:
-                                team_results[model_id] = float('nan')
+                    # Get full metric results
+                    for metric_name, metric in leaderboard_metrics.items():
+                        metric_output = metric.compute(predictions_np, raw_targets_np)
 
-                # Gather corresponding results
-                all_model_ids = list(df.loc[df['data_split'] == data_split_str, 'model_name'].unique())
-                predictions = []
-                targets = []
-                for model_id in all_model_ids:
-                    if model_id in team_results:
-                        predictions.append(team_results[model_id])
-                    else:
-                        predictions.append(np.nan)
+                        metadata = metric_output['metadata']
 
-                    target_value = df.loc[(df['data_split'] == data_split_str) & (df['model_name'] == model_id), 'ground_truth'].item()
-                    targets.append(target_value)
+                        if metadata is not None:
+                            if isinstance(metadata, dict):
+                                for key, value in metadata.items():
+                                    metrics[key] = value
+                            else:
+                                raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
+                    time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
+                    new_data = {}
+                    new_data['model_name'] = all_model_ids
+                    new_data['team_name'] = [actor.name] * len(all_model_ids)
+                    new_data['submission_timestamp'] = [time_str] * len(all_model_ids)
+                    new_data['data_split'] = [data_split] * len(all_model_ids)
+                    new_data['prediction'] = [float(i) for i in raw_predictions_np]
+                    new_data['ground_truth'] = [float(i) for i in raw_targets_np]
+                    for key, value in metrics.items():
+                        data = [float(i) for i in value]
+                        if len(data) == len(all_model_ids):
+                            new_data[key] = data
 
-                cross_entropy = elementwise_binary_cross_entropy(np.array(predictions), np.array(targets))
-
-                new_data = {}
-                new_data['model_name'] = all_model_ids
-                new_data['team_name'] = [team_name] * len(all_model_ids)
-                new_data['submission_date'] = [timestamp] * len(all_model_ids)
-                new_data['data_split'] = [data_split_str] * len(all_model_ids)
-                new_data['prediction'] = predictions
-                new_data['ground_truth'] = targets
-                new_data['cross_entropy'] = [float(i) for i in cross_entropy]
-
-                new_df = pd.DataFrame(new_data)
-                all_dfs.append(new_df)
+                    new_df = pd.DataFrame(new_data)
+                    all_dfs.append(new_df)
 
     result_df = pd.concat(all_dfs)
 
@@ -224,16 +184,27 @@ def build_round_results(df, round_results_dirpath, output_dirpath, result_datase
 
     return result_df
 
-def build_round_csvs(round_dataset_dirpath, round_results_dirpath, output_dirpath, result_dataset_mapping, overwrite_csv=True):
+def build_round_csvs(trojai_config: TrojaiConfig, leaderboard_names: list, output_dirpath: str, overwrite_csv=True):
 
     if not os.path.exists(output_dirpath):
         os.makedirs(output_dirpath)
 
-    # Build the round CSV
-    round_df = build_round_dataset_csv(round_dataset_dirpath, output_dirpath, overwrite_csv=overwrite_csv)
+    # Process both archived and active rounds
+    active_rounds = trojai_config.active_leaderboard_names
+    archive_rounds = trojai_config.archive_leaderboard_names
 
-    # Build round results
-    build_round_results(round_df, round_results_dirpath, output_dirpath, result_dataset_mapping, overwrite_csv=overwrite_csv)
+    all_rounds = list()
+    all_rounds.extend(active_rounds)
+    all_rounds.extend(archive_rounds)
+
+    for round_name in all_rounds:
+        leaderboard = Leaderboard.load_json(trojai_config, round_name)
+
+        # Build the round CSV
+        round_df = build_round_dataset_csv(leaderboard, output_dirpath, overwrite_csv=overwrite_csv)
+
+        # Build round results
+        build_round_results(trojai_config, leaderboard, round_df, output_dirpath, overwrite_csv=overwrite_csv)
 
 
 
@@ -244,19 +215,16 @@ if __name__ == '__main__':
         description='Builds the CSV files related to a round. Two CSVs are output, METADATA CSV describing the training and a RESULTS CSV describing the results of the round'
     )
     parser.add_argument('--config-filepath', is_config_file=True, help='The filepath to the config file.')
-
+    parser.add_argument('--trojai-config-filepath', type=str, help='The file path to the trojai config', required=True)
+    parser.add_argument('--leaderboard-names', nargs='*', help='The names of leaderboards to use, by default will use those specified in trojai config', default=[])
     parser.add_argument('--save-config-filepath', type=str, help='The path to save the config file.')
-    parser.add_argument('--round-dataset-dirpath', type=str, help='The dirpath to the round datasets.')
-    parser.add_argument('--round-results-dirpath', type=str, help='The dirpath to the round results.')
-    parser.add_argument('--output-dirpath', type=str, help='Output dirpath for CSVs.')
-    parser.add_argument('--result-dataset-mapping', metavar="KEY=VALUE", nargs='+', help='Selects which directories to use when processing results. '
-                                                                                         'Creates the key-value pair mapping between the result directory folder and round dataset folder. '
-                                                                                         'This is used to idenfity the ground truth to be used when computing cross entropy. If a value requires a space, then should be'
-                                                                                         'defined in double quotes, such as: "round result dir"="round dataset dir"')
+    parser.add_argument('--output-dirpath', type=str, help='Output dirpath for CSVs.', required=True)
 
     args = parser.parse_args()
 
     if args.save_config_filepath is not None:
         parser.write_config_file(args, [args.save_config_filepath])
 
-    build_round_csvs(args.round_dataset_dirpath, args.round_results_dirpath, args.output_dirpath, parse_dataset_mapping(args.result_dataset_mapping))
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    build_round_csvs(trojai_config, args.leaderboard_names, args.output_dirpath)

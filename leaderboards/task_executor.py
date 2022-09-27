@@ -11,7 +11,7 @@ import os
 
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
-         vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str):
+         vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None):
 
     logging.info('**************************************************')
     logging.info('Executing Container within VM for team: {} within VM: {}'.format(team_name, vm_name))
@@ -32,7 +32,10 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     info_file = os.path.join(result_dirpath, 'info.json')
 
     try:
-        vm_ip = trojai_config.vms[vm_name]
+        if vm_name == 'local':
+            vm_ip = 'local'
+        else:
+            vm_ip = trojai_config.vms[vm_name]
     except:
         msg = 'VM "{}" ended up in the wrong SLURM queue.\n{}'.format(vm_name, traceback.format_exc())
         errors += ":VM:"
@@ -69,19 +72,19 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += task.run_submission_checks(submission_filepath)
 
     # Step 5) Run basic VM cleanups (scratch)
-    errors += task.cleanup_vm(vm_ip, vm_name)
+    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch)
 
     # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
-    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset)
+    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch)
 
     # Step 7) Execute submission and check errors
-    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict)
+    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch)
 
     # Step 8) Copy out results
-    errors += task.copy_out_results(vm_ip, vm_name, result_dirpath)
+    errors += task.copy_out_results(vm_ip, vm_name, result_dirpath, custom_remote_home, custom_remote_scratch)
 
     # Step 9) Re-run basic VM cleanups
-    errors += task.cleanup_vm(vm_ip, vm_name)
+    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch)
 
     logging.info('**************************************************')
     logging.info('Container Execution Complete for team: {}'.format(team_name))
@@ -151,13 +154,19 @@ if __name__ == '__main__':
     parser.add_argument('--vm-name', type=str,
                         help='The name of the vm.',
                         required=True)
+    parser.add_argument('--custom-remote-home', type=str,
+                        help='The custom home directory to stage scripts in',
+                        default=None)
+    parser.add_argument('--custom-remote-scratch', type=str,
+                        help='The custom scratch directory',
+                        default=None)
 
     args = parser.parse_args()
 
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
-    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath)
+    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch)
 
 
 

@@ -22,6 +22,12 @@ while [[ $# -gt 0 ]]; do
   --task-script)
     shift
     TASK_SCRIPT=$1 ;;
+  --remote-home)
+    shift
+    TROJAI_HOME=$1 ;;
+  --scratch-home)
+    shift
+    SCRATCH_HOME=$1 ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -34,11 +40,14 @@ set -- "${EXTRA_ARGS[@]}"
 
 echo "Launching task: $TASK_SCRIPT"
 
-ACTIVE_DIR="/home/trojai/active_$GPU_ID"
+TROJAI_HOME=/home/trojai
+SCRATCH_HOME="/mnt/scratch"
 
-CONTAINER_EXEC="/mnt/scratch/$CONTAINER_NAME"
-RESULT_DIR=/mnt/scratch/results
-SCRATCH_DIR="/mnt/scratch/container-scratch_$GPU_ID"
+ACTIVE_DIR="$TROJAI_HOME/active_$GPU_ID"
+
+CONTAINER_EXEC="$SCRATCH_HOME/$CONTAINER_NAME"
+RESULT_DIR=$SCRATCH_HOME/results
+SCRATCH_DIR="$SCRATCH_HOME/container-scratch_$GPU_ID"
 
 MODEL="$(basename $dir)"
 

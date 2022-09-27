@@ -30,12 +30,14 @@ from leaderboards.trojai_config import TrojaiConfig
 from leaderboards import hash_utils
 
 class Submission(object):
-    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer', submission_epoch: int=None):
+    def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer', submission_epoch: int=None, slurm_queue_name: str=None, submission_leaderboard: Leaderboard = None):
         self.g_file = g_file
         self.actor_uuid = actor.uuid
         self.leaderboard_name = leaderboard.name
         self.data_split_name = data_split_name
-        self.slurm_queue_name = leaderboard.get_slurm_queue_name(self.data_split_name)
+        self.slurm_queue_name = slurm_queue_name
+        if self.slurm_queue_name is None:
+            self.slurm_queue_name = leaderboard.get_slurm_queue_name(self.data_split_name)
         self.slurm_nice = leaderboard.get_slurm_nice(self.data_split_name)
         self.metric_results = {}
         self.saved_metric_results = {}
@@ -55,15 +57,18 @@ class Submission(object):
 
         submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
+        if submission_leaderboard is None:
+            submission_leaderboard = leaderboard
+
         # create the directory where submissions are stored
-        self.actor_submission_dirpath = os.path.join(leaderboard.submission_dirpath, actor.name, submission_epoch_str)
+        self.actor_submission_dirpath = os.path.join(submission_leaderboard.submission_dirpath, actor.name, submission_epoch_str)
 
         if not os.path.isdir(self.actor_submission_dirpath):
             logging.info("Submission directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_submission_dirpath)
 
         # create the directory where results are stored
-        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(leaderboard.name), actor.name, '{}-submission'.format(submission_epoch_str))
+        self.actor_results_dirpath = os.path.join(leaderboard.get_result_dirpath(self.data_split_name), '{}-submission'.format(submission_leaderboard.name), actor.name, '{}-submission'.format(submission_epoch_str))
         if not os.path.isdir(self.actor_results_dirpath):
             logging.info("Results directory for " + actor.name + " does not exist, creating ...")
             os.makedirs(self.actor_results_dirpath)
@@ -207,13 +212,14 @@ class Submission(object):
     def load_ground_truth(self, leaderboard: Leaderboard) -> typing.OrderedDict[str, float]:
         return leaderboard.load_ground_truth(self.data_split_name)
 
-    def load_results(self, ground_truth_dict: typing.OrderedDict[str, float]) -> typing.OrderedDict[str, float]:
+    def load_results(self, ground_truth_dict: typing.OrderedDict[str, float], print_details=True) -> typing.OrderedDict[str, float]:
 
         # Dictionary storing results -- key = model name, value = prediction
         results = collections.OrderedDict()
 
         # loop over each model file trojan prediction is being made for
-        logging.info('Loading results.')
+        if print_details:
+            logging.info('Loading results.')
         for model_name in ground_truth_dict.keys():
             result_filepath = os.path.join(self.execution_results_dirpath, model_name + ".txt")
 
@@ -240,7 +246,8 @@ class Submission(object):
                 else:
                     results[model_name] = result
             else:  # If the result file does not exist, then we fill it in with the default answer
-                logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
+                if print_details:
+                    logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
                 results[model_name] = np.nan
 
         return results
@@ -250,6 +257,9 @@ class Submission(object):
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.actor_submission_dirpath, self.slurm_output_filename)
+
+        container_output_filename = self.g_file.name + '.out'
+        container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
 
         # truncate log file to N bytes
         fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
@@ -374,6 +384,19 @@ class Submission(object):
             if ":File Upload:" not in self.web_display_parse_errors:
                 self.web_display_parse_errors += ":File Upload:"
 
+        # upload container output for sts split only
+        try:
+            if self.data_split_name == 'sts':
+                if os.path.exists(container_output_filepath):
+                    g_drive.upload_and_share(container_output_filepath, actor.email)
+                else:
+                    logging.error('Failed to find container output file: {}'.format(container_output_filepath))
+                    self.web_display_parse_errors += ':Container File Missing:'
+
+        except:
+            logging.error('Unable to upload container output file: {}'.format(container_output_filepath))
+            self.web_display_parse_errors += ':File Upload(container output):'
+
         # if no errors have been recorded, convert empty string to human readable "None"
         if len(self.web_display_parse_errors.strip()) == 0:
             self.web_display_parse_errors = "None"
@@ -388,19 +411,22 @@ class Submission(object):
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
-    def compute_metric(self, metric, predictions, targets):
+    def compute_metric(self, metric, predictions, targets, store_results=True):
         metric_output_dirpath = os.path.join(self.execution_results_dirpath)
 
         metric_output = metric.compute(predictions, targets)
 
-        if metric.store_result_in_submission:
-            self.metric_results[metric.get_name()] = metric_output['result']
+        if store_results:
+            if metric.store_result_in_submission:
+                self.metric_results[metric.get_name()] = metric_output['result']
 
-        result = metric.write_data(self.leaderboard_name, self.data_split_name, metric_output, metric_output_dirpath)
-        if result is not None:
-            self.saved_metric_results[metric.get_name()] = result
+            result = metric.write_data(self.leaderboard_name, self.data_split_name, metric_output, metric_output_dirpath)
+            if result is not None:
+                self.saved_metric_results[metric.get_name()] = result
 
-    def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False):
+        return metric_output
+
+    def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False, update_nan_with_default: bool = True):
         try:
             ground_truth_dict = self.load_ground_truth(leaderboard)
         except:
@@ -413,7 +439,7 @@ class Submission(object):
             raise
 
         # load the results from disk
-        results = self.load_results(ground_truth_dict)
+        results = self.load_results(ground_truth_dict, print_details)
 
         default_result = leaderboard.get_default_prediction_result()
         if print_details:
@@ -433,12 +459,13 @@ class Submission(object):
 
         logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
 
-        predictions[np.isnan(predictions)] = default_result
+        if update_nan_with_default:
+            predictions[np.isnan(predictions)] = default_result
 
         return predictions, targets
 
 
-    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int) -> None:
+    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=[]) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
         self.execution_epoch = execution_epoch
         self.execution_results_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
@@ -469,7 +496,55 @@ class Submission(object):
         self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
         slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
-        cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
+        # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
+        cmd_str_list = []
+        if execute_local:
+            if custom_home_dirpath is None or custom_scratch_dirpath is None:
+                raise RuntimeError('Local execution requires user-specified home, scratch, and slurm partition')
+
+            sbatch_control_params = ['sbatch']
+            sbatch_vm_params = ['--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes',
+                                '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task),
+                                '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath]
+            container_launch_params = [slurm_script_filepath,
+                                       "--team-name", actor.name,
+                                       "--team-email", actor.email,
+                                       "--submission-filepath", submission_filepath,
+                                       "--result-dirpath", self.execution_results_dirpath,
+                                       "--trojai-config-filepath", trojai_config_filepath,
+                                       "--leaderboard-name", self.leaderboard_name,
+                                       "--data-split-name", self.data_split_name,
+                                       "--trojai-test-harness-dirpath", test_harness_dirpath,
+                                       "--python-exec", python_executable,
+                                       "--task-executor-filepath", task_executor_script_filepath,
+                                       "--is-local",
+                                       "--custom-home", custom_home_dirpath,
+                                       "--custom-scratch", custom_scratch_dirpath]
+        else:
+            sbatch_control_params = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':']
+            sbatch_vm_params = ['--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath]
+            container_launch_params = [slurm_script_filepath,
+                                       "--team-name", actor.name,
+                                       "--team-email", actor.email,
+                                       "--submission-filepath", submission_filepath,
+                                       "--result-dirpath", self.execution_results_dirpath,
+                                       "--trojai-config-filepath", trojai_config_filepath,
+                                       "--leaderboard-name", self.leaderboard_name,
+                                       "--data-split-name", self.data_split_name,
+                                       "--trojai-test-harness-dirpath", test_harness_dirpath,
+                                       "--python-exec", python_executable,
+                                       "--task-executor-filepath", task_executor_script_filepath]
+
+
+
+
+        if len(custom_slurm_options) > 0:
+            sbatch_vm_params.extend(custom_slurm_options)
+
+        cmd_str_list.extend(sbatch_control_params)
+        cmd_str_list.extend(sbatch_vm_params)
+        cmd_str_list.extend(container_launch_params)
+
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
 
         out = subprocess.Popen(cmd_str_list,
