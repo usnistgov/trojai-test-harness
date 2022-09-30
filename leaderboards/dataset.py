@@ -12,6 +12,8 @@ class Dataset(object):
     # DATASET_GROUNDTRUTH_NAME = 'groundtruth'
     MODEL_DIRNAME = 'models'
     SOURCE_DATA_NAME = 'source-data'
+    METADATA_NAME = 'METADATA.csv'
+    GROUND_TRUTH_NAME = 'ground_truth.csv'
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, timeout_time_per_model_sec: int=600, excluded_files=None):
         self.split_name = split_name

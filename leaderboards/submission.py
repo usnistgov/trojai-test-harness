@@ -6,6 +6,7 @@
 import os
 import time
 import typing
+import pandas as pd
 
 import collections
 
@@ -807,3 +808,65 @@ class SubmissionManager(object):
             f.write(str(a))
 
         return result_filepath
+
+    def generate_round_results_csv(self, leaderboard: Leaderboard, actor_manager: ActorManager, overwrite_csv: bool = True):
+
+        df = leaderboard.load_metadata_csv_into_df()
+
+        if os.path.exists(leaderboard.summary_results_csv_filepath) and not overwrite_csv:
+            logging.info('Skipping building round results: {} already exists and overwrite is disabled.'.format(leaderboard.summary_results_csv_filepath))
+            return
+
+        all_dfs = []
+
+        default_result = leaderboard.get_default_prediction_result()
+
+        for actor in actor_manager.get_actors():
+            submissions = self.get_submissions_by_actor(actor)
+            for data_split in leaderboard.get_all_data_split_names():
+                leaderboard_metrics = leaderboard.get_submission_metrics(data_split)
+
+                all_model_ids = list(df.loc[df['data_split'] == data_split, 'model_name'].unique())
+
+                metrics = {}
+                for submission in submissions:
+                    if submission.data_split_name == data_split:
+                        raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
+                        predictions_np = np.copy(raw_predictions_np)
+                        predictions_np[np.isnan(predictions_np)] = default_result
+
+                        # Get full metric results
+                        for metric_name, metric in leaderboard_metrics.items():
+                            metric_output = metric.compute(predictions_np, raw_targets_np)
+
+                            metadata = metric_output['metadata']
+
+                            if metadata is not None:
+                                if isinstance(metadata, dict):
+                                    for key, value in metadata.items():
+                                        metrics[key] = value
+                                else:
+                                    raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
+                        time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
+                        new_data = {}
+                        new_data['model_name'] = all_model_ids
+                        new_data['team_name'] = [actor.name] * len(all_model_ids)
+                        new_data['submission_timestamp'] = [time_str] * len(all_model_ids)
+                        new_data['data_split'] = [data_split] * len(all_model_ids)
+                        new_data['prediction'] = [float(i) for i in raw_predictions_np]
+                        new_data['ground_truth'] = [float(i) for i in raw_targets_np]
+                        for key, value in metrics.items():
+                            data = [float(i) for i in value]
+                            if len(data) == len(all_model_ids):
+                                new_data[key] = data
+
+                        new_df = pd.DataFrame(new_data)
+                        all_dfs.append(new_df)
+
+        result_df = pd.concat(all_dfs)
+
+        result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
+
+        print('Finished writing round results to {}'.format(leaderboard.summary_results_csv_filepath))
+
+        return result_df

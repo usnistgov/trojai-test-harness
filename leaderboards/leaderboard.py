@@ -10,8 +10,6 @@ from leaderboards.dataset import DatasetManager
 from leaderboards.metrics import *
 from leaderboards.tasks import *
 
-from data_science.build_round_csvs import build_round_dataset_csv, build_round_results
-
 
 class Leaderboard(object):
     INFO_FILENAME = 'info.json'
@@ -100,22 +98,86 @@ class Leaderboard(object):
         self.initialize_directories()
         self.generate_metadata_csv()
 
-    def load_metadata_csv_into_df(self) -> pd.Dataframe:
+    def load_metadata_csv_into_df(self):
         if os.path.exists(self.summary_metadata_csv_filepath):
             return pd.read_csv(self.summary_metadata_csv_filepath)
         else:
             logging.error('Unable to find summary metadata_csv at location: {}'.format(self.summary_metadata_csv_filepath))
             return None
 
-    def generate_metadata_csv(self):
-        build_round_dataset_csv(self, os.path.dirname(self.summary_metadata_csv_filepath))
+    def generate_metadata_csv(self, overwrite_csv: bool = True):
+        all_df_list = []
 
-    def generate_results_csv(self, trojai_config: TrojaiConfig):
-        metadata_df = self.load_metadata_csv_into_df()
-        if metadata_df is not None:
-            build_round_results(trojai_config, self, metadata_df, os.path.dirname(self.summary_results_csv_filepath))
-        else:
-            logging.error('Failed to create summary round results CSV, unable to load metadata csv.')
+        if os.path.exists(self.summary_metadata_csv_filepath) and not overwrite_csv:
+            logging.warning('Skipping building round metadata: {} already exists and overwrite is disabled.'.format(self.summary_metadata_csv_filepath))
+            return
+
+        for split_name in self.get_all_data_split_names():
+            dataset = self.get_dataset(split_name)
+            dataset_dirpath = dataset.dataset_dirpath
+
+            metadata_filepath = os.path.join(dataset_dirpath, Dataset.METADATA_NAME)
+
+            if not os.path.exists(metadata_filepath):
+                logging.warning('Skipping {}, it does not contain the metadata file: {}'.format(dir, metadata_filepath))
+                continue
+
+            df = pd.read_csv(metadata_filepath)
+
+            # Add column for data_split
+            new_df = df.assign(data_split=split_name)
+
+            # Add column for ground_truth
+            new_df = new_df.assign(ground_truth='NaN')
+
+            models_dir = os.path.join(dataset_dirpath, 'models')
+
+            if os.path.exists(models_dir):
+                # Add ground truth values into data
+                for model_name in os.listdir(models_dir):
+                    model_dirpath = os.path.join(models_dir, model_name)
+
+                    # Skip model_name that is not a directory
+                    if not os.path.isdir(model_dirpath):
+                        continue
+
+                    ground_truth_filepath = os.path.join(models_dir, model_name, Dataset.GROUND_TRUTH_NAME)
+                    if not os.path.exists(ground_truth_filepath):
+                        print('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
+                        continue
+
+                    with open(ground_truth_filepath, 'r') as f:
+                        data = float(f.read())
+                        new_df.loc[new_df['model_name'] == model_name, 'ground_truth'] = data
+            else:
+                logging.warning('{} does not exist'.format(models_dir))
+
+            all_df_list.append(new_df)
+
+        all_df = pd.concat(all_df_list)
+
+        # Rearrange columns slightly
+        columns = list(all_df.columns.values)
+        column_order = ['model_name', 'ground_truth', 'data_split']
+        remove_columns = ['converged', 'nonconverged_reason']
+
+        # Remove columns
+        for column_name in remove_columns:
+            if column_name in columns:
+                columns.remove(column_name)
+
+        # Reorder columns
+        index = 0
+        for column_name in column_order:
+            if column_name in columns:
+                columns.remove(column_name)
+                columns.insert(index, column_name)
+                index += 1
+
+        all_df = all_df[columns]
+
+        all_df.to_csv(self.summary_metadata_csv_filepath, index=False)
+        logging.info('Finished writing round metadata to {}'.format(self.summary_metadata_csv_filepath))
 
     def get_submission_metrics(self, data_split_name):
         return self.dataset_manager.get_submission_metrics(data_split_name)

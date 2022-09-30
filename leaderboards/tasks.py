@@ -432,7 +432,7 @@ class Task(object):
                 if not os.path.isdir(model_dirpath):
                     continue
 
-                ground_truth_file = os.path.join(model_dirpath, "ground_truth.csv")
+                ground_truth_file = os.path.join(model_dirpath, Dataset.GROUND_TRUTH_NAME)
 
                 if not os.path.exists(ground_truth_file):
                     continue
