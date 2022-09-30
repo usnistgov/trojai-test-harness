@@ -56,9 +56,13 @@ echo "Extra args: $EXTRA_ARGS"
 echo $SLURM_JOB_NODELIST_PACK_GROUP_0  # host
 echo $SLURM_JOB_NODELIST_PACK_GROUP_1  # vm
 
+if [ -z "${SLURM_JOB_ID-}" ]; then
+  SLURM_JOB_ID=1
+fi
+
 if [ -z "${EXECUTE_LOCAL-}" ]; then
   echo "Normal execution"
-  PYTHONPATH=$TROJAI_TEST_HARNESS_DIRPATH $PYTHON_EXEC -u $TASK_EXECUTOR_FILEPATH --team-name $TEAM_NAME --team-email $TEAM_EMAIL --container-filepath $SUBMISSION_FILEPATH --result-dirpath $RESULT_DIRPATH --trojai-config-filepath $TROJAI_CONFIG_FILEPATH --leaderboard-name $LEADERBOARD_NAME --data-split-name $DATA_SPLIT_NAME --vm-name $SLURM_JOB_NODELIST_PACK_GROUP_1
+  PYTHONPATH=$TROJAI_TEST_HARNESS_DIRPATH $PYTHON_EXEC -u $TASK_EXECUTOR_FILEPATH --team-name $TEAM_NAME --team-email $TEAM_EMAIL --container-filepath $SUBMISSION_FILEPATH --result-dirpath $RESULT_DIRPATH --trojai-config-filepath $TROJAI_CONFIG_FILEPATH --leaderboard-name $LEADERBOARD_NAME --data-split-name $DATA_SPLIT_NAME --vm-name $SLURM_JOB_NODELIST_PACK_GROUP_1 --job-id $SLURM_JOB_ID
 else
   echo "Executing locally"
   if [ -z "${CUSTOM_HOME-}" ]; then
@@ -68,6 +72,6 @@ else
   if [ -z "${CUSTOM_SCRATCH-}" ]; then
     CUSTOM_SCRATCH="/scratch/$USER"
   fi
-  PYTHONPATH=$TROJAI_TEST_HARNESS_DIRPATH $PYTHON_EXEC -u $TASK_EXECUTOR_FILEPATH --team-name $TEAM_NAME --team-email $TEAM_EMAIL --container-filepath $SUBMISSION_FILEPATH --result-dirpath $RESULT_DIRPATH --trojai-config-filepath $TROJAI_CONFIG_FILEPATH --leaderboard-name $LEADERBOARD_NAME --data-split-name $DATA_SPLIT_NAME --vm-name "local" --custom-remote-home $CUSTOM_HOME --custom-remote-scratch $CUSTOM_SCRATCH
+  PYTHONPATH=$TROJAI_TEST_HARNESS_DIRPATH $PYTHON_EXEC -u $TASK_EXECUTOR_FILEPATH --team-name $TEAM_NAME --team-email $TEAM_EMAIL --container-filepath $SUBMISSION_FILEPATH --result-dirpath $RESULT_DIRPATH --trojai-config-filepath $TROJAI_CONFIG_FILEPATH --leaderboard-name $LEADERBOARD_NAME --data-split-name $DATA_SPLIT_NAME --vm-name "local" --custom-remote-home $CUSTOM_HOME --custom-remote-scratch $CUSTOM_SCRATCH --job-id $SLURM_JOB_ID
 fi
 

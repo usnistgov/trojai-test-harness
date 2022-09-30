@@ -4,6 +4,7 @@ import subprocess
 import time
 import typing
 import collections
+import glob
 
 from leaderboards.mail_io import TrojaiMail
 from leaderboards import jsonschema_checker
@@ -31,7 +32,16 @@ def check_dir_in_container(container_filepath, dirpath_in_container):
 
 def cleanup_scratch(host, remote_scratch):
     if host == 'local':
-        child = subprocess.Popen(['rm', '-rf', '{}/*'.format(remote_scratch)])
+        if remote_scratch == '' or not os.path.exists(remote_scratch):
+            logging.error('Failed to cleanup scratch, errors with passing path: {}, it must exist and not be an empty string'.format(remote_scratch))
+            return -1
+    elif remote_scratch == '':
+            logging.error('Failed to cleanup scratch, errors with passing path: {}, it must not be an empty string'.format(remote_scratch))
+            return -1
+
+    if host == 'local':
+        all_files = glob.glob('{}/*'.format(remote_scratch))
+        child = subprocess.Popen(['rm', '-rf'] + all_files)
     else:
         child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'rm', '-rf', '{}/*'.format(remote_scratch)])
     return child.wait()
@@ -53,7 +63,7 @@ def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], rem
 
     params.extend(source_params)
     if host == 'local':
-        params.extend([source_filepath, '\"' + remote_path + '\"'])
+        params.extend([source_filepath, remote_path])
     else:
         params.extend([source_filepath, 'trojai@' + host + ':\"' + remote_path + '\"'])
     params.extend(remote_params)
@@ -86,12 +96,14 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     return child.wait()
 
 
-def scp_dir_from_vm(host, remote_dirpath, source_dirpath):
-    logging.debug('remote: {} to {}'.format(remote_dirpath, source_dirpath))
+def scp_dir_from_vm(host, remote_dirpath, local_dirpath):
+    logging.debug('remote: {} to {}'.format(remote_dirpath, local_dirpath))
     if host == 'local':
-        child = subprocess.Popen(['cp', '-r', '{}/*'.format(remote_dirpath), source_dirpath])
+        cmd = ['cp', '-r'] + glob.glob('{}/*'.format(remote_dirpath)) + [local_dirpath]
+        logging.debug(' '.join(cmd))
+        child = subprocess.Popen(cmd)
     else:
-        child = subprocess.Popen(['scp', '-r', '-q', 'trojai@{}:{}/*'.format(host, remote_dirpath), source_dirpath])
+        child = subprocess.Popen(['scp', '-r', '-q', 'trojai@{}:{}/*'.format(host, remote_dirpath), local_dirpath])
     return child.wait()
 
 
@@ -118,7 +130,7 @@ class Task(object):
         self.default_prediction_result = 0.5
 
         self.remote_home = remote_home
-        self.remote_dataset_dirpath = os.path.join(self.remote_home, 'datasets', leaderboard_name)
+        self.remote_dataset_dirpath = self.get_remote_dataset_dirpath(self.remote_home, leaderboard_name)
         self.remote_scratch = remote_scratch
 
         task_dirpath = os.path.dirname(os.path.realpath(__file__))
@@ -129,6 +141,9 @@ class Task(object):
 
         if self.evaluate_model_filepath is None:
             self.evaluate_model_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_model.sh')
+
+    def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
+        return os.path.join(remote_dirpath, 'datasets', leaderboard_name)
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         dataset_dirpath = dataset.dataset_dirpath
@@ -204,8 +219,14 @@ class Task(object):
 
         if custom_remote_scratch is not None:
             remote_scratch = custom_remote_scratch
-
         errors = ''
+
+        sc = create_directory_on_vm(vm_ip, remote_home)
+        errors += check_subprocess_error(sc, ':Create directory:', '{} failed to create directory {}'.format(vm_name, remote_home), send_mail=True, subject='{} failed to create directory {}'.format(vm_name, remote_home))
+
+        sc = create_directory_on_vm(vm_ip, remote_scratch)
+        errors += check_subprocess_error(sc, ':Create directory:', '{} failed to create directory {}'.format(vm_name, remote_scratch), send_mail=True, subject='{} failed to create directory {}'.format(vm_name, remote_scratch))
+
         # copy in evaluate scripts (all models and single model) and update permissions
         permissions_params = ['--perms', '--chmod=u+rwx']
         sc = rsync_file_to_vm(vm_ip, self.evaluate_model_filepath, remote_home, source_params=permissions_params)
@@ -314,9 +335,17 @@ class Task(object):
 
         submission_name = os.path.basename(submission_filepath)
         task_script_filepath = os.path.join(remote_home, os.path.basename(self.task_script_filepath))
+        evaluate_model_script_filepath = os.path.join(remote_home, os.path.basename(self.evaluate_model_filepath))
 
-        args = ['--model-dir', remote_models_dirpath, '--container-name', '\"{}\"'.format(submission_name), '--task-script',
+
+        args = ['--evaluate-model-filepath', evaluate_model_script_filepath, '--model-dir', remote_models_dirpath, '--container-name', '{}'.format(submission_name), '--task-script',
                 task_script_filepath, '--training-dir', remote_training_dataset_dirpath, '--remote-home', remote_home, '--remote-scratch', remote_scratch]
+
+        # Add excluded files into list
+        for excluded_file in dataset.excluded_files:
+            args.append('--rsync-exclude')
+            args.append('{}'.format(excluded_file))
+
 
         if dataset.source_dataset_dirpath is not None:
             if vm_ip == 'local':

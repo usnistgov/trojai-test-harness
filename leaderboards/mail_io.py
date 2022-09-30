@@ -13,7 +13,7 @@ from leaderboards import time_utils
 
 class TrojaiMail(object):
 
-    DEUGGING = False
+    DEUGGING = True
 
     SERVER = "smtp.nist.gov"
     FROM = 'trojai@nist.gov'

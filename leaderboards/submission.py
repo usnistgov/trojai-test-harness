@@ -310,7 +310,7 @@ class Submission(object):
                 logging.error(msg)
                 self.web_display_parse_errors += ":Executed File Update:"
 
-            predictions, targets = self.get_predictions_targets(leaderboard, print_details=True)
+            predictions, targets, models = self.get_predictions_targets_models(leaderboard, print_details=True)
 
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
 
@@ -426,7 +426,7 @@ class Submission(object):
 
         return metric_output
 
-    def get_predictions_targets(self, leaderboard: Leaderboard, print_details: bool = False, update_nan_with_default: bool = True):
+    def get_predictions_targets_models(self, leaderboard: Leaderboard, print_details: bool = False, update_nan_with_default: bool = True):
         try:
             ground_truth_dict = self.load_ground_truth(leaderboard)
         except:
@@ -461,11 +461,11 @@ class Submission(object):
 
         if update_nan_with_default:
             predictions[np.isnan(predictions)] = default_result
+        model_list = list(ground_truth_dict.keys())
+        return predictions, targets, model_list
 
-        return predictions, targets
 
-
-    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=[]) -> None:
+    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=[], custom_python_env_filepath: str = None) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
         self.execution_epoch = execution_epoch
         self.execution_results_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
@@ -483,7 +483,11 @@ class Submission(object):
 
         slurm_script_filepath = trojai_config.slurm_execute_script_filepath
         task_executor_script_filepath = trojai_config.task_evaluator_script_filepath
+
         python_executable = trojai_config.python_env
+        if custom_python_env_filepath is not None:
+            python_executable = custom_python_env_filepath
+
         test_harness_dirpath = trojai_config.trojai_test_harness_dirpath
         control_slurm_queue = trojai_config.control_slurm_queue_name
         submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
@@ -594,11 +598,11 @@ class Submission(object):
             for metric_name, metric in submission_metrics.items():
                 if metric.store_result_in_submission:
                     if metric_name not in self.metric_results.keys():
-                        predictions, targets = self.get_predictions_targets(leaderboard)
+                        predictions, targets, models = self.get_predictions_targets_models(leaderboard)
                         self.compute_metric(metric, predictions, targets)
                 if metric.share_with_actor:
                     if metric_name not in self.saved_metric_results.keys():
-                        predictions, targets = self.get_predictions_targets(leaderboard)
+                        predictions, targets, models = self.get_predictions_targets_models(leaderboard)
                         self.compute_metric(metric, predictions, targets)
 
                 if metric.write_html:
@@ -643,7 +647,7 @@ class SubmissionManager(object):
                 metric = submission_metrics[metric_name]
 
                 if metric_name not in submission.metric_results.keys():
-                    predictions, targets = submission.get_predictions_targets(leaderboard, print_details=False)
+                    predictions, targets, models = submission.get_predictions_targets_models(leaderboard, print_details=False)
                     submission.compute_metric(metric, predictions, targets)
 
                 metric_value = submission.metric_results[metric_name]
@@ -744,7 +748,7 @@ class SubmissionManager(object):
                                 if evaluation_metric_name in s.metric_results.keys():
                                     metric_score = s.metric_results[evaluation_metric_name]
                                 else:
-                                    predictions, targets = s.get_predictions_targets(leaderboard)
+                                    predictions, targets, models = s.get_predictions_targets_models(leaderboard)
                                     s.compute_metric(metric, predictions, targets)
                                     metric_score = s.metric_results[evaluation_metric_name]
 

@@ -4,6 +4,7 @@ from leaderboards.mail_io import TrojaiMail
 from leaderboards.drive_io import DriveIO
 from leaderboards import json_io
 from leaderboards import hash_utils
+import time
 import logging
 import traceback
 import os
@@ -11,7 +12,7 @@ import os
 
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
-         vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None):
+         vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None, job_id=None):
 
     logging.info('**************************************************')
     logging.info('Executing Container within VM for team: {} within VM: {}'.format(team_name, vm_name))
@@ -44,6 +45,12 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
         TrojaiMail().send(to='trojai@nist.gov', subject='VM "{}" In Wrong SLURM Queue'.format(vm_name), message=msg)
         raise
 
+
+    custom_remote_scratch_with_job_id = None
+
+    if vm_ip == 'local':
+        custom_remote_scratch_with_job_id = os.path.join(custom_remote_scratch, job_id)
+
     task = leaderboard.task
     dataset = leaderboard.get_dataset(data_split_name)
     train_dataset = leaderboard.get_dataset(Leaderboard.TRAIN_DATASET_NAME)
@@ -72,19 +79,31 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += task.run_submission_checks(submission_filepath)
 
     # Step 5) Run basic VM cleanups (scratch)
-    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch)
+    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
+
+    # Add some delays
+    time.sleep(2)
 
     # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
-    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch)
+    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch_with_job_id)
+
+    # Add some delays
+    time.sleep(2)
 
     # Step 7) Execute submission and check errors
-    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch)
+    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch_with_job_id)
+
+    # Add some delays
+    time.sleep(2)
 
     # Step 8) Copy out results
-    errors += task.copy_out_results(vm_ip, vm_name, result_dirpath, custom_remote_home, custom_remote_scratch)
+    errors += task.copy_out_results(vm_ip, vm_name, result_dirpath, custom_remote_home, custom_remote_scratch_with_job_id)
+
+    # Add some delays
+    time.sleep(2)
 
     # Step 9) Re-run basic VM cleanups
-    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch)
+    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
 
     logging.info('**************************************************')
     logging.info('Container Execution Complete for team: {}'.format(team_name))
@@ -93,6 +112,12 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     # Step 10) Update info dictionary (execution, errors)
     info_dict['errors'] = errors
     task.package_results(result_dirpath, info_dict)
+
+    # delete job ID scratch
+    if vm_ip == 'local':
+        if os.path.exists(custom_remote_scratch_with_job_id):
+            os.rmdir(custom_remote_scratch_with_job_id)
+
 
     # Build per model execution time dictionary
     model_execution_time_dict = dict()
@@ -129,7 +154,7 @@ if __name__ == '__main__':
     import argparse
 
     # logs written to stdout are captured by slurm
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s")
 
     parser = argparse.ArgumentParser(description='Starts/Stops VMs')
@@ -160,13 +185,14 @@ if __name__ == '__main__':
     parser.add_argument('--custom-remote-scratch', type=str,
                         help='The custom scratch directory',
                         default=None)
+    parser.add_argument('--job-id', type=str, help='The slurm job ID', default=None)
 
     args = parser.parse_args()
 
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
-    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch)
+    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch, args.job_id)
 
 
 

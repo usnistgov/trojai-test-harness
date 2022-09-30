@@ -7,12 +7,15 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
 EXTRA_ARGS=()
-echo "evaluate models" "$@"
+#echo "evaluate models" "$@"
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --model-dir)
     shift
-    MODEL_DIR=$1 ;;
+    MODEL_DIR="$1" ;;
+  --evaluate-model-filepath)
+    shift
+    EVALUATE_SCRIPT="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -23,8 +26,7 @@ done
 # Set positional arguments
 set -- "${EXTRA_ARGS[@]}"
 
-# TODO: Update
-NUM_GPUS=1 #`nvidia-smi --list-gpus | wc -l`
+NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
 
 # initialize process ids
 for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
@@ -33,14 +35,14 @@ do
 done
 
 # find all the 'id-' model files and shuffle their iteration order
-for dir in `find $MODEL_DIR -maxdepth 1 -type d | shuf`
+for dir in `find "$MODEL_DIR" -maxdepth 1 -type d | shuf`
 do
 	# check that the directory is not the root MODEL_DIR
 	if [ "$dir" != "$MODEL_DIR" ]; then
 		# check that the directory starts with "id"
 		MODEL="$(basename $dir)"
 
-		if [[ $MODEL == id* ]] ; then
+		if [[ "$MODEL" == id* ]] ; then
 			# find a free GPU
 			FREE_GPU_ID=-1
 			until [ $FREE_GPU_ID != -1 ]
@@ -57,7 +59,7 @@ do
 			done
 
 			# launch the job with the remaining argument
-			./evaluate_model.sh --model-dir $dir --gpu-id $FREE_GPU_ID "$@" &
+			$EVALUATE_SCRIPT --model-dir "$dir" --gpu-id "$FREE_GPU_ID" "$@" &
 			PROCESS_IDS[$FREE_GPU_ID]=$!
 		fi
 	fi

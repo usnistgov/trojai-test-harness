@@ -143,7 +143,7 @@ def build_round_results(trojai_config: TrojaiConfig, leaderboard: Leaderboard, d
             for submission in submissions:
                 if submission.data_split_name == data_split:
 
-                    raw_predictions_np, raw_targets_np = submission.get_predictions_targets(leaderboard, update_nan_with_default=False, print_details=False)
+                    raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
                     predictions_np = np.copy(raw_predictions_np)
                     predictions_np[np.isnan(predictions_np)] = default_result
 

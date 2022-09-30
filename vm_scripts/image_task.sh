@@ -5,32 +5,32 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-echo "image task" "$@"
+#echo "image task" "$@"
 EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --result-dir)
     shift
-    RESULT_DIR=$1 ;;
+    RESULT_DIR="$1" ;;
   --scratch-dir)
     shift
-    SCRATCH_DIR=$1 ;;
+    SCRATCH_DIR="$1" ;;
   --container-exec)
     shift
-    CONTAINER_EXEC=$1 ;;
+    CONTAINER_EXEC="$1" ;;
   --active-dir)
     shift
-    ACTIVE_DIR=$1 ;;
+    ACTIVE_DIR="$1" ;;
   --container-name)
     shift
-    CONTAINER_NAME=$1 ;;
+    CONTAINER_NAME="$1" ;;
   --training-dir)
     shift
-    ROUND_TRAINING_DATASET_DIR=$1 ;;
+    ROUND_TRAINING_DATASET_DIR="$1" ;;
   --source-dir)
     shift
-    SOURCE_DATA_DIR=$1 ;;
+    SOURCE_DATA_DIR="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -43,18 +43,18 @@ METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
 LEARNED_PARAMETERS_DIR=/learned_parameters
 
 if [ -z "${SOURCE_DATA_DIR-}" ]; then
-  singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR \
-    --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv \
-    "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt \
-    --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/clean-example-data \
-    --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
-    --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+  singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
+    --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
+    "$CONTAINER_EXEC" --model_filepath "$ACTIVE_DIR"/model.pt --result_filepath "$ACTIVE_DIR"/result.txt \
+    --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
+    --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
+    --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 else
-  singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR \
-    --bind $SOURCE_DATA_DIR:$SOURCE_DATA_DIR:ro --bind $ROUND_TRAINING_DATASET_DIR:$ROUND_TRAINING_DATASET_DIR:ro --nv \
-    "$CONTAINER_EXEC" --model_filepath $ACTIVE_DIR/model.pt --result_filepath $ACTIVE_DIR/result.txt \
-    --scratch_dirpath $SCRATCH_DIR --examples_dirpath $ACTIVE_DIR/clean-example-data \
-    --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
-    --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR \
-    --source_dataset_dirpath $SOURCE_DATA_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+  singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
+    --bind "$SOURCE_DATA_DIR":"$SOURCE_DATA_DIR":ro --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
+    "$CONTAINER_EXEC" --model_filepath "$ACTIVE_DIR"/model.pt --result_filepath "$ACTIVE_DIR"/result.txt \
+    --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
+    --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
+    --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" \
+    --source_dataset_dirpath "$SOURCE_DATA_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 fi

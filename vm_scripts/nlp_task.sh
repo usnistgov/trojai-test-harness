@@ -11,28 +11,28 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --result-dir)
     shift
-    RESULT_DIR=$1 ;;
+    RESULT_DIR="$1" ;;
   --scratch-dir)
     shift
-    SCRATCH_DIR=$1 ;;
+    SCRATCH_DIR="$1" ;;
   --container-exec)
     shift
-    CONTAINER_EXEC=$1 ;;
+    CONTAINER_EXEC="$1" ;;
   --active-dir)
     shift
-    ACTIVE_DIR=$1 ;;
+    ACTIVE_DIR="$1" ;;
   --container-name)
     shift
-    CONTAINER_NAME=$1 ;;
+    CONTAINER_NAME="$1" ;;
   --training-dir)
     shift
-    ROUND_TRAINING_DATASET_DIR=$1 ;;
+    ROUND_TRAINING_DATASET_DIR="$1" ;;
   --source-dir)
     shift
-    SOURCE_DATA_DIR=$1 ;;
+    SOURCE_DATA_DIR="$1" ;;
   --tokenizer-dir)
     shift
-    TOKENIZER_DIR=$1 ;;
+    TOKENIZER_DIR="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac

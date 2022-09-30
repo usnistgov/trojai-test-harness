@@ -22,7 +22,7 @@ from leaderboards.metrics import Metric
 
 def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container_data_split_name: str,
          execution_leaderboard_name: str,  execution_data_split_name: str, execution_submission_filename: str,
-         metric_name: str, target_metric_value: float, custom_home:str, custom_scratch:str, skip_existing_submissions: bool=False, execution_submission_exists_okay=False,
+         metric_name: str, target_metric_value: float, custom_home:str, custom_scratch:str, python_env_filepath:str, skip_existing_submissions: bool=False, execution_submission_exists_okay=False,
          team_names: list = [], provenance_name: str='custom-launch', slurm_queue_name='heimdall',
          custom_slurm_options: list=[]) -> None:
     actor_manager = ActorManager.load_json(trojai_config)
@@ -84,7 +84,7 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
 
         time.sleep(1)
         exec_epoch = time_utils.get_current_epoch()
-        new_submission.execute(actor, trojai_config, exec_epoch, execute_local=True, custom_home_dirpath=custom_home, custom_scratch_dirpath=custom_scratch, custom_slurm_partition=slurm_queue_name, custom_slurm_options=custom_slurm_options)
+        new_submission.execute(actor, trojai_config, exec_epoch, execute_local=True, custom_home_dirpath=custom_home, custom_scratch_dirpath=custom_scratch, custom_slurm_options=custom_slurm_options, custom_python_env_filepath=python_env_filepath)
         execution_submission_manager.add_submission(actor, new_submission)
 
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument('--provenance-name', type=str, help='The provenance name for this run', default='custom-launch')
     parser.add_argument('--slurm-partition-name', type=str, help='The name of the slurm partition to launch into')
     parser.add_argument('--custom-slurm-options', nargs='*', help='Options to pass into slurm', default=['--gres=gpu:1'])
-
+    parser.add_argument('--python-filepath', type=str, help='The filepath to the python executable to be used within the cluster', required=True)
 
     args = parser.parse_args()
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     main(trojai_config, args.container_leaderboard_name, args.container_data_split_name,
          args.execution_leaderboard_name, args.execution_data_split_name, args.execution_submission_filename,
-         args.metric_name, args.target_metric_value, args.custom_home, args.custom_scratch, args.skip_existing,
+         args.metric_name, args.target_metric_value, args.custom_home, args.custom_scratch, args.python_filepath, args.skip_existing,
          args.execution_submission_exists_okay, args.team_names, args.provenance_name, args.slurm_partition_name, args.custom_slurm_options)
 
 

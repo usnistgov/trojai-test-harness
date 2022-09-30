@@ -23,6 +23,9 @@ class TrojaiConfig(object):
         self.trojai_test_harness_dirpath = os.path.normpath(os.path.join(file_dirpath, '..'))
         self.task_evaluator_script_filepath = os.path.join(file_dirpath, 'task_executor.py')
         self.python_env = '/home/trojai/trojai-env/bin/python3'
+        self.default_excluded_files = ["detailed_stats.csv", "config.json", "ground_truth.csv", "log.txt", "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv", "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt"]
+        self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
+        self.leaderboard_csvs_dirpath = os.path.join(self.datasets_dirpath, 'leaderboard_summary_csvs')
         self.vm_cpu_cores_per_partition = {'es': 10, 'sts': 10}
         self.job_color_key = {604800: 'success-color-dark text-light',
                               1209600: 'warning-color-dark',
@@ -41,6 +44,7 @@ class TrojaiConfig(object):
         self.html_default_leaderboard_name = ''
         self.vms = TrojaiConfig.DEFAULT_VM_CONFIGURATION
 
+
         self.log_file_byte_limit = int(1 * 1024 * 1024)
 
         if init:
@@ -53,6 +57,7 @@ class TrojaiConfig(object):
         os.makedirs(self.datasets_dirpath, exist_ok=True)
         os.makedirs(self.results_dirpath, exist_ok=True)
         os.makedirs(self.leaderboard_configs_dirpath, exist_ok=True)
+        os.makedirs(self.leaderboard_csvs_dirpath, exist_ok=True)
 
 
     def __str__(self):

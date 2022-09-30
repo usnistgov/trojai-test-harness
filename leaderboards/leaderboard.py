@@ -1,5 +1,6 @@
 import datetime
 import os
+import pandas as pd
 import numpy as np
 from airium import Airium
 
@@ -8,6 +9,8 @@ from leaderboards import json_io
 from leaderboards.dataset import DatasetManager
 from leaderboards.metrics import *
 from leaderboards.tasks import *
+
+from data_science.build_round_csvs import build_round_dataset_csv, build_round_results
 
 
 class Leaderboard(object):
@@ -51,6 +54,10 @@ class Leaderboard(object):
         self.html_leaderboard_priority = 0
         self.html_data_split_name_priorities = {}
         self.html_table_sort_options = {}
+
+        self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
+        self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
+
         self.dataset_manager = DatasetManager()
 
         if add_default_data_split:
@@ -91,6 +98,24 @@ class Leaderboard(object):
 
 
         self.initialize_directories()
+        self.generate_metadata_csv()
+
+    def load_metadata_csv_into_df(self) -> pd.Dataframe:
+        if os.path.exists(self.summary_metadata_csv_filepath):
+            return pd.read_csv(self.summary_metadata_csv_filepath)
+        else:
+            logging.error('Unable to find summary metadata_csv at location: {}'.format(self.summary_metadata_csv_filepath))
+            return None
+
+    def generate_metadata_csv(self):
+        build_round_dataset_csv(self, os.path.dirname(self.summary_metadata_csv_filepath))
+
+    def generate_results_csv(self, trojai_config: TrojaiConfig):
+        metadata_df = self.load_metadata_csv_into_df()
+        if metadata_df is not None:
+            build_round_results(trojai_config, self, metadata_df, os.path.dirname(self.summary_results_csv_filepath))
+        else:
+            logging.error('Failed to create summary round results CSV, unable to load metadata csv.')
 
     def get_submission_metrics(self, data_split_name):
         return self.dataset_manager.get_submission_metrics(data_split_name)
@@ -156,13 +181,15 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.get_num_models()
 
-    def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool):
+    def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, generate_metadata_csv: bool=False):
         if self.dataset_manager.has_dataset(split_name):
             raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
 
         dataset = Dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data)
         if self.task.verify_dataset(self.name, dataset):
             self.dataset_manager.add_dataset(dataset)
+            if generate_metadata_csv:
+                self.generate_metadata_csv()
             return True
         return False
 
@@ -254,7 +281,6 @@ class Leaderboard(object):
                         a('{{% include {}/results-unique-{}-{}.html %}}'.format(self.name, self.name, data_split))
                         a('{{% include {}/results-{}-{}.html %}}'.format(self.name, self.name, data_split))
 
-
         with open(leaderboard_filepath, 'w') as f:
             f.write(str(a))
 
@@ -268,6 +294,7 @@ def init_leaderboard(args):
     leaderboard.save_json(trojai_config)
     print('Created: {}'.format(leaderboard))
 
+
 def add_dataset_to_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
 
@@ -277,17 +304,18 @@ def add_dataset_to_leaderboard(args):
         slurm_queue_name = args.slurm_queue_name
 
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data):
+    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_dat, generate_metadata_csv=True):
         leaderboard.save_json(trojai_config)
 
         print('Added dataset {} to {}'.format(args.split_name, args.name))
 
     print('Failed to add dataset')
 
-def view_html(args):
+
+def generate_summary_results(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    leaderboard.get_html_leaderboard(True)
+    leaderboard.generate_results_csv(trojai_config)
 
 
 if __name__ == "__main__":
@@ -315,13 +343,11 @@ if __name__ == "__main__":
     add_dataset_parser.add_argument('--slurm-nice', type=int, help='The nice value when launching jobs for this dataset (0 is highest priority)', default=0)
     add_dataset_parser.set_defaults(func=add_dataset_to_leaderboard)
 
-    html_parser = subparser.add_parser('html')
-    html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    html_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
-    html_parser.set_defaults(func=view_html)
-
+    summary_results_parser = subparser.add_parser('generate_summary_results')
+    summary_results_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config',required=True)
+    summary_results_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    summary_results_parser.set_defaults(func=generate_summary_results)
 
     args = parser.parse_args()
-
     args.func(args)
 
