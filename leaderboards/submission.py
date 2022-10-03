@@ -84,8 +84,7 @@ class Submission(object):
         return '{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name)
 
     def get_submission_hash(self):
-        submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
-        return hash_utils.load_hash(submission_filepath)
+        return hash_utils.load_hash(self.get_submission_filepath())
 
     def is_active_job(self):
         if self.active_slurm_job_name is None:
@@ -153,7 +152,7 @@ class Submission(object):
 
             if leaderboard.is_auto_delete_submission(self.data_split_name):
                 # delete the container file to avoid filling up disk space
-                submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
+                submission_filepath = self.get_submission_filepath()
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
                 if os.path.exists(submission_filepath):
                     os.remove(submission_filepath)
@@ -193,20 +192,12 @@ class Submission(object):
             # attempt to process the result
             self.process_results(actor, leaderboard, g_drive, log_file_byte_limit)
 
-            if self.data_split_name == 'sts':
-                # delete the container file to avoid filling up disk space for the STS server
-                submission_filepath = os.path.join(self.actor_submission_dirpath, self.g_file.name)
+            if leaderboard.is_auto_delete_submission(self.data_split_name):
+                # delete the container file to avoid filling up disk space
+                submission_filepath = self.get_submission_filepath()
                 logging.info('Deleting container image: "{}"'.format(submission_filepath))
-                os.remove(submission_filepath)
-            elif self.data_split_name == 'test':
-                # TODO: Implement checking for train results/submission . . .
-                # If it does not exist, then create a new submission using the test container
-                # use submission_manager to find valid submissions ... alternatively could use the actor_submission list...
-
-                pass
-            elif self.data_split_name == 'train':
-                # TODO: Check for matching test container
-                pass
+                if os.path.exists(submission_filepath):
+                    os.remove(submission_filepath)
 
         logging.info("After Check submission: {}".format(self))
 
@@ -465,6 +456,8 @@ class Submission(object):
         model_list = list(ground_truth_dict.keys())
         return predictions, targets, model_list
 
+    def get_submission_filepath(self):
+        return os.path.join(self.actor_submission_dirpath, self.g_file.name)
 
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=[], custom_python_env_filepath: str = None) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
@@ -475,10 +468,9 @@ class Submission(object):
             logging.debug('Creating result directory: {}'.format(self.execution_results_dirpath))
             os.makedirs(self.execution_results_dirpath)
 
-        submission_dirpath = os.path.join(self.actor_submission_dirpath)
-        if not os.path.exists(submission_dirpath):
-            logging.debug('Creating submission directory: {}'.format(submission_dirpath))
-            os.makedirs(submission_dirpath)
+        if not os.path.exists(self.actor_submission_dirpath):
+            logging.debug('Creating submission directory: {}'.format(self.actor_submission_dirpath))
+            os.makedirs(self.actor_submission_dirpath)
 
         self.active_slurm_job_name = self.get_slurm_job_name(actor)
 
@@ -491,7 +483,7 @@ class Submission(object):
 
         test_harness_dirpath = trojai_config.trojai_test_harness_dirpath
         control_slurm_queue = trojai_config.control_slurm_queue_name
-        submission_filepath = os.path.join(submission_dirpath, self.g_file.name)
+        submission_filepath = self.get_submission_filepath()
         trojai_config_filepath = trojai_config.trojai_config_filepath
 
         cpus_per_task = 10
