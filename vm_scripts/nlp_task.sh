@@ -33,6 +33,9 @@ while [[ $# -gt 0 ]]; do
   --tokenizer-dir)
     shift
     TOKENIZER_DIR="$1" ;;
+  --metaparam-file)
+  shift
+  METAPARAMETERS_FILE="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -41,7 +44,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-METAPARAMETERS_FILE=/metaparameters.json
+if [ -z "${METAPARAMETERS_FILE}" ]; then
+  METAPARAMETERS_FILE=/metaparameters.json
+fi
 METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
 LEARNED_PARAMETERS_DIR=/learned_parameters
 

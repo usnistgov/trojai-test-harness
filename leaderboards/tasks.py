@@ -31,13 +31,10 @@ def check_dir_in_container(container_filepath, dirpath_in_container):
 
 
 def cleanup_scratch(host, remote_scratch):
-    if host == 'local':
-        if remote_scratch == '' or not os.path.exists(remote_scratch):
-            logging.error('Failed to cleanup scratch, errors with passing path: {}, it must exist and not be an empty string'.format(remote_scratch))
-            return -1
-    elif remote_scratch == '':
-            logging.error('Failed to cleanup scratch, errors with passing path: {}, it must not be an empty string'.format(remote_scratch))
-            return -1
+
+    if remote_scratch == '':
+        logging.error('Failed to cleanup scratch, errors with passing path: {}, it must not be an empty string'.format(remote_scratch))
+        return -1
 
     if host == 'local':
         all_files = glob.glob('{}/*'.format(remote_scratch))
@@ -208,7 +205,7 @@ class Task(object):
 
         return errors
 
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None):
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         logging.info('Copying in task data')
 
         remote_home = self.remote_home
@@ -240,6 +237,10 @@ class Task(object):
         sc = rsync_file_to_vm(vm_ip, submission_filepath, remote_scratch)
         errors += check_subprocess_error(sc, ':Copy in:', '{} submission copy in may have failed'.format(vm_name), send_mail=True, subject='{} submission copy failed'.format(vm_name))
 
+        if custom_metaparameter_filepath is not None:
+            sc = rsync_file_to_vm(vm_ip, custom_metaparameter_filepath, remote_scratch)
+            errors += check_subprocess_error(sc, ':Copy in (custom_metaparam):', '{} submission copy in may have failed'.format(vm_name),  send_mail=False, subject='{} submission copy failed'.format(vm_name))
+
         # Copy in datasets
         if vm_ip != 'local':
             dataset_dirpath = dataset.dataset_dirpath
@@ -269,7 +270,7 @@ class Task(object):
 
         return errors
 
-    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None):
+    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -293,7 +294,7 @@ class Task(object):
         else:
             params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
 
-        params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch))
+        params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids))
         params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch))
 
         logging.debug('Launching with params {}'.format(' '.join(params)))
@@ -316,7 +317,7 @@ class Task(object):
 
         return errors
 
-    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str):
+    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -346,6 +347,17 @@ class Task(object):
             args.append('--rsync-exclude')
             args.append('{}'.format(excluded_file))
 
+        if custom_metaparameter_filepath is not None:
+            metaparameter_name = os.path.basename(custom_metaparameter_filepath)
+            metaparameter_filepath = os.path.join(remote_scratch, metaparameter_name)
+            args.append('--metaparam-file')
+            args.append('{}'.format(metaparameter_filepath))
+
+        if subset_model_ids is not None:
+            for subset_model_id in subset_model_ids:
+                args.append('--subset-model-id')
+                args.append('{}'.format(subset_model_id))
+            pass
 
         if dataset.source_dataset_dirpath is not None:
             if vm_ip == 'local':

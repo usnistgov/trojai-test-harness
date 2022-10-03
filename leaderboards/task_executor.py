@@ -12,7 +12,8 @@ import os
 
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
-         vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None, job_id=None):
+         vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None, job_id=None,
+         custom_metaparameter_filepath=None, subset_model_ids=None):
 
     logging.info('**************************************************')
     logging.info('Executing Container within VM for team: {} within VM: {}'.format(team_name, vm_name))
@@ -85,13 +86,13 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     time.sleep(2)
 
     # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
-    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch_with_job_id)
+    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath)
 
     # Add some delays
     time.sleep(2)
 
     # Step 7) Execute submission and check errors
-    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch_with_job_id)
+    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath, subset_model_ids)
 
     # Add some delays
     time.sleep(2)
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     import argparse
 
     # logs written to stdout are captured by slurm
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s")
 
     parser = argparse.ArgumentParser(description='Starts/Stops VMs')
@@ -185,6 +186,10 @@ if __name__ == '__main__':
     parser.add_argument('--custom-remote-scratch', type=str,
                         help='The custom scratch directory',
                         default=None)
+
+    parser.add_argument('--custom-metaparameters-filepath', type=str, help='The custom metaparameters filepath to use', default=None)
+    parser.add_argument('--model-ids-subset', nargs='*', help='The list of model IDs to subset when launching', default=None)
+
     parser.add_argument('--job-id', type=str, help='The slurm job ID', default=None)
 
     args = parser.parse_args()
@@ -192,7 +197,7 @@ if __name__ == '__main__':
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
-    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch, args.job_id)
+    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch, args.job_id, args.custom_metaparameters_filepath, args.model_ids_subset)
 
 
 
