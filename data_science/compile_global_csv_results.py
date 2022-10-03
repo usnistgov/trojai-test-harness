@@ -7,7 +7,7 @@
 import os
 import numpy as np
 import pandas as pd
-import actor_executor.metrics
+import leaderboards.metrics
 
 
 def find_dirs(fp):
@@ -16,16 +16,16 @@ def find_dirs(fp):
     return dirs
 
 
-def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
-    if server not in ['sts','es','holdout']:
-        raise RuntimeError('{} is an invalid server option, should be "sts" or "es"'.format(server))
+def main(results_dirpath, data_split, metadata_filepath, output_dirpath, round_name):
+    if data_split not in ['train','test','holdout']:
+        raise RuntimeError('{} is an invalid server option, should be "train" or "test" or "holdout"'.format(data_split))
     if not os.path.exists(metadata_filepath):
         raise RuntimeError('metadata_filepath = {} does not exist.'.format(metadata_filepath))
 
     if not os.path.exists(output_dirpath):
         os.makedirs(output_dirpath)
 
-    results_fp = os.path.join(test_harness_dirpath, server, 'results')
+    results_fp = os.path.join(results_dirpath, "{}-dataset".format(round_name), "{}-dataset".format(data_split), "{}-submission".format(round_name))
     metadata = pd.read_csv(metadata_filepath)
     metadata.fillna(value=np.nan, inplace=True)
     metadata.replace(to_replace=[None], value=np.nan, inplace=True)
@@ -34,23 +34,31 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
     models = metadata['model_name'].to_list()
     models.sort()
 
-    # Prep the output csv file with the headers
-    global_results_csv_fp = os.path.join(output_dirpath, '{}-global-results.csv'.format(server))
-    with open(global_results_csv_fp, 'w') as fh:
-        fh.write('team_name,execution_time_stamp,ground_truth,predicted,cross_entropy,model_name\n')
+    columns = list(metadata.columns)
 
-        # find all team directories in the results folder
-        teams = find_dirs(results_fp)
-        teams.sort()
+    ce_metric = leaderboards.metrics.AverageCrossEntropy(write_html=False, share_with_actor=False, store_result_in_submission=False)
 
-        for team in teams:
-            team_fp = os.path.join(results_fp, team)
+    df_list = list()
+    meta_list = list()
+
+    # find all team directories in the results folder
+    teams = find_dirs(results_fp)
+    teams.sort()
+
+    for team in teams:
+        team_fp = os.path.join(results_fp, team)
+        # find all executions
+        submissions = find_dirs(team_fp)
+        submissions.sort()
+
+        for submission in submissions:
+            submission_fp = os.path.join(team_fp, submission)
             # find all executions
-            runs = find_dirs(team_fp)
-            runs.sort()
+            executions = find_dirs(submission_fp)
+            executions.sort()
 
-            for run in runs:
-                run_fp = os.path.join(team_fp, run)
+            for execution in executions:
+                execution_fp = os.path.join(submission_fp, execution)
 
                 for model in models:
                     row = metadata[metadata["model_name"] == model]
@@ -58,7 +66,7 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
                         raise RuntimeError('No metadata for model {}'.format(model))
 
                     predicted = np.asarray(np.nan)
-                    predicted_fp = os.path.join(run_fp, model + '.txt')
+                    predicted_fp = os.path.join(execution_fp, model + '.txt')
                     if os.path.exists(predicted_fp):
                         try:
                             with open(predicted_fp, 'r') as model_fh:
@@ -66,21 +74,87 @@ def main(test_harness_dirpath, server, metadata_filepath, output_dirpath):
                         except:
                             predicted = np.asarray(np.nan)
                     target = row['poisoned'].to_numpy(dtype=np.float64)[0]
-                    elementwise_ce = actor_executor.metrics.elementwise_binary_cross_entropy(predicted, target)
-                    ce = float(np.mean(elementwise_ce))
 
-                    # fh.write('TeamName,ExecutionTimeStamp,ExecutionTimeStr,ModelId,GroundTruth,Predicted\n')
-                    fh.write('{},{},{},{},{},{}'.format(team, run, target, predicted, ce, model))
-                    # for col_name in columns:
-                    #     val = row[col_name].to_numpy()[0]
-                    #     fh.write(',{}'.format(val))
-                    fh.write('\n')
+                    res = ce_metric.compute(predictions=predicted, targets=target)
+                    # elementwise_ce = res['metadata']['cross_entropy']
+                    ce = float(res['result'])
 
-    # per dataframe join
-    global_df = pd.read_csv(global_results_csv_fp)
-    result_df = pd.merge(global_df, metadata, on="model_name")
-    result_df = result_df.sort_values(by=['team_name', 'execution_time_stamp'], ascending=True)
-    result_df.to_csv(global_results_csv_fp, index=False)
+                    submission_timestamp = submission.split('-')[0]
+                    execution_timestamp = execution.split('-')[0]
+
+                    dat_dict = dict()
+                    dat_dict['team_name'] = team
+                    dat_dict['submission_time_stamp'] = submission_timestamp
+                    dat_dict['execution_time_stamp'] = execution_timestamp
+                    dat_dict['ground_truth'] = target
+                    dat_dict['predicted'] = predicted
+                    dat_dict['cross_entropy'] = ce
+
+                    cd = pd.json_normalize(dat_dict)
+                    df_list.append(cd)
+                    meta_list.append(row)
+
+    full_df = pd.concat(df_list, axis=0)
+    meta_df = pd.concat(meta_list, axis=0)
+    full_df = pd.concat([full_df.reset_index(drop=True), meta_df.reset_index(drop=True)], axis=1)
+    global_results_csv_fp = os.path.join(output_dirpath, '{}-global-results.csv'.format(data_split))
+    full_df.to_csv(global_results_csv_fp, index=False)
+
+
+    # # Prep the output csv file with the headers
+    # global_results_csv_fp = os.path.join(output_dirpath, '{}-global-results.csv'.format(data_split))
+    # with open(global_results_csv_fp, 'w') as fh:
+    #     fh.write('team_name,submission_time_stamp,execution_time_stamp,ground_truth,predicted,cross_entropy')
+    #     for col_name in columns:
+    #         fh.write(',{}'.format(col_name))
+    #     fh.write('\n')
+    #
+    #     # find all team directories in the results folder
+    #     teams = find_dirs(results_fp)
+    #     teams.sort()
+    #
+    #     for team in teams:
+    #         team_fp = os.path.join(results_fp, team)
+    #         # find all executions
+    #         submissions = find_dirs(team_fp)
+    #         submissions.sort()
+    #
+    #         for submission in submissions:
+    #             submission_fp = os.path.join(team_fp, submission)
+    #             # find all executions
+    #             executions = find_dirs(submission_fp)
+    #             executions.sort()
+    #
+    #             for execution in executions:
+    #                 execution_fp = os.path.join(submission_fp, execution)
+    #
+    #                 for model in models:
+    #                     row = metadata[metadata["model_name"] == model]
+    #                     if len(row) == 0:
+    #                         raise RuntimeError('No metadata for model {}'.format(model))
+    #
+    #                     predicted = np.asarray(np.nan)
+    #                     predicted_fp = os.path.join(execution_fp, model + '.txt')
+    #                     if os.path.exists(predicted_fp):
+    #                         try:
+    #                             with open(predicted_fp, 'r') as model_fh:
+    #                                 predicted = np.asarray(model_fh.read(), dtype=np.float64)
+    #                         except:
+    #                             predicted = np.asarray(np.nan)
+    #                     target = row['poisoned'].to_numpy(dtype=np.float64)[0]
+    #
+    #                     res = ce_metric.compute(predictions=predicted, targets=target)
+    #                     # elementwise_ce = res['metadata']['cross_entropy']
+    #                     ce = float(res['result'])
+    #
+    #                     submission_timestamp = submission.split('-')[0]
+    #                     execution_timestamp = execution.split('-')[0]
+    #                     # fh.write('team_name,submission_time_stamp,execution_time_stamp,ground_truth,predicted,cross_entropy')
+    #                     fh.write('{},{},{},{},{},{}'.format(team, submission_timestamp, execution_timestamp, target, predicted, ce))
+    #                     for col_name in columns:
+    #                         val = row[col_name].to_numpy()[0]
+    #                         fh.write(',{}'.format(val))
+    #                     fh.write('\n')
 
 
 if __name__ == "__main__":
@@ -89,21 +163,24 @@ if __name__ == "__main__":
     # TODO this script will need to be modified for each round
 
     parser = argparse.ArgumentParser(description='Script which converts the TrojAi test harness data folder structure into a csv file of per model data.')
-    parser.add_argument('--test-harness-dirpath', type=str, required=True)
-    parser.add_argument('--server', type=str, required=True)
-    parser.add_argument('--metadata-filepath', type=str, help="This is the metadata file released with the dataset being the detector is being evaluated against on the test server. I.e. the test dataset METADATA.csv file", required=True)
-    parser.add_argument('--output-dirpath', type=str, required=True)
+    parser.add_argument('--results_dirpath', type=str, required=True)
+    parser.add_argument('--round_name', type=str, required=True)
+    parser.add_argument('--data_split', type=str, required=True)
+    parser.add_argument('--metadata_filepath', type=str, help="This is the metadata file released with the dataset being the detector is being evaluated against on the test server. I.e. the test dataset METADATA.csv file", required=True)
+    parser.add_argument('--output_dirpath', type=str, required=True)
 
     args = parser.parse_args()
-    test_harness_dirpath = args.test_harness_dirpath
-    server = args.server.lower()
+    results_dirpath = args.results_dirpath
+    round_name = args.round_name
+    data_split = args.data_split.lower()
     metadata_filepath = args.metadata_filepath
     output_dirpath = args.output_dirpath
 
-    print('test_harness_dirpath = {}'.format(test_harness_dirpath))
-    print('server = {}'.format(server))
+    print('round_name = {}'.format(round_name))
+    print('results_dirpath = {}'.format(results_dirpath))
+    print('data_split = {}'.format(data_split))
     print('metadata_filepath = {}'.format(metadata_filepath))
     print('output_dirpath = {}'.format(output_dirpath))
 
-    main(test_harness_dirpath, server, metadata_filepath, output_dirpath)
+    main(results_dirpath, data_split, metadata_filepath, output_dirpath, round_name)
 

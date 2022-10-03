@@ -13,7 +13,7 @@ import sklearn.metrics
 from collections import OrderedDict
 from matplotlib import pyplot as plt
 
-from actor_executor import metrics
+from leaderboards import metrics
 from data_science import utils
 
 

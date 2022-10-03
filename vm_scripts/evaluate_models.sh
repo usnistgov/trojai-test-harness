@@ -6,11 +6,29 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
+EXTRA_ARGS=()
+SUBSET_MODELS=()
+#echo "evaluate models" "$@"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --model-dir)
+    shift
+    MODEL_DIR="$1" ;;
+  --evaluate-model-filepath)
+    shift
+    EVALUATE_SCRIPT="$1" ;;
+  --subset-model-id)
+    shift
+    SUBSET_MODELS+=("$1") ;;
+  *)
+    EXTRA_ARGS+=("$1") ;;
+  esac
+  # Expose next argument
+  shift
+done
 
-CONTAINER_NAME=$1
-QUEUE_NAME=$2
-
-MODEL_DIR=/home/trojai/models
+# Set positional arguments
+set -- "${EXTRA_ARGS[@]}"
 
 NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
 
@@ -21,14 +39,23 @@ do
 done
 
 # find all the 'id-' model files and shuffle their iteration order
-for dir in `find $MODEL_DIR -maxdepth 1 -type d | shuf`
+for dir in `find "$MODEL_DIR" -maxdepth 1 -type d | shuf`
 do
 	# check that the directory is not the root MODEL_DIR
 	if [ "$dir" != "$MODEL_DIR" ]; then
 		# check that the directory starts with "id"
 		MODEL="$(basename $dir)"
 
-		if [[ $MODEL == id* ]] ; then
+		if [[ "$MODEL" == id* ]] ; then
+		    # Check if we have subset the model IDs
+		    if [ ${#SUBSET_MODELS[@]} -gt 0 ] ; then
+		      # check if MODEL does not exists in subset models, if it is not in there, then we skip it
+		      if [[ ! "${SUBSET_MODELS[*]}" =~ ${MODEL} ]] ; then
+		        continue
+              fi
+		    fi
+
+
 			# find a free GPU
 			FREE_GPU_ID=-1
 			until [ $FREE_GPU_ID != -1 ]
@@ -44,8 +71,8 @@ do
 				sleep 1s
 			done
 
-			# launch the job
-			./evaluate_model.sh $CONTAINER_NAME $QUEUE_NAME $dir $FREE_GPU_ID &
+			# launch the job with the remaining argument
+			$EVALUATE_SCRIPT --model-dir "$dir" --gpu-id "$FREE_GPU_ID" "$@" &
 			PROCESS_IDS[$FREE_GPU_ID]=$!
 		fi
 	fi

@@ -258,25 +258,22 @@ def main(global_results_csv_filepath, metric, output_dirpath, box_plot_flag, plo
         summary_stat = 'none'
 
     for factor in features_list:
-        try:
-            print('Computing mean effects for {}'.format(factor))
-            x, y_full, y, support, variance = compute_mean_effects(results_df, factor, metric, summary_statistic=summary_stat, clip_flag=clip_flag)
-            x_dict[factor] = x
-            y_dict[factor] = y
-            y_full_dict[factor] = y_full
-            support_dict[factor] = support
-            var_dict[factor] = variance
-            if type(y) == np.ndarray:
-                y_min = min(y_min, np.min(y - variance))
-                y_max = max(y_max, np.max(y + variance))
-            elif type(y) == list:
-                for ty in y:
-                    y_min = min(y_min, np.min(ty))
-                    y_max = max(y_max, np.max(ty))
-            else:
-                raise RuntimeError('Unexpected y value container type')
-        except:
-            pass
+        print('Computing mean effects for {}'.format(factor))
+        x, y_full, y, support, variance = compute_mean_effects(results_df, factor, metric, summary_statistic=summary_stat, clip_flag=clip_flag)
+        x_dict[factor] = x
+        y_dict[factor] = y
+        y_full_dict[factor] = y_full
+        support_dict[factor] = support
+        var_dict[factor] = variance
+        if type(y) == np.ndarray:
+            y_min = min(y_min, np.min(y - variance))
+            y_max = max(y_max, np.max(y + variance))
+        elif type(y) == list:
+            for ty in y:
+                y_min = min(y_min, np.min(ty))
+                y_max = max(y_max, np.max(ty))
+        else:
+            raise RuntimeError('Unexpected y value container type')
 
     # stretch y range by 5%
     delta = y_max - y_min

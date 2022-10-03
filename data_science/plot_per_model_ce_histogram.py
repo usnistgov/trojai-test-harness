@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
-from actor_executor import metrics
+from leaderboards import metrics
 from data_science import utils
 
 

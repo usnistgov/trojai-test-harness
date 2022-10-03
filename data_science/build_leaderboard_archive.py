@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 
-from actor_executor import metrics
+import leaderboards.metrics
 
 
 def find_dirs(fp):
@@ -18,13 +18,18 @@ def find_dirs(fp):
     return dirs
 
 
-def main(global_results_csv_filepath, queue, output_dirpath):
+def main(global_results_csv_filepath, data_split, output_dirpath):
     # load the global results csv into a data frame
     results_df = pd.read_csv(global_results_csv_filepath)
 
+    ce_builder = leaderboards.metrics.AverageCrossEntropy(write_html=False, share_with_actor=False, store_result_in_submission=False)
+    ce_ci_builder = leaderboards.metrics.CrossEntropyConfidenceInterval(write_html=False, share_with_actor=False, store_result_in_submission=False)
+    cm_builder = leaderboards.metrics.ConfusionMatrix(write_html=False, share_with_actor=False, store_result_in_submission=False)
+
+
     # create output file
-    with open(os.path.join(output_dirpath, '{}-leaderboard-summary.csv'.format(queue)), 'w') as fh:
-        fh.write('Team, ExecutionTimeStamp, CrossEntropyLoss, CrossEntropy95ConfidenceInterval, ROC-AUC\n')
+    with open(os.path.join(output_dirpath, '{}-leaderboard-summary.csv'.format(data_split)), 'w') as fh:
+        fh.write('Team, SubmissionTimeStamp, ExecutionTimeStamp, CrossEntropyLoss, CrossEntropy95ConfidenceInterval, ROC-AUC\n')
 
         # get the unique set of teams
         teams = set(results_df['team_name'].to_list())
@@ -33,42 +38,54 @@ def main(global_results_csv_filepath, queue, output_dirpath):
             # get sub dataframe for this team
             team_df = results_df[results_df['team_name'] == team]
 
-            # get the set of execution time stamps for this team
-            timestamps = set(team_df['execution_time_stamp'].to_list())
+            # get the set of submission time stamps for this team
+            submission_timestamps = set(team_df['submission_time_stamp'].to_list())
 
-            for timestamp in timestamps:
-                # get the dataframe for this execution
-                run_df = team_df[team_df['execution_time_stamp'] == timestamp]
+            for s_timestamp in submission_timestamps:
+                # get sub dataframe for this team
+                sub_df = team_df[team_df['submission_time_stamp'] == s_timestamp]
 
-                targets = run_df['ground_truth'].to_numpy(dtype=np.float32)
-                predictions = run_df['predicted'].to_numpy(dtype=np.float32)
+                # get the set of execution time stamps for this team
+                execution_timestamps = set(sub_df['execution_time_stamp'].to_list())
 
-                if np.any(np.isnan(predictions)):
-                    default_result = 0.5
-                    predictions[np.isnan(predictions)] = default_result
+                for e_timestamp in execution_timestamps:
+                    # get the dataframe for this execution
+                    run_df = team_df[team_df['execution_time_stamp'] == e_timestamp]
 
-                elementwise_ce = metrics.elementwise_binary_cross_entropy(predictions, targets)
-                ce = float(np.mean(elementwise_ce))
+                    targets = run_df['ground_truth'].to_numpy(dtype=np.float32)
+                    predictions = run_df['predicted'].to_numpy(dtype=np.float32)
 
-                ci = metrics.cross_entropy_confidence_interval(elementwise_ce)
+                    if np.any(np.isnan(predictions)):
+                        default_result = 0.5
+                        predictions[np.isnan(predictions)] = default_result
 
-                TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds = metrics.confusion_matrix(targets, predictions)
-                roc_auc = sklearn.metrics.auc(FPR, TPR)
+                    ce_res = ce_builder.compute(predictions=predictions, targets=targets)
+                    # elementwise_ce = ce_res['metadata']['cross_entropy']
+                    ce = float(ce_res['result'])
 
-                fh.write('{}, {}, {}, {}, {}\n'.format(team, timestamp, ce, ci, roc_auc))
+                    ci_res = ce_ci_builder.compute(predictions=predictions, targets=targets)
+                    ci = ci_res['result']
+
+                    cm_res = cm_builder.compute(predictions=predictions, targets=targets)
+                    # {'result': None, 'metadata': {'tp_counts': TP_counts, 'fp_counts': FP_counts, 'fn_counts': FN_counts, 'tn_counts': TN_counts, 'tpr': TPR, 'fpr': FPR, 'thresholds': thresholds}}
+                    TPR = cm_res['metadata']['tpr']
+                    FPR = cm_res['metadata']['fpr']
+                    roc_auc = sklearn.metrics.auc(FPR, TPR)
+
+                    fh.write('{}, {}, {}, {}, {}, {}\n'.format(team, s_timestamp, e_timestamp, ce, ci, roc_auc))
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Script build the global results csv filepath.')
-    parser.add_argument('--global-results-csv-filepath', type=str, required=True)
-    parser.add_argument('--queue', type=str, required=True)
-    parser.add_argument('--output-dirpath', type=str, required=True)
+    parser.add_argument('--global_results_csv_filepath', type=str, required=True)
+    parser.add_argument('--data_split', type=str, required=True)
+    parser.add_argument('--output_dirpath', type=str, required=True)
 
     args = parser.parse_args()
 
-    main(args.global_results_csv_filepath, args.queue, args.output_dirpath)
+    main(args.global_results_csv_filepath, args.data_split, args.output_dirpath)
 
 
 

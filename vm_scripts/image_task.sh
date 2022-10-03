@@ -1,36 +1,39 @@
 #!/bin/bash
-
 # NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
 
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
-EXCLUDE_ARGS=()
+
+#echo "image task" "$@"
 EXTRA_ARGS=()
-#echo "evaluate model" "$@"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-  --model-dir)
+  --result-dir)
     shift
-    dir="$1" ;;
-  --gpu-id)
+    RESULT_DIR="$1" ;;
+  --scratch-dir)
     shift
-    GPU_ID="$1" ;;
+    SCRATCH_DIR="$1" ;;
+  --container-exec)
+    shift
+    CONTAINER_EXEC="$1" ;;
+  --active-dir)
+    shift
+    ACTIVE_DIR="$1" ;;
   --container-name)
     shift
     CONTAINER_NAME="$1" ;;
-  --task-script)
+  --training-dir)
     shift
-    TASK_SCRIPT="$1" ;;
-  --remote-home)
+    ROUND_TRAINING_DATASET_DIR="$1" ;;
+  --source-dir)
     shift
-    TROJAI_HOME="$1" ;;
-  --remote-scratch)
+    SOURCE_DATA_DIR="$1" ;;
+  --metaparam-file)
     shift
-    SCRATCH_HOME="$1" ;;
-  --rsync-exclude)
-    shift
-    EXCLUDE_ARGS+=("$1") ;;
+    METAPARAMETERS_FILE="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -38,56 +41,26 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-# Set positional arguments
-set -- "${EXTRA_ARGS[@]}"
-
-echo "Launching task: $TASK_SCRIPT"
-
-ACTIVE_DIR="$SCRATCH_HOME/active_$GPU_ID"
-
-CONTAINER_EXEC="$SCRATCH_HOME/$CONTAINER_NAME"
-RESULT_DIR=$SCRATCH_HOME/results
-SCRATCH_DIR="$SCRATCH_HOME/container-scratch_$GPU_ID"
-
-MODEL="$(basename "$dir")"
-
-export SINGULARITYENV_CUDA_VISIBLE_DEVICES=$GPU_ID
-
-mkdir -p "$RESULT_DIR"
-mkdir -p "$SCRATCH_DIR"
-
-# create the active dir
-mkdir -p "$ACTIVE_DIR"
-
-# clean up scratch directory prior to running each model
-rm -rf "${SCRATCH_DIR:?}"/*
-# pre-preemptively clean up the active directory
-rm -rf "${ACTIVE_DIR:?}"/*
-
-
-# Gather exclude arguments
-
-RSYNC_EXCLUDES=""
-for i in "${EXCLUDE_ARGS[@]}"
-do
-  RSYNC_EXCLUDES+=" --exclude=${i}"
-done
-
-# Copy model to the active folder to obscure its name
-rsync -ar --prune-empty-dirs --delete $RSYNC_EXCLUDES $dir/* $ACTIVE_DIR
-
-# Create copy of reduced_config.json so we have both reduced-config.json and config.json
-if [ -f "$ACTIVE_DIR/reduced-config.json" ]; then
-  cp "$ACTIVE_DIR/reduced-config.json" $ACTIVE_DIR/"config.json"
+if [ -z "${METAPARAMETERS_FILE}" ]; then
+  METAPARAMETERS_FILE=/metaparameters.json
 fi
 
+METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
+LEARNED_PARAMETERS_DIR=/learned_parameters
 
-
-echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Starting execution of $dir" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-/usr/bin/time -f "execution_time %e" -o "$RESULT_DIR"/"$MODEL"-walltime.txt "$TASK_SCRIPT" --result-dir "$RESULT_DIR" --scratch-dir "$SCRATCH_DIR" --container-exec "$CONTAINER_EXEC" --active-dir "$ACTIVE_DIR" --container-name "$CONTAINER_NAME" "$@"
-echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Finished executing $dir, returned status code: $?"
-
-# copy result back to real output filename based on model name
-if [[ -f "$ACTIVE_DIR"/result.txt ]]; then
-	cp "$ACTIVE_DIR"/result.txt  "$RESULT_DIR"/"$MODEL".txt
+if [ -z "${SOURCE_DATA_DIR-}" ]; then
+  singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
+    --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
+    "$CONTAINER_EXEC" --model_filepath "$ACTIVE_DIR"/model.pt --result_filepath "$ACTIVE_DIR"/result.txt \
+    --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
+    --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
+    --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+else
+  singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
+    --bind "$SOURCE_DATA_DIR":"$SOURCE_DATA_DIR":ro --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
+    "$CONTAINER_EXEC" --model_filepath "$ACTIVE_DIR"/model.pt --result_filepath "$ACTIVE_DIR"/result.txt \
+    --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
+    --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
+    --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" \
+    --source_dataset_dirpath "$SOURCE_DATA_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
 fi

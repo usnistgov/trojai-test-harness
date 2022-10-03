@@ -3,7 +3,7 @@ import numpy as np
 import sklearn.metrics
 
 
-from actor_executor import metrics
+from leaderboards import metrics
 
 
 def process_results(output_directory, results_directory, ground_truth_directory, team_name):
