@@ -220,13 +220,25 @@ class ActorManager(object):
 
         return actors[0]
 
+    def get_from_name(self, actor_name) -> Actor:
+        actors = []
+        for actor in self.actors.values():
+            if actor.name == actor_name:
+                actors.append(actor)
 
-    def get_from_uuid(self, uuid) ->Actor:
+        if len(actors) == 0:
+            raise RuntimeError('Unable to find actor name in ActorManager: {}'.format(actor_name))
+
+        if len(actors) > 1:
+            raise RuntimeError('Multiple actors share the sasme name in ActorManager: {}'.format(actor_name))
+
+        return actors[0]
+
+    def get_from_uuid(self, uuid) -> Actor:
         if str(uuid) in self.actors.keys():
             return self.actors[str(uuid)]
         else:
             raise RuntimeError('Invalid uuid key {}, not found in actor manager'.format(uuid))
-
 
     def save_json(self, trojai_config: TrojaiConfig) -> None:
         json_io.write(trojai_config.actors_filepath, self)
