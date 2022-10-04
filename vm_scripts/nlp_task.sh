@@ -12,6 +12,9 @@ while [[ $# -gt 0 ]]; do
   --result-dir)
     shift
     RESULT_DIR="$1" ;;
+  --result-name)
+    shift
+    RESULT_NAME="$1" ;;
   --scratch-dir)
     shift
     SCRATCH_DIR="$1" ;;
@@ -44,7 +47,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-if [ -z "${METAPARAMETERS_FILE}" ]; then
+if [ -z "${METAPARAMETERS_FILE-}" ]; then
   METAPARAMETERS_FILE=/metaparameters.json
 fi
 METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
@@ -72,4 +75,11 @@ else
     --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
     --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR \
     --source_dataset_dirpath $SOURCE_DATA_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+fi
+
+# If RESULT_NAME is defined
+if [ -n "${RESULT_NAME-}" ]; then
+  if [[ -f "$ACTIVE_DIR"/result.txt ]]; then
+    cp "$ACTIVE_DIR"/result.txt "$RESULT_DIR/$RESULT_NAME"
+  fi
 fi

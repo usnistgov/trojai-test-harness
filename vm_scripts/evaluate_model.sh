@@ -77,7 +77,7 @@ done
 rsync -ar --prune-empty-dirs --delete $RSYNC_EXCLUDES $dir/* $ACTIVE_DIR
 
 # Create copy of reduced_config.json so we have both reduced-config.json and config.json
-if [ -f "$ACTIVE_DIR/reduced-config.json" ]; then
+if [[ -f "$ACTIVE_DIR/reduced-config.json" ]]; then
   cp "$ACTIVE_DIR/reduced-config.json" $ACTIVE_DIR/"config.json"
 fi
 
