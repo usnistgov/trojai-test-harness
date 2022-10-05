@@ -7,7 +7,7 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 EXCLUDE_ARGS=()
 EXTRA_ARGS=()
-#echo "evaluate model" "$@"
+ALL_ARGS=$@
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --model-dir)
@@ -40,12 +40,21 @@ while [[ $# -gt 0 ]]; do
   --metaparam-file)
     shift
     METAPARAMETERS_FILE="$1" ;;
+  --script-debug)
+    SCRIPT_DEBUG=1 ;;
+  --submission-filepath)
+    shift
+    SUBMISSION_FILE="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
   # Expose next argument
   shift
 done
+
+if [ ! -z ${SCRIPT_DEBUG} ]; then
+  echo "evaluate model $ALL_ARGS"
+fi
 
 # Set positional arguments
 set -- "${EXTRA_ARGS[@]}"
@@ -86,6 +95,17 @@ rsync -ar --prune-empty-dirs --delete $RSYNC_EXCLUDES $MODEL_DIR/* $ACTIVE_DIR
 # Create copy of reduced_config.json so we have both reduced-config.json and config.json
 if [[ -f "$ACTIVE_DIR/reduced-config.json" ]]; then
   cp "$ACTIVE_DIR/reduced-config.json" $ACTIVE_DIR/"config.json"
+fi
+
+# If the container exec does not exist, then we copy from submission_file (useful for local execution only)
+if [[ ! -f "$CONTAINER_EXEC" ]]; then
+  # Check if submission file is undefined, if it is let us know
+  if [ -z "${SUBMISSION_FILE}" ]; then
+    echo "Unable to copy to container execution, submission file was not passed into command-line"
+  else
+    # Copy the submission file into the container executable
+    cp "$SUBMISSION_FILE" "$CONTAINER_EXEC"
+  fi
 fi
 
 # Copy metaparameters file if one is specified

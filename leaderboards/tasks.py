@@ -272,7 +272,7 @@ class Task(object):
 
         return errors
 
-    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None):
+    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -296,8 +296,8 @@ class Task(object):
         else:
             params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
 
-        params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids))
-        params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch))
+        params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids, custom_result_dirpath))
+        params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_result_dirpath))
 
         logging.debug('Launching with params {}'.format(' '.join(params)))
 
@@ -319,7 +319,7 @@ class Task(object):
 
         return errors
 
-    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list):
+    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -338,11 +338,14 @@ class Task(object):
 
         submission_name = os.path.basename(submission_filepath)
         remote_submission_filepath = os.path.join(remote_scratch, submission_name)
+
         task_script_filepath = os.path.join(remote_home, os.path.basename(self.task_script_filepath))
         evaluate_model_script_filepath = os.path.join(remote_home, os.path.basename(self.evaluate_model_filepath))
 
         result_dirpath = os.path.join(remote_scratch, 'results')
 
+        if custom_result_dirpath is not None:
+            result_dirpath = custom_result_dirpath
 
         args = ['--evaluate-model-filepath', evaluate_model_script_filepath, '--model-dir', remote_models_dirpath, '--container-path', '{}'.format(remote_submission_filepath), '--task-script',
                 task_script_filepath, '--training-dir', remote_training_dataset_dirpath, '--remote-home', remote_home, '--remote-scratch', remote_scratch,
@@ -376,7 +379,7 @@ class Task(object):
 
         return args
 
-    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str):
+    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         return []
 
     def copy_out_results(self, vm_ip, vm_name, result_dirpath, custom_remote_home: str=None, custom_remote_scratch: str=None):
@@ -484,7 +487,7 @@ class NaturalLanguageProcessingTask(Task):
             task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
-    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str):
+    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
             remote_tokenizer_dirpath = self.tokenizers_dirpath
         else:
@@ -499,8 +502,8 @@ class NaturalLanguageProcessingTask(Task):
 
         return super().verify_dataset(leaderboard_name, dataset)
 
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None):
-        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch)
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
 
         # Copy in tokenizers
         copy_dataset_params = ['--copy-links']
