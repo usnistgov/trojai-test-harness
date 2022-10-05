@@ -104,6 +104,7 @@ if [[ ! -f "$CONTAINER_EXEC" ]]; then
     echo "Unable to copy to container execution, submission file was not passed into command-line"
   else
     # Copy the submission file into the container executable
+#    CONTAINER_EXEC=$SCRATCH_HOME/$GPU_ID-container.simg
     cp "$SUBMISSION_FILE" "$CONTAINER_EXEC"
   fi
 fi
