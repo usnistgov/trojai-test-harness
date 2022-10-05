@@ -16,15 +16,21 @@ while [[ $# -gt 0 ]]; do
   --gpu-id)
     shift
     GPU_ID="$1" ;;
-  --container-name)
+  --container-path)
     shift
-    CONTAINER_NAME="$1" ;;
+    CONTAINER_EXEC="$1" ;;
   --task-script)
     shift
     TASK_SCRIPT="$1" ;;
   --remote-home)
     shift
     TROJAI_HOME="$1" ;;
+  --result-dir)
+    shift
+    RESULT_DIR="$1" ;;
+  --result-prefix)
+    shift
+    RESULT_PREFIX="$1" ;;
   --remote-scratch)
     shift
     SCRATCH_HOME="$1" ;;
@@ -45,8 +51,6 @@ echo "Launching task: $TASK_SCRIPT"
 
 ACTIVE_DIR="$SCRATCH_HOME/active_$GPU_ID"
 
-CONTAINER_EXEC="$SCRATCH_HOME/$CONTAINER_NAME"
-RESULT_DIR=$SCRATCH_HOME/results
 SCRATCH_DIR="$SCRATCH_HOME/container-scratch_$GPU_ID"
 
 MODEL="$(basename "$dir")"
@@ -81,13 +85,17 @@ if [[ -f "$ACTIVE_DIR/reduced-config.json" ]]; then
   cp "$ACTIVE_DIR/reduced-config.json" $ACTIVE_DIR/"config.json"
 fi
 
-
-
 echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Starting execution of $dir" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-/usr/bin/time -f "execution_time %e" -o "$RESULT_DIR"/"$MODEL"-walltime.txt "$TASK_SCRIPT" --result-dir "$RESULT_DIR" --scratch-dir "$SCRATCH_DIR" --container-exec "$CONTAINER_EXEC" --active-dir "$ACTIVE_DIR" --container-name "$CONTAINER_NAME" "$@"
+/usr/bin/time -f "execution_time %e" -o "$RESULT_DIR"/"$MODEL"-walltime.txt "$TASK_SCRIPT" --result-dir "$RESULT_DIR" --scratch-dir "$SCRATCH_DIR" --container-exec "$CONTAINER_EXEC" --active-dir "$ACTIVE_DIR" "$@"
 echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Finished executing $dir, returned status code: $?"
 
 # copy result back to real output filename based on model name
 if [[ -f "$ACTIVE_DIR"/result.txt ]]; then
-	cp "$ACTIVE_DIR"/result.txt  "$RESULT_DIR"/"$MODEL".txt
+  # If there is no prefix, then normal model name
+  if [[ -z "${RESULT_PREFIX-}" ]]; then
+	cp "$ACTIVE_DIR"/result.txt  "${RESULT_DIR}/${MODEL}".txt
+  else
+    # if there is a prefix add it to the model
+    cp "$ACTIVE_DIR"/result.txt  "${RESULT_DIR}/${RESULT_PREFIX}${MODEL}".txt
+  fi
 fi

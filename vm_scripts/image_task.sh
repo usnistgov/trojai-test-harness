@@ -13,9 +13,6 @@ while [[ $# -gt 0 ]]; do
   --result-dir)
     shift
     RESULT_DIR="$1" ;;
-  --result-name)
-    shift
-    RESULT_NAME="$1" ;;
   --scratch-dir)
     shift
     SCRATCH_DIR="$1" ;;
@@ -25,9 +22,6 @@ while [[ $# -gt 0 ]]; do
   --active-dir)
     shift
     ACTIVE_DIR="$1" ;;
-  --container-name)
-    shift
-    CONTAINER_NAME="$1" ;;
   --training-dir)
     shift
     ROUND_TRAINING_DATASET_DIR="$1" ;;
@@ -51,13 +45,15 @@ fi
 METAPARAMETERS_SCHEMA_FILE=/metaparameters_schema.json
 LEARNED_PARAMETERS_DIR=/learned_parameters
 
+CONTAINER_NAME="$(basename "$CONTAINER_EXEC")"
+
 if [ -z "${SOURCE_DATA_DIR-}" ]; then
   singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
     --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
     "$CONTAINER_EXEC" --model_filepath "$ACTIVE_DIR"/model.pt --result_filepath "$ACTIVE_DIR"/result.txt \
     --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
     --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
-    --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+    --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" >> "${RESULT_DIR}/${CONTAINER_NAME}.out" 2>&1
 else
   singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
     --bind "$SOURCE_DATA_DIR":"$SOURCE_DATA_DIR":ro --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
@@ -65,12 +61,5 @@ else
     --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
     --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
     --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" \
-    --source_dataset_dirpath "$SOURCE_DATA_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-fi
-
-# If RESULT_NAME is defined
-if [ -n "${RESULT_NAME-}" ]; then
-  if [[ -f "$ACTIVE_DIR"/result.txt ]]; then
-    cp "$ACTIVE_DIR"/result.txt "$RESULT_DIR/$RESULT_NAME"
-  fi
+    --source_dataset_dirpath "$SOURCE_DATA_DIR" >> "${RESULT_DIR}/${CONTAINER_NAME}.out" 2>&1
 fi

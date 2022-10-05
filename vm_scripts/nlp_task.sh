@@ -12,9 +12,6 @@ while [[ $# -gt 0 ]]; do
   --result-dir)
     shift
     RESULT_DIR="$1" ;;
-  --result-name)
-    shift
-    RESULT_NAME="$1" ;;
   --scratch-dir)
     shift
     SCRATCH_DIR="$1" ;;
@@ -24,9 +21,6 @@ while [[ $# -gt 0 ]]; do
   --active-dir)
     shift
     ACTIVE_DIR="$1" ;;
-  --container-name)
-    shift
-    CONTAINER_NAME="$1" ;;
   --training-dir)
     shift
     ROUND_TRAINING_DATASET_DIR="$1" ;;
@@ -46,6 +40,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+CONTAINER_NAME="$(basename "$CONTAINER_EXEC")"
 
 if [ -z "${METAPARAMETERS_FILE-}" ]; then
   METAPARAMETERS_FILE=/metaparameters.json
@@ -59,6 +54,7 @@ MODEL_ARCHITECTURE=`cat $ACTIVE_DIR/config.json | python3 -c "import sys, json; 
 
 #TOKENIZER_FILEPATH=$TOKENIZER_DIR/$TOKENIZER_FILENAME
 TOKENIZER_FILEPATH=$TOKENIZER_DIR/"$MODEL_ARCHITECTURE".pt
+
 
 if [ -z "${SOURCE_DATA_DIR-}" ]; then
   singularity run --contain --bind $ACTIVE_DIR --bind $SCRATCH_DIR --bind $TOKENIZER_DIR:$TOKENIZER_DIR:ro \
@@ -75,11 +71,4 @@ else
     --round_training_dataset_dirpath $ROUND_TRAINING_DATASET_DIR --metaparameters_filepath $METAPARAMETERS_FILE \
     --schema_filepath $METAPARAMETERS_SCHEMA_FILE --learned_parameters_dirpath $LEARNED_PARAMETERS_DIR \
     --source_dataset_dirpath $SOURCE_DATA_DIR >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-fi
-
-# If RESULT_NAME is defined
-if [ -n "${RESULT_NAME-}" ]; then
-  if [[ -f "$ACTIVE_DIR"/result.txt ]]; then
-    cp "$ACTIVE_DIR"/result.txt "$RESULT_DIR/$RESULT_NAME"
-  fi
 fi

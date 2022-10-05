@@ -335,12 +335,16 @@ class Task(object):
             remote_training_dataset_dirpath = os.path.join(self.remote_dataset_dirpath, training_dataset.dataset_name)
 
         submission_name = os.path.basename(submission_filepath)
+        remote_submission_filepath = os.path.join(remote_scratch, submission_name)
         task_script_filepath = os.path.join(remote_home, os.path.basename(self.task_script_filepath))
         evaluate_model_script_filepath = os.path.join(remote_home, os.path.basename(self.evaluate_model_filepath))
 
+        result_dirpath = os.path.join(remote_scratch, 'results')
 
-        args = ['--evaluate-model-filepath', evaluate_model_script_filepath, '--model-dir', remote_models_dirpath, '--container-name', '{}'.format(submission_name), '--task-script',
-                task_script_filepath, '--training-dir', remote_training_dataset_dirpath, '--remote-home', remote_home, '--remote-scratch', remote_scratch]
+
+        args = ['--evaluate-model-filepath', evaluate_model_script_filepath, '--model-dir', remote_models_dirpath, '--container-path', '{}'.format(remote_submission_filepath), '--task-script',
+                task_script_filepath, '--training-dir', remote_training_dataset_dirpath, '--remote-home', remote_home, '--remote-scratch', remote_scratch,
+                '--result-dir', result_dirpath]
 
         # Add excluded files into list
         for excluded_file in dataset.excluded_files:
