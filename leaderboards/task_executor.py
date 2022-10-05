@@ -4,6 +4,7 @@ from leaderboards.mail_io import TrojaiMail
 from leaderboards.drive_io import DriveIO
 from leaderboards import json_io
 from leaderboards import hash_utils
+from leaderboards.tasks import Task
 import time
 import logging
 import traceback
@@ -34,8 +35,8 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     info_file = os.path.join(result_dirpath, 'info.json')
 
     try:
-        if vm_name == 'local':
-            vm_ip = 'local'
+        if vm_name == Task.LOCAL_VM_IP:
+            vm_ip = Task.LOCAL_VM_IP
         else:
             vm_ip = trojai_config.vms[vm_name]
     except:
@@ -49,7 +50,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
 
     custom_remote_scratch_with_job_id = None
 
-    if vm_ip == 'local':
+    if vm_ip == Task.LOCAL_VM_IP:
         custom_remote_scratch_with_job_id = os.path.join(custom_remote_scratch, job_id)
 
     task = leaderboard.task
@@ -115,7 +116,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     task.package_results(result_dirpath, info_dict)
 
     # delete job ID scratch
-    if vm_ip == 'local':
+    if vm_ip == Task.LOCAL_VM_IP:
         if os.path.exists(custom_remote_scratch_with_job_id):
             os.rmdir(custom_remote_scratch_with_job_id)
 

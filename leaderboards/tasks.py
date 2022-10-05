@@ -13,7 +13,7 @@ from leaderboards.trojai_config import TrojaiConfig
 
 
 def check_gpu(host):
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         child = subprocess.Popen(['nvidia-smi'])
     else:
         child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'nvidia-smi'])
@@ -36,7 +36,7 @@ def cleanup_scratch(host, remote_scratch):
         logging.error('Failed to cleanup scratch, errors with passing path: {}, it must not be an empty string'.format(remote_scratch))
         return -1
 
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         all_files = glob.glob('{}/*'.format(remote_scratch))
         child = subprocess.Popen(['rm', '-rf'] + all_files)
     else:
@@ -44,7 +44,7 @@ def cleanup_scratch(host, remote_scratch):
     return child.wait()
 
 def create_directory_on_vm(host, dirpath: str):
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         params = ['mkdir', '-p', dirpath]
     else:
         params = ['ssh', '-q', 'trojai@' + host, 'mkdir', '-p', dirpath]
@@ -53,13 +53,13 @@ def create_directory_on_vm(host, dirpath: str):
 
 def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], remote_params = []):
     params = []
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         params.extend(['rsync'])
     else:
         params.extend(['rsync', '-e', 'ssh -q'])
 
     params.extend(source_params)
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         params.extend([source_filepath, remote_path])
     else:
         params.extend([source_filepath, 'trojai@' + host + ':\"' + remote_path + '\"'])
@@ -74,13 +74,13 @@ def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], rem
 
 def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], remote_params = []):
     params = []
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         params.extend(['rsync', '-ar', '--prune-empty-dirs', '--delete'])
     else:
         params.extend(['rsync', '-ar', '-e', 'ssh -q', '--prune-empty-dirs', '--delete'])
     params.extend(source_params)
 
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         params.extend([source_dirpath, '\"' + remote_dirpath + '\"'])
     else:
         params.extend([source_dirpath, 'trojai@' + host + ':\"' + remote_dirpath + '\"'])
@@ -95,7 +95,7 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
 
 def scp_dir_from_vm(host, remote_dirpath, local_dirpath):
     logging.debug('remote: {} to {}'.format(remote_dirpath, local_dirpath))
-    if host == 'local':
+    if host == Task.LOCAL_VM_IP:
         cmd = ['cp', '-r'] + glob.glob('{}/*'.format(remote_dirpath)) + [local_dirpath]
         logging.debug(' '.join(cmd))
         child = subprocess.Popen(cmd)
@@ -118,6 +118,8 @@ def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
 
 
 class Task(object):
+    LOCAL_VM_IP = 'local'
+
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath: str, evaluate_models_filepath: str = None,
                  evaluate_model_filepath: str = None, remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
         self.evaluate_models_filepath = evaluate_models_filepath
@@ -242,7 +244,7 @@ class Task(object):
             errors += check_subprocess_error(sc, ':Copy in (custom_metaparam):', '{} submission copy in may have failed'.format(vm_name),  send_mail=False, subject='{} submission copy failed'.format(vm_name))
 
         # Copy in datasets
-        if vm_ip != 'local':
+        if vm_ip != Task.LOCAL_VM_IP:
             dataset_dirpath = dataset.dataset_dirpath
             source_dataset_dirpath = dataset.source_dataset_dirpath
             remote_dataset_dirpath = self.remote_dataset_dirpath
@@ -289,7 +291,7 @@ class Task(object):
 
         # First two parameters must be MODEL_DIR, CONTAINER_NAME, TASK SCRIPT FILEPATH, and round training dataset dirpath all remaining will be passed onto task-specific script
 
-        if vm_ip == 'local':
+        if vm_ip == Task.LOCAL_VM_IP:
             params = ['timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
         else:
             params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
@@ -327,7 +329,7 @@ class Task(object):
         if custom_remote_scratch is not None:
             remote_scratch = custom_remote_scratch
 
-        if vm_ip == 'local':
+        if vm_ip == Task.LOCAL_VM_IP:
             remote_models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
             remote_training_dataset_dirpath = training_dataset.dataset_dirpath
         else:
@@ -364,7 +366,7 @@ class Task(object):
             pass
 
         if dataset.source_dataset_dirpath is not None:
-            if vm_ip == 'local':
+            if vm_ip == Task.LOCAL_VM_IP:
                 remote_source_data_dirpath = dataset.source_dataset_dirpath
                 pass
             else:
@@ -483,7 +485,7 @@ class NaturalLanguageProcessingTask(Task):
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str):
-        if vm_ip == 'local':
+        if vm_ip == Task.LOCAL_VM_IP:
             remote_tokenizer_dirpath = self.tokenizers_dirpath
         else:
             tokenizer_dirname = os.path.basename(self.tokenizers_dirpath)
