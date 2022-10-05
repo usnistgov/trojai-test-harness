@@ -12,7 +12,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --model-dir)
     shift
-    dir="$1" ;;
+    MODEL_DIR="$1" ;;
   --gpu-id)
     shift
     GPU_ID="$1" ;;
@@ -37,6 +37,9 @@ while [[ $# -gt 0 ]]; do
   --rsync-exclude)
     shift
     EXCLUDE_ARGS+=("$1") ;;
+  --metaparam-file)
+    shift
+    METAPARAMETERS_FILE="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -53,7 +56,7 @@ ACTIVE_DIR="$SCRATCH_HOME/active_$GPU_ID"
 
 SCRATCH_DIR="$SCRATCH_HOME/container-scratch_$GPU_ID"
 
-MODEL="$(basename "$dir")"
+MODEL="$(basename "$MODEL_DIR")"
 
 export SINGULARITYENV_CUDA_VISIBLE_DEVICES=$GPU_ID
 
@@ -78,16 +81,29 @@ do
 done
 
 # Copy model to the active folder to obscure its name
-rsync -ar --prune-empty-dirs --delete $RSYNC_EXCLUDES $dir/* $ACTIVE_DIR
+rsync -ar --prune-empty-dirs --delete $RSYNC_EXCLUDES $MODEL_DIR/* $ACTIVE_DIR
 
 # Create copy of reduced_config.json so we have both reduced-config.json and config.json
 if [[ -f "$ACTIVE_DIR/reduced-config.json" ]]; then
   cp "$ACTIVE_DIR/reduced-config.json" $ACTIVE_DIR/"config.json"
 fi
 
-echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Starting execution of $dir" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
-/usr/bin/time -f "execution_time %e" -o "$RESULT_DIR"/"$MODEL"-walltime.txt "$TASK_SCRIPT" --result-dir "$RESULT_DIR" --scratch-dir "$SCRATCH_DIR" --container-exec "$CONTAINER_EXEC" --active-dir "$ACTIVE_DIR" "$@"
-echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Finished executing $dir, returned status code: $?"
+# Copy metaparameters file if one is specified
+if [ -z "${METAPARAMETERS_FILE-}" ]; then
+  METAPARAMETERS_FILE=/metaparameters.json
+else
+  cp "$METAPARAMETERS_FILE" "$ACTIVE_DIR/metaparameters.json"
+  METAPARAMETERS_FILE="$ACTIVE_DIR/metaparameters.json"
+
+fi
+
+echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Starting execution of $MODEL_DIR" >> "$RESULT_DIR/$CONTAINER_NAME.out" 2>&1
+if [[ -z "${RESULT_PREFIX-}" ]]; then
+  /usr/bin/time -f "execution_time %e" -o "$RESULT_DIR"/"$MODEL"-walltime.txt "$TASK_SCRIPT" --result-dir "$RESULT_DIR" --scratch-dir "$SCRATCH_DIR" --container-exec "$CONTAINER_EXEC" --active-dir "$ACTIVE_DIR" --metaparam-file "$METAPARAMETERS_FILE" "$@"
+else
+  /usr/bin/time -f "execution_time %e" -o "${RESULT_DIR}/${RESULT_PREFIX}${MODEL}"-walltime.txt "$TASK_SCRIPT" --result-dir "$RESULT_DIR" --scratch-dir "$SCRATCH_DIR" --container-exec "$CONTAINER_EXEC" --active-dir "$ACTIVE_DIR" --metaparam-file "$METAPARAMETERS_FILE" "$@"
+fi
+echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] [evaluate_model.sh] Finished executing $MODEL_DIR, returned status code: $?"
 
 # copy result back to real output filename based on model name
 if [[ -f "$ACTIVE_DIR"/result.txt ]]; then

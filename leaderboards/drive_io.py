@@ -18,12 +18,6 @@ socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
 
 from leaderboards.google_drive_file import GoogleDriveFile
 
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
-from googleapiclient.http import MediaIoBaseDownload
-from googleapiclient.http import MediaFileUpload
-from googleapiclient.errors import HttpError
-
 # Limit logging from Drive API
 logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
 logging.getLogger('google_auth_oauthlib.flow').setLevel(logging.WARNING)
@@ -43,6 +37,9 @@ class DriveIO(object):
         self.__get_service(self.token_pickle_filepath)
 
     def __get_service(self, token_pickle_filepath):
+        from googleapiclient.discovery import build
+        from google.auth.transport.requests import Request
+
         logging.debug('Starting connection to Google Drive.')
         creds = None
         try:
@@ -88,6 +85,8 @@ class DriveIO(object):
             raise
 
     def __query_worker(self, query: str) -> List[GoogleDriveFile]:
+        from googleapiclient.errors import HttpError
+
         # https://developers.google.com/drive/api/v3/search-files
         # https://developers.google.com/drive/api/v3/reference/query-ref
         try:
@@ -148,6 +147,9 @@ class DriveIO(object):
         return file_list
 
     def download(self, g_file: GoogleDriveFile, output_dirpath: str) -> None:
+        from googleapiclient.http import MediaIoBaseDownload
+        from googleapiclient.errors import HttpError
+
         retry_count = 0
         logging.info('Downloading file: "{}" from Drive'.format(g_file))
         while True:
@@ -174,6 +176,9 @@ class DriveIO(object):
                 raise
 
     def upload(self, file_path: str) -> str:
+        from googleapiclient.http import MediaFileUpload
+        from googleapiclient.errors import HttpError
+
         _, file_name = os.path.split(file_path)
         logging.info('Uploading file: "{}" to Drive'.format(file_name))
         m_type = mimetypes.guess_type(file_name)[0]
