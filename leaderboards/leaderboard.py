@@ -98,6 +98,13 @@ class Leaderboard(object):
         self.initialize_directories()
         self.generate_metadata_csv()
 
+    def load_summary_results_csv_into_df(self):
+        if os.path.exists(self.summary_results_csv_filepath):
+            return pd.read_csv(self.summary_results_csv_filepath)
+        else:
+            logging.error('Unable to find summary results metadata_csv at location: {}'.format(self.summary_results_csv_filepath))
+            return None
+
     def load_metadata_csv_into_df(self):
         if os.path.exists(self.summary_metadata_csv_filepath):
             return pd.read_csv(self.summary_metadata_csv_filepath)
