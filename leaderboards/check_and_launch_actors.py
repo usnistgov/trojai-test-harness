@@ -185,7 +185,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             continue
 
         active_leaderboards[leaderboard_name] = leaderboard
-        submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+        submission_manager = SubmissionManager.load_json(leaderboard)
         active_submission_managers[leaderboard_name] = submission_manager
         logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
         logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))

@@ -154,7 +154,7 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
                 written_files.extend(leaderboard_filepaths)
 
             for leaderboard in archive_leaderboards:
-                submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+                submission_manager = SubmissionManager.load_json(leaderboard)
                 leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True)
                 written_files.extend(leaderboard_filepaths)
                 # Save submission_manager in case we update metrics

@@ -53,7 +53,7 @@ def build_round_csvs(trojai_config: TrojaiConfig, leaderboard_names: list, outpu
     for leaderboard_name in leaderboard_names:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
         leaderboard.generate_metadata_csv(overwrite_csv)
-        submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+        submission_manager = SubmissionManager.load_json(leaderboard)
         submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv)
 
 

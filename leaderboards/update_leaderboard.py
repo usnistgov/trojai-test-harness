@@ -25,7 +25,7 @@ def main(trojai_config: TrojaiConfig, commit_and_push: bool):
     for leaderboard_name in trojai_config.active_leaderboard_names:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
         active_leaderboards[leaderboard_name] = leaderboard
-        submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+        submission_manager = SubmissionManager.load_json(leaderboard)
         active_submission_managers[leaderboard_name] = submission_manager
 
     for leaderboard_name in trojai_config.archive_leaderboard_names:

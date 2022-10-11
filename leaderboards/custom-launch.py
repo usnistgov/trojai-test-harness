@@ -27,7 +27,7 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
          custom_slurm_options: list=[]) -> None:
     actor_manager = ActorManager.load_json(trojai_config)
     container_leaderboard = Leaderboard.load_json(trojai_config, container_leaderboard_name)
-    container_submission_manager = SubmissionManager.load_json(container_leaderboard.submissions_filepath, container_leaderboard_name)
+    container_submission_manager = SubmissionManager.load_json(container_leaderboard)
 
     execution_leaderboard = Leaderboard.load_json(trojai_config, execution_leaderboard_name)
     custom_submission_manager_filepath = os.path.join(os.path.dirname(execution_leaderboard.submissions_filepath), execution_submission_filename)
@@ -58,7 +58,7 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
         submissions = container_submission_manager.gather_submissions(container_leaderboard, container_data_split_name, metric_name, target_metric_value, actor)
         valid_submissions.extend(submissions)
 
-    existing_submission_manager = SubmissionManager.load_json(execution_leaderboard.submissions_filepath, execution_leaderboard_name)
+    existing_submission_manager = SubmissionManager.load_json(execution_leaderboard)
 
     logging.info('Found {} submissions that meet the target metric criteria {} for metric {}'.format(len(valid_submissions), target_metric_value, metric_name))
 

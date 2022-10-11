@@ -19,7 +19,7 @@ def convert_submission(args):
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
     prior_round_submission_manager = json_io.read(args.submission_filepath)
-    current_submission_manager = SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+    current_submission_manager = SubmissionManager.load_json(leaderboard)
 
     data_split_name = args.data_split_name
 
