@@ -486,7 +486,7 @@ class Submission(object):
         submission_filepath = self.get_submission_filepath()
         trojai_config_filepath = trojai_config.trojai_config_filepath
 
-        cpus_per_task = 10
+        cpus_per_task = 30
         if self.slurm_queue_name in trojai_config.vm_cpu_cores_per_partition:
             cpus_per_task = trojai_config.vm_cpu_cores_per_partition[self.slurm_queue_name]
 
