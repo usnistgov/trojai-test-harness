@@ -36,7 +36,7 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
         if os.path.exists(custom_submission_manager_filepath):
             raise RuntimeError('Submission manager: {} already exists, disable exists_okay or specify a new execution submission filename'.format(custom_submission_manager_filepath))
 
-    execution_submission_manager = SubmissionManager.load_json(custom_submission_manager_filepath, execution_leaderboard_name)
+    execution_submission_manager = SubmissionManager.load_json_custom(custom_submission_manager_filepath, execution_leaderboard_name)
 
     logging.info('Starting finding submissions from leaderboard {} for data split {} to execute on leaderboard {} with datasplit {}'.format(container_leaderboard_name, container_data_split_name, execution_leaderboard_name, execution_data_split_name))
 

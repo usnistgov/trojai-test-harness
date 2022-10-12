@@ -690,13 +690,13 @@ class SubmissionManager(object):
             submissions.save_json(filepath)
 
     @staticmethod
-    def load_json(filepath: str, leaderboard_name: str) -> 'SubmissionManager':
+    def load_json_custom(filepath: str, leaderboard_name: str) -> 'SubmissionManager':
         SubmissionManager.init_file(filepath, leaderboard_name)
         return json_io.read(filepath)
 
     @staticmethod
     def load_json(leaderboard: Leaderboard) -> 'SubmissionManager':
-        return SubmissionManager.load_json(leaderboard.submissions_filepath, leaderboard.name)
+        return SubmissionManager.load_json_custom(leaderboard.submissions_filepath, leaderboard.name)
 
     def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str):
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
