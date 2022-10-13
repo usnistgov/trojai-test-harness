@@ -201,25 +201,29 @@ $(document).ready(function () {
                 written_files.append(time_update_filepath)
 
             for slurm_queue in Leaderboard.SLURM_QUEUE_NAMES:
-                allocatedNodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
-                idleNodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
+                allocated_nodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
+                idle_nodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
                 # mixNodes = int(slurm.sinfo_node_query(slurm_queue, "mix"))
                 # drainingNodes = (slurm.sinfo_node_query(slurm_queue, "draining"))
-                runningNodes = allocatedNodes  # "alloc" should include mix and draining
-                downNodes = int(slurm.sinfo_node_query(slurm_queue, "down"))
-                drainedNodes = int(slurm.sinfo_node_query(slurm_queue, "drained"))
+                down_nodes = int(slurm.sinfo_node_query(slurm_queue, "down"))
+                drained_nodes = int(slurm.sinfo_node_query(slurm_queue, "drained"))
 
-                if downNodes > 0:
-                    msg = '{} SLURM Node(s) Down in queue {}'.format(str(downNodes), slurm_queue)
+                if down_nodes > 0:
+                    msg = '{} SLURM Node(s) Down in queue {}'.format(str(down_nodes), slurm_queue)
                     TrojaiMail().send('trojai@nist.gov', msg, msg)
 
-                webDownNodes = downNodes + drainedNodes
+                # A draining node is both "draining" and "alloc"
+                # A drained node is both "drained" and "idle"
+                # A mix node is both "mix" and "alloc"
+                web_idle_nodes = idle_nodes - drained_nodes  # This is only "idle" nodes
+                web_running_nodes = allocated_nodes  # This is "mix", "alloc", and "draining" nodes
+                web_down_nodes = down_nodes + drained_nodes  # This is "down" and "drained" nodes
 
-                acceptingSubmissionsUpdate = """
+                accepting_submissions_update = """
     var """ + slurm_queue + """AcceptingSubmission = """ + str(trojai_config.accepting_submissions).lower() + """;
-    var """ + slurm_queue + """IdleNodes = """ + str(idleNodes) + """;
-    var """ + slurm_queue + """RunningNodes = """ + str(runningNodes) + """;
-    var """ + slurm_queue + """DownNodes = """ + str(webDownNodes) + """;
+    var """ + slurm_queue + """IdleNodes = """ + str(web_idle_nodes) + """;
+    var """ + slurm_queue + """RunningNodes = """ + str(web_running_nodes) + """;
+    var """ + slurm_queue + """DownNodes = """ + str(web_down_nodes) + """;
     
     $(document).ready(function () {
            $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
@@ -232,7 +236,7 @@ $(document).ready(function () {
                 slurm_submission_filepath = os.path.join(html_dirpath, 'js', '{}-submission.js'.format(slurm_queue))
 
                 with open(slurm_submission_filepath, mode='w', encoding='utf-8') as f:
-                    f.write(acceptingSubmissionsUpdate)
+                    f.write(accepting_submissions_update)
                 written_files.append(slurm_submission_filepath)
 
             git = repo.git()
