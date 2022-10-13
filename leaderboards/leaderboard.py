@@ -386,7 +386,6 @@ def generate_summary_results(args):
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
     leaderboard.generate_results_csv(trojai_config)
 
-
 if __name__ == "__main__":
     import argparse
 

@@ -88,7 +88,7 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
         execution_submission_manager.add_submission(actor, new_submission)
 
 
-    execution_submission_manager.save_json(custom_submission_manager_filepath)
+    execution_submission_manager.save_json_custom(custom_submission_manager_filepath)
 
 
 if __name__ == "__main__":

@@ -618,7 +618,7 @@ class Submission(object):
 class SubmissionManager(object):
     def __init__(self, leaderboard_name):
         self.leaderboard_name = leaderboard_name
-        # keyed on email
+        # keyed on uuid
         self.__submissions = dict()
 
     def __str__(self):
@@ -649,6 +649,13 @@ class SubmissionManager(object):
 
         return execution_submissions
 
+    def merge_submissions(self, new_submission_manager: 'SubmissionManager'):
+        for uuid, submissions in new_submission_manager.__submissions.items():
+            if uuid not in self.__submissions.keys():
+                self.__submissions[uuid] = list()
+
+            self.__submissions[uuid].extend(submissions)
+
     def has_active_submission(self, actor: Actor, data_split_name: str):
         submissions = self.get_submissions_by_actor(actor)
         for submission in submissions:
@@ -676,8 +683,11 @@ class SubmissionManager(object):
     def get_number_actors(self) -> int:
         return len(self.__submissions.keys())
 
-    def save_json(self, filepath: str) -> None:
+    def save_json_custom(self, filepath: str) -> None:
         json_io.write(filepath, self)
+
+    def save_json(self, leaderboard: Leaderboard) -> None:
+        self.save_json_custom(leaderboard.submissions_filepath)
 
     @staticmethod
     def init_file(filepath: str, leaderboard_name: str) -> None:
@@ -687,7 +697,7 @@ class SubmissionManager(object):
                 os.makedirs(os.path.dirname(filepath))
 
             submissions = SubmissionManager(leaderboard_name)
-            submissions.save_json(filepath)
+            submissions.save_json_custom(filepath)
 
     @staticmethod
     def load_json_custom(filepath: str, leaderboard_name: str) -> 'SubmissionManager':
@@ -866,3 +876,28 @@ class SubmissionManager(object):
         print('Finished writing round results to {}'.format(leaderboard.summary_results_csv_filepath))
 
         return result_df
+
+def merge_submissions(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    new_submission_manager = SubmissionManager.load_json_custom(args.new_submissions_filepath, leaderboard.name)
+    submission_manager = SubmissionManager.load_json(leaderboard)
+    submission_manager.merge_submissions(new_submission_manager)
+    submission_manager.save_json(leaderboard)
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Runs leaderboards commands')
+    parser.set_defaults(func=lambda args: parser.print_help())
+
+    subparser = parser.add_subparsers(dest='cmd', required=True)
+
+    merge_submissions_parser = subparser.add_parser('merge-submissions')
+    merge_submissions_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    merge_submissions_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    merge_submissions_parser.add_argument('--new-submissions-filepath', type=str, help='The filepath to the new submissions to merge into the leaderboard', required=True)
+    merge_submissions_parser.set_defaults(func=merge_submissions)
+
+    args = parser.parse_args()
+    args.func(args)

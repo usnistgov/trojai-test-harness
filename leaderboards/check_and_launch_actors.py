@@ -225,7 +225,7 @@ def main(trojai_config: TrojaiConfig) -> None:
     # Should only have to save the submission manager. Leaderboard should be static
     for leaderboard_name, submission_manager in active_submission_managers.items():
         leaderboard = active_leaderboards[leaderboard_name]
-        submission_manager.save_json(leaderboard.submissions_filepath)
+        submission_manager.save_json(leaderboard)
 
 
 

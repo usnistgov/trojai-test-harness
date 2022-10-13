@@ -109,7 +109,7 @@ def convert_submission(args):
                 else:
                     print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
 
-    current_submission_manager.save_json(leaderboard.submissions_filepath)
+    current_submission_manager.save_json(leaderboard)
 
 
 

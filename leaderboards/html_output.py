@@ -158,7 +158,7 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
                 leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True)
                 written_files.extend(leaderboard_filepaths)
                 # Save submission_manager in case we update metrics
-                submission_manager.save_json(leaderboard.submissions_filepath)
+                submission_manager.save_json(leaderboard)
 
             table_javascript_filepath = os.path.join(trojai_config.html_repo_dirpath, 'js', 'trojai-table-init.js')
 
