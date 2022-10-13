@@ -882,8 +882,14 @@ def merge_submissions(args):
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
     new_submission_manager = SubmissionManager.load_json_custom(args.new_submissions_filepath, leaderboard.name)
     submission_manager = SubmissionManager.load_json(leaderboard)
+
+    num_submissions_prior = submission_manager.get_number_submissions()
+
     submission_manager.merge_submissions(new_submission_manager)
     submission_manager.save_json(leaderboard)
+
+    submissions_after_merge = submission_manager.get_number_submissions()
+    print('Finished merging, new submissions added: {}'.format(submissions_after_merge-num_submissions_prior))
 
 if __name__ == "__main__":
     import argparse
