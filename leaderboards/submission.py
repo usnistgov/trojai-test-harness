@@ -252,6 +252,9 @@ class Submission(object):
 
         container_output_filename = self.g_file.name + '.out'
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
+        updated_container_output_filename = '{}.{}'.format(actor.name, container_output_filename)
+        updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
+        os.rename(container_output_filepath, updated_container_output_filepath)
 
         # truncate log file to N bytes
         fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
@@ -378,15 +381,15 @@ class Submission(object):
 
         # upload container output for sts split only
         try:
-            if self.data_split_name == 'sts':
-                if os.path.exists(container_output_filepath):
-                    g_drive.upload_and_share(container_output_filepath, actor.email)
+            if self.data_split_name == 'sts' or self.data_split_name == 'train':
+                if os.path.exists(updated_container_output_filepath):
+                    g_drive.upload_and_share(updated_container_output_filepath, actor.email)
                 else:
-                    logging.error('Failed to find container output file: {}'.format(container_output_filepath))
+                    logging.error('Failed to find container output file: {}'.format(updated_container_output_filepath))
                     self.web_display_parse_errors += ':Container File Missing:'
 
         except:
-            logging.error('Unable to upload container output file: {}'.format(container_output_filepath))
+            logging.error('Unable to upload container output file: {}'.format(updated_container_output_filepath))
             self.web_display_parse_errors += ':File Upload(container output):'
 
         # if no errors have been recorded, convert empty string to human readable "None"
@@ -490,7 +493,7 @@ class Submission(object):
         if self.slurm_queue_name in trojai_config.vm_cpu_cores_per_partition:
             cpus_per_task = trojai_config.vm_cpu_cores_per_partition[self.slurm_queue_name]
 
-        self.slurm_output_filename = '{}.{}.log.txt'.format(actor.name, self.data_split_name)
+        self.slurm_output_filename = '{}.{}.{}.log.txt'.format(self.leaderboard_name, actor.name, self.data_split_name)
         slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
