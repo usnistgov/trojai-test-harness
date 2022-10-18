@@ -21,7 +21,7 @@ from leaderboards.metrics import Metric
 
 
 def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container_data_split_name: str,
-         execution_leaderboard_name: str,  execution_data_split_name: str, execution_submission_filename: str,
+         execution_leaderboard_name: str,  execution_data_split_name: str, execution_submission_filepath: str,
          metric_name: str, target_metric_value: float, custom_home:str, custom_scratch:str, python_env_filepath:str, skip_existing_submissions: bool=False, execution_submission_exists_okay=False,
          team_names: list = [], provenance_name: str='custom-launch', slurm_queue_name='heimdall',
          custom_slurm_options: list=[]) -> None:
@@ -30,7 +30,7 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
     container_submission_manager = SubmissionManager.load_json(container_leaderboard)
 
     execution_leaderboard = Leaderboard.load_json(trojai_config, execution_leaderboard_name)
-    custom_submission_manager_filepath = os.path.join(os.path.dirname(execution_leaderboard.submissions_filepath), execution_submission_filename)
+    custom_submission_manager_filepath = execution_submission_filepath #os.path.join(os.path.dirname(execution_leaderboard.submissions_filepath), execution_submission_filename)
 
     if not execution_submission_exists_okay:
         if os.path.exists(custom_submission_manager_filepath):
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument('--execution-leaderboard-name', type=str, help='The name of the leaderboard to execute against, containing the dataset you want to use', required=True)
     parser.add_argument('--execution-data-split-name', type=str, help='The name of the data split within the leaderboard to execute, indicating which dataset to use', required=True)
 
-    parser.add_argument('--execution-submission-filename', type=str, help='The name of the submission file that will be created', default='custom-launch-submissions.json')
+    parser.add_argument('--execution-submission-filepath', type=str, help='The filepath to submission file that will be created', default='./custom-launch-submissions.json')
 
     parser.add_argument('--metric-name', type=str, help='The name of the metric to use, as seen on the leaderboard', default='Cross Entropy')
     parser.add_argument('--target-metric-value', type=float, help='The target value that containers must meet to execute', default='0.5')
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # logging.getLogger().addHandler(logging.StreamHandler())
 
     main(trojai_config, args.container_leaderboard_name, args.container_data_split_name,
-         args.execution_leaderboard_name, args.execution_data_split_name, args.execution_submission_filename,
+         args.execution_leaderboard_name, args.execution_data_split_name, args.execution_submission_filepath,
          args.metric_name, args.target_metric_value, args.custom_home, args.custom_scratch, args.python_filepath, args.skip_existing,
          args.execution_submission_exists_okay, args.team_names, args.provenance_name, args.slurm_partition_name, args.custom_slurm_options)
 
