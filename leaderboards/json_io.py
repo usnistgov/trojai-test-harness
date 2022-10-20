@@ -32,25 +32,22 @@ def write(filepath, obj):
             raise
         finally:
             fcntl.lockf(lfh, fcntl.LOCK_UN)
+            os.remove(lock_file)
 
 
 def read(filepath):
     if not filepath.endswith('.json'):
         raise RuntimeError("Expecting a file ending in '.json'")
-    lock_file = '/var/lock/trojai-json_io-lockfile'
-    with open(lock_file, 'w') as lfh:
-        try:
-            fcntl.lockf(lfh, fcntl.LOCK_EX)
-            with open(filepath, mode='r', encoding='utf-8') as f:
-                obj = jsonpickle.decode(f.read())
-        except json.decoder.JSONDecodeError:
-            logging.error("JSON decode error for file: {}, is it a proper json?".format(filepath))
-            raise
-        except:
-            msg = 'json_io failed reading file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
-            TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
-            raise
-        finally:
-            fcntl.lockf(lfh, fcntl.LOCK_UN)
+
+    try:
+        with open(filepath, mode='r', encoding='utf-8') as f:
+            obj = jsonpickle.decode(f.read())
+    except json.decoder.JSONDecodeError:
+        logging.error("JSON decode error for file: {}, is it a proper json?".format(filepath))
+        raise
+    except:
+        msg = 'json_io failed reading file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
+        TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
+        raise
     return obj
 

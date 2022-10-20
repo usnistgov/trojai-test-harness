@@ -31,7 +31,8 @@ class TrojaiConfig(object):
                               1209600: 'warning-color-dark',
                               float('inf'): 'danger-color-dark text-light'}
 
-        self.send_global_metrics = False
+        self.global_metric_email_addresses = []
+        self.global_metrics_dirpath = os.path.join(trojai_dirpath, 'global_metrics')
 
 
         self.slurm_execute_script_filepath = slurm_execute_script_filepath
@@ -61,6 +62,7 @@ class TrojaiConfig(object):
         os.makedirs(self.results_dirpath, exist_ok=True)
         os.makedirs(self.leaderboard_configs_dirpath, exist_ok=True)
         os.makedirs(self.leaderboard_csvs_dirpath, exist_ok=True)
+        os.makedirs(self.global_metrics_dirpath, exist_ok=True)
 
 
     def __str__(self):

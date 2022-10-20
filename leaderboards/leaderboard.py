@@ -256,7 +256,7 @@ class Leaderboard(object):
         if self.task.verify_dataset(self.name, dataset):
             self.dataset_manager.add_dataset(dataset)
             if generate_metadata_csv:
-                self.generate_metadata_csv()
+                self.generate_metadata_csv(overwrite_csv=True)
             return True
         return False
 
@@ -371,7 +371,7 @@ def add_dataset_to_leaderboard(args):
         slurm_queue_name = args.slurm_queue_name
 
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_dat, generate_metadata_csv=True):
+    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data, generate_metadata_csv=True):
         leaderboard.save_json(trojai_config)
 
         print('Added dataset {} to {}'.format(args.split_name, args.name))
@@ -379,10 +379,10 @@ def add_dataset_to_leaderboard(args):
     print('Failed to add dataset')
 
 
-def generate_summary_results(args):
+def generate_summary_metadata(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    leaderboard.generate_results_csv(trojai_config)
+    leaderboard.generate_metadata_csv(overwrite_csv=True)
 
 if __name__ == "__main__":
     import argparse
@@ -409,10 +409,10 @@ if __name__ == "__main__":
     add_dataset_parser.add_argument('--slurm-nice', type=int, help='The nice value when launching jobs for this dataset (0 is highest priority)', default=0)
     add_dataset_parser.set_defaults(func=add_dataset_to_leaderboard)
 
-    summary_results_parser = subparser.add_parser('generate_summary_results')
+    summary_results_parser = subparser.add_parser('generate_summary_metadata')
     summary_results_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config',required=True)
     summary_results_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
-    summary_results_parser.set_defaults(func=generate_summary_results)
+    summary_results_parser.set_defaults(func=generate_summary_metadata)
 
     args = parser.parse_args()
     args.func(args)
