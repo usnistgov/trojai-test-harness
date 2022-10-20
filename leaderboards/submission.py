@@ -306,12 +306,16 @@ class Submission(object):
                 self.web_display_parse_errors += ":Executed File Update:"
 
             predictions, targets, models = self.get_predictions_targets_models(leaderboard, print_details=True)
+            metadata_df = leaderboard.load_metadata_csv_into_df()
+
+            # Subset data
+            data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
 
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
 
             # Compute metrics
             for metric_name, metric in submission_metrics.items():
-                self.compute_metric(metric, predictions, targets)
+                self.compute_metric(metric, predictions, targets, models, data_split_metadata)
 
             output_files = []
 
@@ -406,10 +410,10 @@ class Submission(object):
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
-    def compute_metric(self, metric, predictions, targets, store_results=True):
+    def compute_metric(self, metric, predictions, targets, models, metadata_df, store_results=True):
         metric_output_dirpath = os.path.join(self.execution_results_dirpath)
 
-        metric_output = metric.compute(predictions, targets)
+        metric_output = metric.compute(predictions, targets, models, metadata_df)
 
         if store_results:
             if metric.store_result_in_submission:
@@ -588,6 +592,11 @@ class Submission(object):
         if len(self.web_display_parse_errors.strip()) == 0:
             self.web_display_parse_errors = "None"
 
+        metadata_df = leaderboard.load_metadata_csv_into_df()
+
+        # Subset data
+        data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
+
         with a.tr():
             a.td(_t=actor.name)
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
@@ -595,11 +604,11 @@ class Submission(object):
                 if metric.store_result_in_submission:
                     if metric_name not in self.metric_results.keys():
                         predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                        self.compute_metric(metric, predictions, targets)
+                        self.compute_metric(metric, predictions, targets, models, data_split_metadata)
                 if metric.share_with_actor:
                     if metric_name not in self.saved_metric_results.keys():
                         predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                        self.compute_metric(metric, predictions, targets)
+                        self.compute_metric(metric, predictions, targets, models, data_split_metadata)
 
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
@@ -637,6 +646,10 @@ class SubmissionManager(object):
 
         actor_submissions = self.__submissions[actor.uuid]
         submission_metrics = leaderboard.get_submission_metrics(data_split_name)
+        metadata_df = leaderboard.load_metadata_csv_into_df()
+
+        # Subset data
+        data_split_metadata = metadata_df[metadata_df['data_split'] == data_split_name]
 
         for submission in actor_submissions:
             if submission.data_split_name == data_split_name:
@@ -644,7 +657,7 @@ class SubmissionManager(object):
 
                 if metric_name not in submission.metric_results.keys():
                     predictions, targets, models = submission.get_predictions_targets_models(leaderboard, print_details=False)
-                    submission.compute_metric(metric, predictions, targets)
+                    submission.compute_metric(metric, predictions, targets, models, data_split_metadata)
 
                 metric_value = submission.metric_results[metric_name]
                 if metric.compare(metric_value, metric_criteria):
@@ -714,6 +727,11 @@ class SubmissionManager(object):
     def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str):
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
+        metadata_df = leaderboard.load_metadata_csv_into_df()
+
+        # Subset data
+        data_split_metadata = metadata_df[metadata_df['data_split'] == data_split_name]
+
         a = Airium()
 
         valid_submissions = {}
@@ -759,7 +777,7 @@ class SubmissionManager(object):
                                     metric_score = s.metric_results[evaluation_metric_name]
                                 else:
                                     predictions, targets, models = s.get_predictions_targets_models(leaderboard)
-                                    s.compute_metric(metric, predictions, targets)
+                                    s.compute_metric(metric, predictions, targets, models, data_split_metadata)
                                     metric_score = s.metric_results[evaluation_metric_name]
 
                                 if best_submission_score is None or metric.compare(metric_score, best_submission_score):
@@ -829,6 +847,7 @@ class SubmissionManager(object):
         all_dfs = []
 
         default_result = leaderboard.get_default_prediction_result()
+        metadata_df = leaderboard.load_metadata_csv_into_df()
 
         for actor in actor_manager.get_actors():
             submissions = self.get_submissions_by_actor(actor)
@@ -844,9 +863,12 @@ class SubmissionManager(object):
                         predictions_np = np.copy(raw_predictions_np)
                         predictions_np[np.isnan(predictions_np)] = default_result
 
+                        # Subset data
+                        data_split_metadata = metadata_df[metadata_df['data_split'] == data_split]
+
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
-                            metric_output = metric.compute(predictions_np, raw_targets_np)
+                            metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata)
 
                             metadata = metric_output['metadata']
 

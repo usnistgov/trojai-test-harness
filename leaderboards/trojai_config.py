@@ -31,6 +31,9 @@ class TrojaiConfig(object):
                               1209600: 'warning-color-dark',
                               float('inf'): 'danger-color-dark text-light'}
 
+        self.send_global_metrics = False
+
+
         self.slurm_execute_script_filepath = slurm_execute_script_filepath
         if slurm_execute_script_filepath is None:
             file_dirpath = os.path.dirname(os.path.realpath(__file__))

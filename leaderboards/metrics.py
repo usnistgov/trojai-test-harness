@@ -6,7 +6,7 @@
 
 import numpy as np
 from sklearn.metrics import auc
-
+import pandas as pd
 
 import os
 
@@ -23,7 +23,7 @@ class Metric(object):
     def get_name(self):
         raise NotImplementedError()
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame):
         raise NotImplementedError()
 
     def write_data(self, leaderboard_name: str, data_split_name: str, data, output_dirpath):
@@ -40,7 +40,7 @@ class AverageCrossEntropy(Metric):
     def get_name(self):
         return 'Cross Entropy'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
         predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
@@ -68,7 +68,7 @@ class CrossEntropyConfidenceInterval(Metric):
     def get_name(self):
         return 'CE {}% CI'.format(self.level)
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
         predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
@@ -97,7 +97,7 @@ class BrierScore(Metric):
     def get_name(self):
         return 'Brier Score'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
 
@@ -114,7 +114,7 @@ class ROC_AUC(Metric):
     def get_name(self):
         return 'ROC-AUC'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame):
         TP_counts = list()
         TN_counts = list()
         FP_counts = list()
@@ -171,7 +171,7 @@ class ConfusionMatrix(Metric):
     def get_name(self):
         return 'Confusion Matrix'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame):
         TP_counts = list()
         TN_counts = list()
         FP_counts = list()

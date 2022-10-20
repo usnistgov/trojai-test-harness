@@ -94,23 +94,21 @@ class Leaderboard(object):
                         else:
                             self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'asc', 'split_name': split_name}
 
-
         self.initialize_directories()
         self.generate_metadata_csv()
 
     def load_summary_results_csv_into_df(self):
-        if os.path.exists(self.summary_results_csv_filepath):
+        if not os.path.exists(self.summary_results_csv_filepath):
             return pd.read_csv(self.summary_results_csv_filepath)
         else:
-            logging.error('Unable to find summary results metadata_csv at location: {}'.format(self.summary_results_csv_filepath))
+            logging.warning('Unable to find summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.summary_results_csv_filepath))
             return None
 
     def load_metadata_csv_into_df(self):
-        if os.path.exists(self.summary_metadata_csv_filepath):
-            return pd.read_csv(self.summary_metadata_csv_filepath)
-        else:
-            logging.error('Unable to find summary metadata_csv at location: {}'.format(self.summary_metadata_csv_filepath))
-            return None
+        if not os.path.exists(self.summary_metadata_csv_filepath):
+            logging.warning('Unable to find summary metadata_csv at location: {}, generating CSV now.'.format(self.summary_metadata_csv_filepath))
+            self.generate_metadata_csv()
+        return pd.read_csv(self.summary_metadata_csv_filepath)
 
     def generate_metadata_csv(self, overwrite_csv: bool = True):
         all_df_list = []
