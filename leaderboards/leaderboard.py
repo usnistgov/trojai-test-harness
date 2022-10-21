@@ -407,6 +407,7 @@ def generate_summary_metadata(args):
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
     leaderboard.generate_metadata_csv(overwrite_csv=True)
 
+
 def add_metric(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
@@ -486,6 +487,13 @@ if __name__ == "__main__":
     refresh_metrics_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     refresh_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     refresh_metrics_parser.set_defaults(func=refresh_metrics)
+
+    remove_metric_parser = subparser.add_parser('remove-metric', help='Removes metric from leaderboard')
+    remove_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    remove_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    remove_metric_parser.add_argument('--split-name', type=str, help='The dataset split name, it not specified then adds the metric to all split names in the leaderboard', required=False, default=None)
+    remove_metric_parser.add_argument('--metric-name', type=str, choices=Leaderboard.VALID_METRIC_NAMES, help='The name of the metric to add', required=True)
+    remove_metric_parser.set_defaults(func=remove_metric)
 
     args = parser.parse_args()
     args.func(args)
