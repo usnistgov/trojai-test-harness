@@ -287,6 +287,9 @@ class Leaderboard(object):
     def add_metric(self, data_split: str, metric: Metric):
         self.dataset_manager.add_metric(data_split, metric)
 
+    def remove_metric(self, data_split: str, metric_name: str):
+        self.dataset_manager.remove_metric(data_split, metric_name)
+
     def __str__(self):
         msg = 'Leaderboard: (\n'
         for key, value in self.__dict__.items():
@@ -427,6 +430,20 @@ def refresh_metrics(args):
     leaderboard.save_json(trojai_config)
 
     print('Finished refreshing metrics for {}'.format(leaderboard.name))
+
+def remove_metric(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    split_name = args.split_name
+    metric_name = args.metric_name
+
+    leaderboard.add_metric(split_name, metric_name)
+    leaderboard.save_json(trojai_config)
+
+    if split_name is None:
+        split_name = 'All'
+
+    print('Removed metric {} to {} for split: {}'.format(metric_name, leaderboard.name, split_name))
 
 if __name__ == "__main__":
     import argparse

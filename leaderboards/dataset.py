@@ -65,6 +65,12 @@ class Dataset(object):
     def add_metric(self, metric: Metric):
         self.submission_metrics[metric.get_name()] = metric
 
+    def remove_metric(self, metric_name):
+        if metric_name not in self.submission_metrics:
+            print('Failed to remove {}, it does not exist for {}'.format(metric_name, self.split_name))
+        else:
+            del self.submission_metrics[metric_name]
+
     def refresh_metrics(self):
         new_metrics = {}
         for metric in self.submission_metrics.values():
@@ -123,7 +129,8 @@ class DatasetManager(object):
     def add_metric(self, data_split_name, metric: Metric):
         if data_split_name is None:
             for dataset in self.datasets.values():
-                dataset.add_metric(metric)
+                metric_copy = copy.deepcopy(metric)
+                dataset.add_metric(metric_copy)
         else:
             dataset = self.get(data_split_name)
             dataset.add_metric(metric)
@@ -132,6 +139,13 @@ class DatasetManager(object):
         for dataset in self.datasets.values():
             dataset.refresh_metrics()
 
+    def remove_metric(self, data_split_name, metric_name):
+        if data_split_name is None:
+            for dataset in self.datasets.values():
+                dataset.remove_metric(metric_name)
+        else:
+            dataset = self.get(data_split_name)
+            dataset.remove_metric(metric_name)
 
     def has_dataset(self, split_name: str):
         return split_name in self.datasets.keys()
