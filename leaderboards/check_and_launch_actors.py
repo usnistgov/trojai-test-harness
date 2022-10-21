@@ -215,7 +215,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             logging.error(msg)
 
     # Check web-site updates
-    update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=True)
+    update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=trojai_config.commit_and_push_html)
 
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')

@@ -42,6 +42,7 @@ class TrojaiConfig(object):
             self.slurm_execute_script_filepath = os.path.normpath(os.path.join(slurm_scripts_dirpath, 'run_python.sh'))
 
         self.control_slurm_queue_name = control_slurm_queue_name
+        self.commit_and_push_html = True
         self.accepting_submissions = False
         self.active_leaderboard_names = list()
         self.archive_leaderboard_names = list()

@@ -148,7 +148,7 @@ class Submission(object):
             logging.info('squeue does not have status for job name: {}'.format(self.active_slurm_job_name))
             # 1 entries means no state and job name was not found
             # if the job was not found, and this was a previously active submission, the results are ready for processing
-            self.process_results(actor, leaderboard, g_drive, log_file_byte_limit)
+            self.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit)
 
             if leaderboard.is_auto_delete_submission(self.data_split_name):
                 # delete the container file to avoid filling up disk space
@@ -190,7 +190,7 @@ class Submission(object):
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
 
             # attempt to process the result
-            self.process_results(actor, leaderboard, g_drive, log_file_byte_limit)
+            self.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit)
 
             if leaderboard.is_auto_delete_submission(self.data_split_name):
                 # delete the container file to avoid filling up disk space
@@ -244,7 +244,7 @@ class Submission(object):
 
         return results
 
-    def process_results(self, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
+    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
         logging.info("Checking results for {}".format(actor.name))
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
@@ -318,6 +318,7 @@ class Submission(object):
                 self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
 
             output_files = []
+            external_collab_files = []
 
             # Gather metric output files
             for metric_name, metric_filepaths in self.saved_metric_results.items():
@@ -327,6 +328,12 @@ class Submission(object):
                         output_files.extend(metric_filepaths)
                     elif isinstance(metric_filepaths, str):
                         output_files.append(metric_filepaths)
+                if metric.share_with_external:
+                    if isinstance(metric_filepaths, list):
+                        external_collab_files.extend(metric_filepaths)
+                    elif isinstance(metric_filepaths, str):
+                        external_collab_files.append(metric_filepaths)
+
 
             # Share metric output files with actor
             for output_file in output_files:
@@ -342,6 +349,16 @@ class Submission(object):
                     if ":File Upload:" not in self.web_display_parse_errors:
                         self.web_display_parse_errors += ":File Upload:"
 
+            # Share with external collaborators
+            for output_file in external_collab_files:
+                try:
+                    if os.path.exists(output_file):
+                        for collab_email in trojai_config.global_metric_email_addresses:
+                            g_drive.upload_and_share(output_file, collab_email)
+                    else:
+                        logging.error('Unable to upload external collab file: {}'.format(output_file))
+                except:
+                    logging.error('Unable to upload external collab file: {}'.format(output_file))
             # load the runtime info from the vm-executor
             if not os.path.exists(info_filepath):
                 logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
