@@ -62,6 +62,15 @@ class Dataset(object):
             else:
                 self.timeout_time_sec = Dataset.DEFAULT_TIMEOUT_SEC
 
+    def add_metric(self, metric: Metric):
+        self.submission_metrics[metric.get_name()] = metric
+
+    def refresh_metrics(self):
+        new_metrics = {}
+        for metric in self.submission_metrics.values():
+            new_metrics[metric.get_name()] = metric
+        self.submission_metrics = new_metrics
+
     def get_num_models(self):
         model_dirpath = os.path.join(self.dataset_dirpath, Dataset.MODEL_DIRNAME)
         if os.path.exists(model_dirpath):
@@ -110,6 +119,19 @@ class DatasetManager(object):
                 result.append(data_split_name)
 
         return result
+
+    def add_metric(self, data_split_name, metric: Metric):
+        if data_split_name is None:
+            for dataset in self.datasets.values():
+                dataset.add_metric(metric)
+        else:
+            dataset = self.get(data_split_name)
+            dataset.add_metric(metric)
+
+    def refresh_metrics(self):
+        for dataset in self.datasets.values():
+            dataset.refresh_metrics()
+
 
     def has_dataset(self, split_name: str):
         return split_name in self.datasets.keys()

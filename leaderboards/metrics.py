@@ -16,7 +16,10 @@ import os
 
 from leaderboards import fs_utils
 
+
+
 class Metric(object):
+
     def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool, share_with_external: bool):
         self.write_html = write_html
         self.share_with_actor = share_with_actor
@@ -60,13 +63,16 @@ class AverageCrossEntropy(Metric):
         return computed < baseline
 
 class GroupedCrossEntropyViolin(Metric):
-    def __init__(self, write_html:bool = False, share_with_actor:bool = False, store_result_in_submission:bool = False, share_with_external: bool = False, epsilon:float = 1e-12):
+    def __init__(self, write_html:bool = False, share_with_actor:bool = False, store_result_in_submission:bool = False, share_with_external: bool = False, epsilon:float = 1e-12, columns_of_interest: list=None):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
-        self.columns_of_interest = ['all']
+        if columns_of_interest is None:
+            self.columns_of_interest = ['all']
+        else:
+            self.columns_of_interest = columns_of_interest
         self.epsilon = epsilon
 
     def get_name(self):
-        return 'Grouped Cross Entropy Histogram'
+        return 'Grouped Cross Entropy Histogram {}'.format('_'.join(self.columns_of_interest))
 
     def build_model_lists(self, metadata_df: pd.DataFrame) -> dict:
         model_lists = {}

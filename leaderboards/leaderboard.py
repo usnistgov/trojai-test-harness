@@ -26,6 +26,16 @@ class Leaderboard(object):
                         'nlp_ner': NaturalLanguageProcessingNamedEntityRecognition,
                         'nlp_qa': NaturalLanguageProcessingQuestionAnswering}
 
+    VALID_METRIC_NAMES = {
+        'AverageCrossEntropy': AverageCrossEntropy,
+        'GroupedCrossEntropyViolin': GroupedCrossEntropyViolin,
+        'CrossEntropyConfidenceInterval': CrossEntropyConfidenceInterval,
+        'BrierScore': BrierScore,
+        'ROC_AUC': ROC_AUC,
+        'ConfusionMatrix': ConfusionMatrix
+    }
+
+
     DEFAULT_GLOBAL_METRICS = []
 
     GENERAL_SLURM_QUEUE_NAME = 'es'
@@ -271,6 +281,12 @@ class Leaderboard(object):
     def get_task(self) -> Task:
         return self.task
 
+    def refresh_metric_names(self):
+        self.dataset_manager.refresh_metrics()
+
+    def add_metric(self, data_split: str, metric: Metric):
+        self.dataset_manager.add_metric(data_split, metric)
+
     def __str__(self):
         msg = 'Leaderboard: (\n'
         for key, value in self.__dict__.items():
@@ -388,6 +404,30 @@ def generate_summary_metadata(args):
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
     leaderboard.generate_metadata_csv(overwrite_csv=True)
 
+def add_metric(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    split_name = args.split_name
+    metric_name = args.metric_name
+
+    new_metric = Leaderboard.VALID_METRIC_NAMES[metric_name]()
+    leaderboard.add_metric(split_name, new_metric)
+    leaderboard.save_json(trojai_config)
+
+    if split_name is None:
+        split_name = 'All'
+
+    print('Added metric {} to {} for split: {}'.format(metric_name, leaderboard.name, split_name))
+
+
+def refresh_metrics(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    leaderboard.refresh_metric_names()
+    leaderboard.save_json(trojai_config)
+
+    print('Finished refreshing metrics for {}'.format(leaderboard.name))
+
 if __name__ == "__main__":
     import argparse
 
@@ -417,6 +457,19 @@ if __name__ == "__main__":
     summary_results_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config',required=True)
     summary_results_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     summary_results_parser.set_defaults(func=generate_summary_metadata)
+
+    add_metric_parser = subparser.add_parser('add-metric')
+    add_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    add_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    add_metric_parser.add_argument('--split-name', type=str, help='The dataset split name, it not specified then adds the metric to all split names in the leaderboard', required=False, default=None)
+    add_metric_parser.add_argument('--metric-name', type=str, choices=Leaderboard.VALID_METRIC_NAMES, help='The name of the metric to add', required=True)
+    add_metric_parser.set_defaults(func=add_metric)
+
+    refresh_metrics = subparser.add_parser('refresh-metrics', help='Refreshes the metric keys to be representative of the metric name')
+    refresh_metrics.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config',
+                                   required=True)
+    refresh_metrics.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    refresh_metrics.set_defaults(func=refresh_metrics)
 
     args = parser.parse_args()
     args.func(args)
