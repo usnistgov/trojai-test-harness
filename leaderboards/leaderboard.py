@@ -438,7 +438,7 @@ def remove_metric(args):
     split_name = args.split_name
     metric_name = args.metric_name
 
-    leaderboard.add_metric(split_name, metric_name)
+    leaderboard.remove_metric(split_name, metric_name)
     leaderboard.save_json(trojai_config)
 
     if split_name is None:
