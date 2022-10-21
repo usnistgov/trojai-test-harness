@@ -25,7 +25,8 @@ setup(
     'httplib2',
     'sklearn',
     'airium',
-    'pandas'
+    'pandas',
+    'matplotlib'
     ],
     description='Trojai Test Harness'
 )

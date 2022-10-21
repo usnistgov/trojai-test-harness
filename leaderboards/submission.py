@@ -315,7 +315,7 @@ class Submission(object):
 
             # Compute metrics
             for metric_name, metric in submission_metrics.items():
-                self.compute_metric(metric, predictions, targets, models, data_split_metadata)
+                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
 
             output_files = []
 
@@ -410,18 +410,17 @@ class Submission(object):
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
-    def compute_metric(self, metric, predictions, targets, models, metadata_df, store_results=True):
+    def compute_metric(self, actor_name, metric, predictions, targets, models, metadata_df, store_results=True):
         metric_output_dirpath = os.path.join(self.execution_results_dirpath)
 
-        metric_output = metric.compute(predictions, targets, models, metadata_df)
+        metric_output = metric.compute(predictions, targets, models, metadata_df, actor_name, self.leaderboard_name, self.data_split_name, metric_output_dirpath)
 
         if store_results:
             if metric.store_result_in_submission:
                 self.metric_results[metric.get_name()] = metric_output['result']
 
-            result = metric.write_data(self.leaderboard_name, self.data_split_name, metric_output, metric_output_dirpath)
-            if result is not None:
-                self.saved_metric_results[metric.get_name()] = result
+            files = metric_output['files']
+            self.saved_metric_results[metric.get_name()] = files
 
         return metric_output
 
@@ -604,11 +603,11 @@ class Submission(object):
                 if metric.store_result_in_submission:
                     if metric_name not in self.metric_results.keys():
                         predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                        self.compute_metric(metric, predictions, targets, models, data_split_metadata)
+                        self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
                 if metric.share_with_actor:
                     if metric_name not in self.saved_metric_results.keys():
                         predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                        self.compute_metric(metric, predictions, targets, models, data_split_metadata)
+                        self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
 
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
@@ -657,7 +656,7 @@ class SubmissionManager(object):
 
                 if metric_name not in submission.metric_results.keys():
                     predictions, targets, models = submission.get_predictions_targets_models(leaderboard, print_details=False)
-                    submission.compute_metric(metric, predictions, targets, models, data_split_metadata)
+                    submission.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
 
                 metric_value = submission.metric_results[metric_name]
                 if metric.compare(metric_value, metric_criteria):
@@ -769,6 +768,7 @@ class SubmissionManager(object):
                         for actor_uuid, submissions in valid_submissions.items():
                             best_submission_score = None
                             best_submission = None
+                            actor = actor_manager.get_from_uuid(actor_uuid)
                             for s in submissions:
                                 if s.is_active_job():
                                     continue
@@ -777,7 +777,7 @@ class SubmissionManager(object):
                                     metric_score = s.metric_results[evaluation_metric_name]
                                 else:
                                     predictions, targets, models = s.get_predictions_targets_models(leaderboard)
-                                    s.compute_metric(metric, predictions, targets, models, data_split_metadata)
+                                    s.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
                                     metric_score = s.metric_results[evaluation_metric_name]
 
                                 if best_submission_score is None or metric.compare(metric_score, best_submission_score):
@@ -785,7 +785,6 @@ class SubmissionManager(object):
                                     best_submission = s
 
                             if best_submission is not None:
-                                actor = actor_manager.get_from_uuid(actor_uuid)
                                 best_submission.get_result_table_row(a, actor, leaderboard)
 
         with open(result_filepath, 'w') as f:
@@ -868,7 +867,7 @@ class SubmissionManager(object):
 
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
-                            metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata)
+                            metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, submission.execution_results_dirpath)
 
                             metadata = metric_output['metadata']
 

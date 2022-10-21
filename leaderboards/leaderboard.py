@@ -9,6 +9,7 @@ from leaderboards import json_io
 from leaderboards.dataset import DatasetManager
 from leaderboards.metrics import *
 from leaderboards.tasks import *
+from leaderboards.global_metrics import *
 
 
 class Leaderboard(object):
@@ -25,6 +26,7 @@ class Leaderboard(object):
                         'nlp_ner': NaturalLanguageProcessingNamedEntityRecognition,
                         'nlp_qa': NaturalLanguageProcessingQuestionAnswering}
 
+    DEFAULT_GLOBAL_METRICS = []
 
     GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
@@ -52,6 +54,8 @@ class Leaderboard(object):
         self.html_leaderboard_priority = 0
         self.html_data_split_name_priorities = {}
         self.html_table_sort_options = {}
+
+        self.global_metrics = Leaderboard.DEFAULT_GLOBAL_METRICS
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))

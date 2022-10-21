@@ -15,3 +15,4 @@ httplib2
 sklearn
 airium
 pandas
+matplotlib
