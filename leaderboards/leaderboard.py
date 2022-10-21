@@ -436,14 +436,14 @@ if __name__ == "__main__":
 
     subparser = parser.add_subparsers(dest='cmd', required=True)
 
-    init_parser = subparser.add_parser('init')
+    init_parser = subparser.add_parser('init', help='Initializes a new leaderboard')
     init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     init_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
     init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits: {}, if they fail task checks then will not be added. Need to call add-dataset when they are ready.'.format(Leaderboard.DEFAULT_DATASET_SPLIT_NAMES), action='store_true')
     init_parser.set_defaults(func=init_leaderboard)
 
-    add_dataset_parser = subparser.add_parser('add-dataset')
+    add_dataset_parser = subparser.add_parser('add-dataset', help='Adds a dataset into a leaderboard')
     add_dataset_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     add_dataset_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     add_dataset_parser.add_argument('--split-name', type=str, help='The dataset split name', required=True)
@@ -453,23 +453,22 @@ if __name__ == "__main__":
     add_dataset_parser.add_argument('--slurm-nice', type=int, help='The nice value when launching jobs for this dataset (0 is highest priority)', default=0)
     add_dataset_parser.set_defaults(func=add_dataset_to_leaderboard)
 
-    summary_results_parser = subparser.add_parser('generate_summary_metadata')
+    summary_results_parser = subparser.add_parser('generate_summary_metadata', help='Generates the METADATA CSV file for the leaderboard')
     summary_results_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config',required=True)
     summary_results_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     summary_results_parser.set_defaults(func=generate_summary_metadata)
 
-    add_metric_parser = subparser.add_parser('add-metric')
+    add_metric_parser = subparser.add_parser('add-metric', help='Adds metric to leaderboard')
     add_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     add_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     add_metric_parser.add_argument('--split-name', type=str, help='The dataset split name, it not specified then adds the metric to all split names in the leaderboard', required=False, default=None)
     add_metric_parser.add_argument('--metric-name', type=str, choices=Leaderboard.VALID_METRIC_NAMES, help='The name of the metric to add', required=True)
     add_metric_parser.set_defaults(func=add_metric)
 
-    refresh_metrics = subparser.add_parser('refresh-metrics', help='Refreshes the metric keys to be representative of the metric name')
-    refresh_metrics.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config',
-                                   required=True)
-    refresh_metrics.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
-    refresh_metrics.set_defaults(func=refresh_metrics)
+    refresh_metrics_parser = subparser.add_parser('refresh-metrics', help='Refreshes the metric keys to be representative of the metric name')
+    refresh_metrics_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    refresh_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    refresh_metrics_parser.set_defaults(func=refresh_metrics)
 
     args = parser.parse_args()
     args.func(args)
