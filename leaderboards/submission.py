@@ -254,7 +254,8 @@ class Submission(object):
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
         updated_container_output_filename = '{}.{}'.format(actor.name, container_output_filename)
         updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
-        os.rename(container_output_filepath, updated_container_output_filepath)
+        if os.path.exists(container_output_filepath):
+            os.rename(container_output_filepath, updated_container_output_filepath)
 
         # truncate log file to N bytes
         fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
