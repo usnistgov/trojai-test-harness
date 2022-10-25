@@ -354,8 +354,7 @@ class Submission(object):
             for output_file in external_collab_files:
                 try:
                     if os.path.exists(output_file):
-                        for collab_email in trojai_config.global_metric_email_addresses:
-                            g_drive.upload_and_share(output_file, collab_email)
+                        g_drive.upload_and_share_multiple(output_file, trojai_config.global_metric_email_addresses)
                     else:
                         logging.error('Unable to upload external collab file: {}'.format(output_file))
                 except:

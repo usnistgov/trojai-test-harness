@@ -147,9 +147,11 @@ class GroupedCrossEntropyViolin(Metric):
         for key, model_ids in model_lists.items():
             # Group cross entropies
             ce_for_key = np.zeros(len(model_ids))
+            index = 0
             for model_id in model_ids:
                 model_index = model_names.index(model_id)
-                ce_for_key[model_index] = ce[model_index]
+                ce_for_key[index] = ce[model_index]
+                index += 1
 
             metadata[key] = ce_for_key
             names.append(key)
@@ -163,14 +165,14 @@ class GroupedCrossEntropyViolin(Metric):
                                                                                        data_split_name))
         axes.yaxis.grid(True)
         axes.set_xticks(xticks)
-        axes.set_xticklabels(names)
+        axes.set_xticklabels(names, rotation=15, ha='right')
         axes.set_ylabel('Cross Entropy')
 
         column_names = '_'.join(self.columns_of_interest)
 
         filepath = os.path.join(output_dirpath, '{}_{}_{}_{}.pdf'.format(actor_name, column_names, leaderboard_name, data_split_name))
 
-        plt.savefig(filepath)
+        plt.savefig(filepath, bbox_inches='tight')
 
         plt.clf()
 

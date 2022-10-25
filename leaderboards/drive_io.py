@@ -273,6 +273,11 @@ class DriveIO(object):
         self.remove_all_sharing_permissions(file_id)
         self.share(file_id, share_email)
 
+    def upload_and_share_multiple(self, file_path: str, share_emails: list) -> None:
+        file_id = self.upload(file_path)
+        for email in share_emails:
+            self.share(file_id, email)
+
     def submission_download(self, email: str, output_dirpath: str, metadata_filepath: str, requested_leaderboard_name: str, requested_data_split_name) -> GoogleDriveFile:
         actor_file_list = self.query_by_email(email)
 
