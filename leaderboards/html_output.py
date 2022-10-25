@@ -238,23 +238,21 @@ $(document).ready(function () {
                 with open(slurm_submission_filepath, mode='w', encoding='utf-8') as f:
                     f.write(accepting_submissions_update)
                 written_files.append(slurm_submission_filepath)
+            if commit_and_push:
+                git = repo.git()
+                try:
+                    git.pull()
+                    git.add(written_files)
 
-            git = repo.git()
-            try:
-                git.pull()
-                git.add(written_files)
 
-                if commit_and_push:
                     git.commit("-m", "Actor update {}".format(time_utils.convert_epoch_to_psudo_iso(cur_epoch)))
                     git.push()
                     logging.info("Web-site content has been pushed.")
-            except GitCommandError as ex:
-                if "nothing to commit" not in str(ex):
-                    logging.error("Git had errors when trying to commit and push: " + str(ex))
-                else:
-                    logging.info("Commit to repo not pushed, no changes found")
-
-
+                except GitCommandError as ex:
+                    if "nothing to commit" not in str(ex):
+                        logging.error("Git had errors when trying to commit and push: " + str(ex))
+                    else:
+                        logging.info("Commit to repo not pushed, no changes found")
         except:
             msg = 'html_output threw an exception, releasing file lock "{}" regardless.{}'.format(lock_filepath,
                                                                                                   traceback.format_exc())
