@@ -180,26 +180,6 @@ var sort_col;\n
 
             written_files.append(table_javascript_filepath)
 
-            # Push the HTML to the web
-            repo = Repo(html_dirpath)
-            if repo.is_dirty() or not trojai_config.accepting_submissions:
-                timestampUpdate = """
-var uploadTimestamp = """ + str(cur_epoch) + """;
-var d = new Date(0);
-d.setUTCSeconds(uploadTimestamp);
-var acceptingSubmissions = """ + str(trojai_config.accepting_submissions).lower() + """; 
-
-$(document).ready(function () {
-   $('#timestamp').text(d.toISOString().split('.')[0] );
-});
-                   """
-
-                time_update_filepath = os.path.join(html_dirpath, 'js', 'time-updater.js')
-                with open(time_update_filepath, mode='w', encoding='utf-8') as f:
-                    f.write(timestampUpdate)
-
-                written_files.append(time_update_filepath)
-
             for slurm_queue in Leaderboard.SLURM_QUEUE_NAMES:
                 allocated_nodes = int(slurm.sinfo_node_query(slurm_queue, "alloc"))
                 idle_nodes = int(slurm.sinfo_node_query(slurm_queue, "idle"))
@@ -220,25 +200,46 @@ $(document).ready(function () {
                 web_down_nodes = down_nodes + drained_nodes  # This is "down" and "drained" nodes
 
                 accepting_submissions_update = """
-    var """ + slurm_queue + """AcceptingSubmission = """ + str(trojai_config.accepting_submissions).lower() + """;
-    var """ + slurm_queue + """IdleNodes = """ + str(web_idle_nodes) + """;
-    var """ + slurm_queue + """RunningNodes = """ + str(web_running_nodes) + """;
-    var """ + slurm_queue + """DownNodes = """ + str(web_down_nodes) + """;
-    
-    $(document).ready(function () {
-           $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
-           $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
-           $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
-           $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
-       });
-                   """
+            var """ + slurm_queue + """AcceptingSubmission = """ + str(trojai_config.accepting_submissions).lower() + """;
+            var """ + slurm_queue + """IdleNodes = """ + str(web_idle_nodes) + """;
+            var """ + slurm_queue + """RunningNodes = """ + str(web_running_nodes) + """;
+            var """ + slurm_queue + """DownNodes = """ + str(web_down_nodes) + """;
+
+            $(document).ready(function () {
+                   $('#""" + slurm_queue + """IdleNodes').text(""" + slurm_queue + """IdleNodes);
+                   $('#""" + slurm_queue + """RunningNodes').text(""" + slurm_queue + """RunningNodes);
+                   $('#""" + slurm_queue + """DownNodes').text(""" + slurm_queue + """DownNodes);
+                   $('#""" + slurm_queue + """AcceptingSubmission').text(""" + slurm_queue + """AcceptingSubmission);
+               });
+                           """
 
                 slurm_submission_filepath = os.path.join(html_dirpath, 'js', '{}-submission.js'.format(slurm_queue))
 
                 with open(slurm_submission_filepath, mode='w', encoding='utf-8') as f:
                     f.write(accepting_submissions_update)
                 written_files.append(slurm_submission_filepath)
+
+            # Push the HTML to the web
             if commit_and_push:
+                repo = Repo(html_dirpath)
+                if repo.is_dirty() or not trojai_config.accepting_submissions:
+                    timestampUpdate = """
+    var uploadTimestamp = """ + str(cur_epoch) + """;
+    var d = new Date(0);
+    d.setUTCSeconds(uploadTimestamp);
+    var acceptingSubmissions = """ + str(trojai_config.accepting_submissions).lower() + """; 
+    
+    $(document).ready(function () {
+       $('#timestamp').text(d.toISOString().split('.')[0] );
+    });
+                       """
+
+                    time_update_filepath = os.path.join(html_dirpath, 'js', 'time-updater.js')
+                    with open(time_update_filepath, mode='w', encoding='utf-8') as f:
+                        f.write(timestampUpdate)
+
+                    written_files.append(time_update_filepath)
+
                 git = repo.git()
                 try:
                     git.pull()
