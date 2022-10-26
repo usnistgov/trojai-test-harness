@@ -131,13 +131,21 @@ class DriveIO(object):
 
         return file_list
 
+    def query_folder(self, folder_name: str) -> List[GoogleDriveFile]:
+        query = 'name = {} and trashed = false and mimeType = application/vnd.google-apps.folder'.format(folder_name)
+        folder_list = self.__query_worker(query)
+        return folder_list
+
     def query_by_filename(self, file_name: str) -> List[GoogleDriveFile]:
         query = "name = '{}' and trashed = false".format(file_name)
         file_list = self.__query_worker(query)
         return file_list
 
-    def query_by_email_and_filename(self, email: str, file_name: str) -> List[GoogleDriveFile]:
-        query = "name = '{}' and '{}' in owners and trashed = false".format(file_name, email)
+    def query_by_email_and_filename(self, email: str, file_name: str, folder_id=None) -> List[GoogleDriveFile]:
+        if folder_id is None:
+            query = "name = '{}' and '{}' in owners and trashed = false".format(file_name, email)
+        else:
+            query = "name = '{}' and '{}' in owners and trashed = false and {} in parents".format(file_name, email, folder_id)
         file_list = self.__query_worker(query)
         return file_list
 
@@ -175,7 +183,40 @@ class DriveIO(object):
                 logging.error('Failed to download file "{}" from Drive.'.format(g_file.name))
                 raise
 
-    def upload(self, file_path: str) -> str:
+    def create_folder(self, folder_name) -> str:
+        from googleapiclient.errors import HttpError
+
+        file_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+
+        retry_count = 0
+        logging.info('Creating google drive folder {}'.format(folder_name))
+
+        while True:
+            try:
+                existing_folders = self.query_folder(folder_name)
+
+                if len(existing_folders) > 0:
+                    return existing_folders[0].id
+
+                file = self.service.files().create(body=file_metadata, fields='id').execute()
+                return file.get('id')
+
+            except HttpError as e:
+                retry_count = retry_count + 1
+                if e.resp.status in [104, 404, 408, 410] and retry_count <= self.max_retry_count:
+                    logging.info('Folder creation error, restarting (attempt {}/{}) with exponential backoff'.format(retry_count, self.max_retry_count))
+                    slee_time = random.random() * 2 ** retry_count
+                    time.sleep(slee_time)
+                else:
+                    raise
+            except:
+                logging.error('Failed to create folder  "{}" from Drive.'.format(folder_name))
+                raise
+
+    def upload(self, file_path: str, folder_id=None) -> str:
         from googleapiclient.http import MediaFileUpload
         from googleapiclient.errors import HttpError
 
@@ -190,13 +231,17 @@ class DriveIO(object):
 
         for retry_count in range(self.max_retry_count):
             try:
-                existing_files_list = self.query_by_email_and_filename(self.email_address, file_name)
+                existing_files_list = self.query_by_email_and_filename(self.email_address, file_name, folder_id=folder_id)
 
                 existing_file_id = None
                 if len(existing_files_list) > 0:
                     existing_file_id = existing_files_list[0].id
 
-                file_metadata = {'name': file_name}
+                if folder_id is None:
+                    file_metadata = {'name': file_name}
+                else:
+                    file_metadata = {'name': file_name, 'parents': [folder_id]}
+
                 media = MediaFileUpload(file_path, mimetype=m_type, resumable=True)
 
                 if existing_file_id is not None:

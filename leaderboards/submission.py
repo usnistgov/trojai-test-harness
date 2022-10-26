@@ -252,7 +252,9 @@ class Submission(object):
 
         container_output_filename = self.g_file.name + '.out'
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
-        updated_container_output_filename = '{}.{}'.format(actor.name, container_output_filename)
+
+        epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+        updated_container_output_filename = '{}_{}.{}'.format(actor.name, epoch_str, container_output_filename)
         updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
@@ -272,6 +274,15 @@ class Submission(object):
         submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
         submission_log_handler.setLevel(logging.DEBUG)
         logging.getLogger().addHandler(submission_log_handler)
+
+        # Create team directory
+        try:
+            actor_folder_id = g_drive.create_folder(actor.name)
+            external_folder_id = g_drive.create_folder('external_{}'.format(actor.name))
+        except:
+            logging.error('Failed to create google drive actor directories')
+            actor_folder_id = None
+            external_folder_id = None
 
         try:
             # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
@@ -335,12 +346,11 @@ class Submission(object):
                     elif isinstance(metric_filepaths, str):
                         external_collab_files.append(metric_filepaths)
 
-
-            # Share metric output files with actor
+            # Upload to actor folder
             for output_file in output_files:
                 try:
-                    if os.path.exists(output_file):
-                        g_drive.upload_and_share(output_file, actor.email)
+                    if actor_folder_id is not None and os.path.exists(output_file):
+                        g_drive.upload(output_file, folder_id=actor_folder_id)
                     else:
                         logging.error('Unable to upload file: {}'.format(output_file))
                         if ":File Upload:" not in self.web_display_parse_errors:
@@ -350,11 +360,11 @@ class Submission(object):
                     if ":File Upload:" not in self.web_display_parse_errors:
                         self.web_display_parse_errors += ":File Upload:"
 
-            # Share with external collaborators
+            # Upload to external folder
             for output_file in external_collab_files:
                 try:
-                    if os.path.exists(output_file):
-                        g_drive.upload_and_share_multiple(output_file, trojai_config.global_metric_email_addresses)
+                    if external_folder_id is not None and os.path.exists(output_file):
+                        g_drive.upload(output_file, folder_id=external_folder_id)
                     else:
                         logging.error('Unable to upload external collab file: {}'.format(output_file))
                 except:
@@ -390,8 +400,8 @@ class Submission(object):
 
         # upload log file to drive
         try:
-            if os.path.exists(slurm_log_filepath):
-                g_drive.upload_and_share(slurm_log_filepath, actor.email)
+            if actor_folder_id is not None and os.path.exists(slurm_log_filepath):
+                g_drive.upload(slurm_log_filepath, folder_id=actor_folder_id)
             else:
                 logging.error('Failed to find slurm output log file: {}'.format(slurm_log_filepath))
                 self.web_display_parse_errors += ":Log File Missing:"
@@ -403,8 +413,8 @@ class Submission(object):
         # upload container output for sts split only
         try:
             if self.data_split_name == 'sts' or self.data_split_name == 'train':
-                if os.path.exists(updated_container_output_filepath):
-                    g_drive.upload_and_share(updated_container_output_filepath, actor.email)
+                if actor_folder_id is not None and os.path.exists(updated_container_output_filepath):
+                    g_drive.upload(updated_container_output_filepath, folder_id=actor_folder_id)
                 else:
                     logging.error('Failed to find container output file: {}'.format(updated_container_output_filepath))
                     self.web_display_parse_errors += ':Container File Missing:'
@@ -422,6 +432,20 @@ class Submission(object):
         logging.info('After process_results')
         self.active_slurm_job_name = None
 
+        # Share actor and external folders
+        try:
+            if actor_folder_id is not None:
+                g_drive.share(actor_folder_id, actor.email)
+        except:
+            logging.error('Unable to share actor folder with {}'.format(actor.email))
+
+        try:
+            if external_folder_id is not None:
+                for email in trojai_config.global_metric_email_addresses:
+                    g_drive.share(external_folder_id, email)
+        except:
+            logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.global_metric_email_addresses))
+
         actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
     def get_execute_time_str(self):
@@ -429,8 +453,9 @@ class Submission(object):
 
     def compute_metric(self, actor_name, metric, predictions, targets, models, metadata_df, store_results=True):
         metric_output_dirpath = os.path.join(self.execution_results_dirpath)
+        epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
-        metric_output = metric.compute(predictions, targets, models, metadata_df, actor_name, self.leaderboard_name, self.data_split_name, metric_output_dirpath)
+        metric_output = metric.compute(predictions, targets, models, metadata_df, actor_name, self.leaderboard_name, self.data_split_name, epoch_str, metric_output_dirpath)
 
         if store_results:
             if metric.store_result_in_submission:
@@ -513,7 +538,9 @@ class Submission(object):
         if self.slurm_queue_name in trojai_config.vm_cpu_cores_per_partition:
             cpus_per_task = trojai_config.vm_cpu_cores_per_partition[self.slurm_queue_name]
 
-        self.slurm_output_filename = '{}.{}.{}.log.txt'.format(self.leaderboard_name, actor.name, self.data_split_name)
+        epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+
+        self.slurm_output_filename = '{}.{}_{}.{}.log.txt'.format(self.leaderboard_name, actor.name, epoch_str, self.data_split_name)
         slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
@@ -881,10 +908,11 @@ class SubmissionManager(object):
 
                         # Subset data
                         data_split_metadata = metadata_df[metadata_df['data_split'] == data_split]
+                        time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
 
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
-                            metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, submission.execution_results_dirpath)
+                            metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, time_str, submission.execution_results_dirpath)
 
                             metadata = metric_output['metadata']
 
@@ -894,7 +922,6 @@ class SubmissionManager(object):
                                         metrics[key] = value
                                 else:
                                     raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
-                        time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
                         new_data = {}
                         new_data['model_name'] = all_model_ids
                         new_data['team_name'] = [actor.name] * len(all_model_ids)

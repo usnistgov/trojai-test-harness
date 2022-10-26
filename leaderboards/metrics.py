@@ -35,7 +35,7 @@ class Metric(object):
     # 'result': None or value
     # 'metadata': None or dict
     # 'files': None or list of files saved
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         raise NotImplementedError()
 
     def compare(self, computed, baseline):
@@ -49,7 +49,7 @@ class AverageCrossEntropy(Metric):
     def get_name(self):
         return 'Cross Entropy'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
         predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
@@ -127,7 +127,7 @@ class GroupedCrossEntropyViolin(Metric):
 
         return model_lists
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         metadata = {}
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
@@ -170,7 +170,7 @@ class GroupedCrossEntropyViolin(Metric):
 
         column_names = '_'.join(self.columns_of_interest)
 
-        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}.pdf'.format(actor_name, column_names, leaderboard_name, data_split_name))
+        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.pdf'.format(actor_name, submission_epoch_str, column_names, leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight')
 
@@ -195,7 +195,7 @@ class CrossEntropyConfidenceInterval(Metric):
         return 'CE {}% CI'.format(self.level)
 
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
         predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
@@ -224,7 +224,7 @@ class BrierScore(Metric):
     def get_name(self):
         return 'Brier Score'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
 
@@ -241,7 +241,7 @@ class ROC_AUC(Metric):
     def get_name(self):
         return 'ROC-AUC'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         TP_counts = list()
         TN_counts = list()
         FP_counts = list()
@@ -291,7 +291,7 @@ class ConfusionMatrix(Metric):
     def get_name(self):
         return 'Confusion Matrix'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         TP_counts = list()
         TN_counts = list()
         FP_counts = list()
@@ -335,7 +335,7 @@ class ConfusionMatrix(Metric):
         thresholds = np.asarray(thresholds).reshape(-1)
 
         output_filepath = os.path.join(output_dirpath,
-                                       '{}-{}-{}.json'.format(leaderboard_name, data_split_name, self.get_name()))
+                                       '{}_{}-{}-{}-{}.json'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, self.get_name()))
 
         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
                                         output_filepath)
