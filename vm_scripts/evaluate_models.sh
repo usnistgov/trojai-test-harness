@@ -30,12 +30,15 @@ done
 # Set positional arguments
 set -- "${EXTRA_ARGS[@]}"
 
-NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
-
-if [ ! $? -eq 0 ] ; then
-  echo "Failed to run nvidia-smi command to get GPUs"
+if ! command -v nvidia-smi &> /dev/null
+then
+  echo "Failed to find nvidia-smi command to get GPUs"
   exit 1
 fi
+
+NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
+
+
 
 NVSMI_STATUS=$?
 

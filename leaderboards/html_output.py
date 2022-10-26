@@ -245,7 +245,6 @@ var sort_col;\n
                     git.pull()
                     git.add(written_files)
 
-
                     git.commit("-m", "Actor update {}".format(time_utils.convert_epoch_to_psudo_iso(cur_epoch)))
                     git.push()
                     logging.info("Web-site content has been pushed.")
