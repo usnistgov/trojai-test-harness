@@ -32,7 +32,7 @@ set -- "${EXTRA_ARGS[@]}"
 
 NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
 
-if [ ! $? -eq 0]; then
+if [ ! $? -eq 0 ] ; then
   echo "Failed to run nvidia-smi command to get GPUs"
   exit 1
 fi
