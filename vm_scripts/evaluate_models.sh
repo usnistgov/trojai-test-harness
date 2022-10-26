@@ -32,28 +32,17 @@ set -- "${EXTRA_ARGS[@]}"
 
 if ! command -v nvidia-smi &> /dev/null
 then
-  echo "Failed to find nvidia-smi command to get GPUs"
-  exit 1
+  echo "Failed to find nvidia-smi command to get GPUs, specifying only 1, but GPU execution might fail"
+  NUM_GPUS=1
+else
+  NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
 fi
-
-NUM_GPUS=`nvidia-smi --list-gpus | wc -l`
-
-
-
-NVSMI_STATUS=$?
 
 # initialize process ids
 for ((GPU_ID=0;GPU_ID<NUM_GPUS;GPU_ID++))
 do
 	PROCESS_IDS[$GPU_ID]=0
 done
-
-re='^[0-9]+$'
-
-if ! [[ $NUM_GPUS =~ $re ]] ; then
-
-  exit 1
-fi
 
 # find all the 'id-' model files and shuffle their iteration order
 for dir in `find "$MODEL_DIR" -maxdepth 1 -type d | shuf`
