@@ -9,7 +9,7 @@ import pandas as pd
 import itertools
 
 
-def build_model_lists(metadata_df: pd.Dataframe, columns_of_interest: list) -> dict:
+def build_model_lists(metadata_df: pd.DataFrame, columns_of_interest: list) -> dict:
     model_lists = {}
     column_variations = {}
 
