@@ -119,7 +119,7 @@ class Leaderboard(object):
         self.generate_metadata_csv()
 
     def load_summary_results_csv_into_df(self):
-        if not os.path.exists(self.summary_results_csv_filepath):
+        if os.path.exists(self.summary_results_csv_filepath):
             return pd.read_csv(self.summary_results_csv_filepath)
         else:
             logging.warning('Unable to find summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.summary_results_csv_filepath))

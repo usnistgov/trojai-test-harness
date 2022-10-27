@@ -1,4 +1,3 @@
-from leaderboard import Leaderboard
 import pandas as pd
 
 class GlobalMetric(object):

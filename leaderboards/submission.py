@@ -244,7 +244,7 @@ class Submission(object):
 
         return results
 
-    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int) -> None:
+    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True) -> None:
         logging.info("Checking results for {}".format(actor.name))
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
@@ -301,7 +301,8 @@ class Submission(object):
             if os.path.exists(submission_metadata_filepath):
                 try:
                     self.g_file = GoogleDriveFile.load_json(submission_metadata_filepath)
-                    actor.update_last_file_epoch(leaderboard.name, self.data_split_name, self.g_file.modified_epoch)
+                    if update_actor:
+                        actor.update_last_file_epoch(leaderboard.name, self.data_split_name, self.g_file.modified_epoch)
 
                     if orig_g_file.id != self.g_file.id:
                         logging.info('Originally Submitted File: "{}, id: {}"'.format(orig_g_file.name, orig_g_file.id))
@@ -446,7 +447,8 @@ class Submission(object):
         except:
             logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.global_metric_email_addresses))
 
-        actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
+        if update_actor:
+            actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
@@ -945,6 +947,21 @@ class SubmissionManager(object):
 
         return result_df
 
+    def recompute_metrics(self, trojai_config: TrojaiConfig, leaderboard: Leaderboard):
+        actor_manager = ActorManager.load_json(trojai_config)
+        g_drive = DriveIO(trojai_config.token_pickle_filepath)
+        log_file_byte_limit = trojai_config.log_file_byte_limit
+
+        for actor_uuid, submissions in self.__submissions.items():
+            actor = actor_manager.get_from_uuid(actor_uuid)
+            for submission in submissions:
+                # Verify it is not active prior to computing metrics
+                if submission.active_slurm_job_name is not None:
+                    submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False)
+
+        self.save_json(leaderboard)
+
+
 def merge_submissions(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
@@ -959,6 +976,15 @@ def merge_submissions(args):
     submissions_after_merge = submission_manager.get_number_submissions()
     print('Finished merging, new submissions added: {}'.format(submissions_after_merge-num_submissions_prior))
 
+
+def recompute_metrics(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    submission_manager = SubmissionManager.load_json(leaderboard)
+    submission_manager.recompute_metrics(trojai_config, leaderboard)
+    print('Finished recomputing metrics for {}'.format(leaderboard.name))
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -972,6 +998,11 @@ if __name__ == "__main__":
     merge_submissions_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     merge_submissions_parser.add_argument('--new-submissions-filepath', type=str, help='The filepath to the new submissions to merge into the leaderboard', required=True)
     merge_submissions_parser.set_defaults(func=merge_submissions)
+
+    recompute_metrics_parser = subparser.add_parser('recompute-metrics')
+    recompute_metrics_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    recompute_metrics_parser.set_defaults(func=recompute_metrics)
 
     args = parser.parse_args()
     args.func(args)
