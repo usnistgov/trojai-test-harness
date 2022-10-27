@@ -132,7 +132,7 @@ class DriveIO(object):
         return file_list
 
     def query_folder(self, folder_name: str) -> List[GoogleDriveFile]:
-        query = 'name = {} and trashed = false and mimeType = application/vnd.google-apps.folder'.format(folder_name)
+        query = "name = '{}' and trashed = false and mimeType = 'application/vnd.google-apps.folder'".format(folder_name)
         folder_list = self.__query_worker(query)
         return folder_list
 
@@ -145,7 +145,7 @@ class DriveIO(object):
         if folder_id is None:
             query = "name = '{}' and '{}' in owners and trashed = false".format(file_name, email)
         else:
-            query = "name = '{}' and '{}' in owners and trashed = false and {} in parents".format(file_name, email, folder_id)
+            query = "name = '{}' and '{}' in owners and trashed = false and '{}' in parents".format(file_name, email, folder_id)
         file_list = self.__query_worker(query)
         return file_list
 

@@ -277,8 +277,8 @@ class Submission(object):
 
         # Create team directory
         try:
-            actor_folder_id = g_drive.create_folder(actor.name)
-            external_folder_id = g_drive.create_folder('external_{}'.format(actor.name))
+            actor_folder_id = g_drive.create_folder('trojai_results_{}'.format(actor.name))
+            external_folder_id = g_drive.create_folder('trojai_plots_external_{}'.format(actor.name))
         except:
             logging.error('Failed to create google drive actor directories')
             actor_folder_id = None
