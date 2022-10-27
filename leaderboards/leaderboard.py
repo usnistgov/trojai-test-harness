@@ -421,7 +421,24 @@ def add_metric(args):
     split_name = args.split_name
     metric_name = args.metric_name
 
-    new_metric = Leaderboard.VALID_METRIC_NAMES[metric_name]()
+    metric_params_filepath = args.metric_params_json_filepath
+    metric_param_dict = None
+
+    if metric_params_filepath is not None:
+        try:
+            with open(metric_params_filepath, mode='r', encoding='utf-8') as f:
+                metric_param_dict = json.load(f)
+        except json.decoder.JSONDecodeError:
+            logging.error("JSON decode error for file: {}, is it a proper json?".format(metric_params_filepath))
+            raise
+        except:
+            raise
+
+    if metric_param_dict is None:
+        new_metric = Leaderboard.VALID_METRIC_NAMES[metric_name]()
+    else:
+        new_metric = Leaderboard.VALID_METRIC_NAMES[metric_name](**metric_param_dict)
+
     leaderboard.add_metric(split_name, new_metric)
     leaderboard.save_json(trojai_config)
 
@@ -488,6 +505,7 @@ if __name__ == "__main__":
     add_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     add_metric_parser.add_argument('--split-name', type=str, help='The dataset split name, it not specified then adds the metric to all split names in the leaderboard', required=False, default=None)
     add_metric_parser.add_argument('--metric-name', type=str, choices=Leaderboard.VALID_METRIC_NAMES, help='The name of the metric to add', required=True)
+    add_metric_parser.add_argument('--metric-params-json-filepath', type=str, help='The filepath to the json file that describes custom metric parameters', default=None)
     add_metric_parser.set_defaults(func=add_metric)
 
     refresh_metrics_parser = subparser.add_parser('refresh-metrics', help='Refreshes the metric keys to be representative of the metric name')
