@@ -6,6 +6,8 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 import copy
 import itertools
+import json
+
 import numpy as np
 from sklearn.metrics import auc
 import pandas as pd
@@ -15,6 +17,7 @@ import matplotlib.pyplot as plt
 import os
 
 from leaderboards import fs_utils
+import metadata_utils
 
 
 
@@ -63,7 +66,7 @@ class AverageCrossEntropy(Metric):
         return computed < baseline
 
 class GroupedCrossEntropyViolin(Metric):
-    def __init__(self, write_html:bool = False, share_with_actor:bool = False, store_result_in_submission:bool = False, share_with_external: bool = False, epsilon:float = 1e-12, columns_of_interest: list=None):
+    def __init__(self, write_html:bool = False, share_with_actor:bool = False, store_result_in_submission:bool = False, share_with_external: bool = True, epsilon:float = 1e-12, columns_of_interest: list=None):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
         if columns_of_interest is None:
             self.columns_of_interest = ['all']
@@ -73,59 +76,6 @@ class GroupedCrossEntropyViolin(Metric):
 
     def get_name(self):
         return 'Grouped Cross Entropy Histogram {}'.format('_'.join(self.columns_of_interest))
-
-    def build_model_lists(self, metadata_df: pd.DataFrame) -> dict:
-        model_lists = {}
-        column_variations = {}
-
-        if len(self.columns_of_interest) == 0 or 'all' in self.columns_of_interest:
-            model_ids = metadata_df['model_name'].tolist()
-            model_lists['all'] = model_ids
-            temp_columns_of_interest = copy.deepcopy(self.columns_of_interest)
-            temp_columns_of_interest.remove('all')
-        else:
-            temp_columns_of_interest = self.columns_of_interest
-
-        # Gather unique names in columns of interest
-        for column_name in temp_columns_of_interest:
-            unique_values_in_column = metadata_df[column_name].unique()
-            if len(unique_values_in_column) > 0:
-                column_variations[column_name] = unique_values_in_column
-
-        # Remove instances of nan/null
-        for column_variation in column_variations.keys():
-            column_variations[column_variation] = [v for v in column_variations[column_variation] if
-                                                   not (pd.isnull(v))]
-
-        # Create permjutations of columns of interest
-        keys, values = zip(*column_variations.items())
-        permutations_dicts = [dict(zip(keys, v)) for v in itertools.product(*values)]
-
-        removal_list = []
-
-        # Generate lists of models
-        for i, permutation in enumerate(permutations_dicts):
-            subset_df = metadata_df
-            index = ''
-            for key, value in permutation.items():
-                if index == '':
-                    index = value
-                else:
-                    index += ':' + value
-                subset_df = subset_df[subset_df[key] == value]
-
-            # Output the list of models that meet this requirement
-            model_ids = subset_df['model_name'].tolist()
-
-            if len(model_ids) == 0:
-                removal_list.append(index)
-
-            model_lists[index] = model_ids
-
-        for index in sorted(removal_list, reverse=True):
-            del model_lists[index]
-
-        return model_lists
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         metadata = {}
@@ -137,7 +87,7 @@ class GroupedCrossEntropyViolin(Metric):
         ce = -(a + b)
 
         # Identify models based on columns of interest
-        model_lists = self.build_model_lists(metadata_df)
+        model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest)
 
         datasets = []
         names = []
@@ -168,9 +118,7 @@ class GroupedCrossEntropyViolin(Metric):
         axes.set_xticklabels(names, rotation=15, ha='right')
         axes.set_ylabel('Cross Entropy')
 
-        column_names = '_'.join(self.columns_of_interest)
-
-        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.pdf'.format(actor_name, submission_epoch_str, column_names, leaderboard_name, data_split_name))
+        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.pdf'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight')
 
@@ -233,6 +181,84 @@ class BrierScore(Metric):
 
     def compare(self, computed, baseline):
         return computed > baseline
+
+class Grouped_ROC_AUC(Metric):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = False, store_result_in_submission: bool = True, share_with_external: bool = True, columns_of_interest: list=None):
+        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        self.columns_of_interest = []
+        if columns_of_interest is not None:
+            self.columns_of_interest = columns_of_interest
+
+    def get_name(self):
+        if len(self.columns_of_interest) == 0:
+            interest_text = ''
+        else:
+            interest_text = '_'.join(self.columns_of_interest)
+        return 'Grouped ROC-AUC-{}'.format(interest_text)
+
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+        result_data = {}
+
+        model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest)
+        thresholds = np.arange(0.0, 1.01, 0.01)
+
+        for key, model_ids in model_lists.items():
+            preds_for_key = np.zeros(len(model_ids))
+            targets_for_key = np.zeros(len(model_ids))
+
+            index = 0
+            for model_id in model_ids:
+                model_index = model_names.index(model_id)
+                preds_for_key[index] = predictions[model_index]
+                targets_for_key[index] = targets[model_index]
+                index += 1
+
+            TP_counts = list()
+            TN_counts = list()
+            FP_counts = list()
+            FN_counts = list()
+            TPR = list()
+            FPR = list()
+
+            nb_condition_positive = np.sum(targets_for_key == 1)
+            nb_condition_negative = np.sum(targets_for_key == 1)
+
+            for t in thresholds:
+                detections = preds_for_key >= t
+
+                # both detections and targets should be a 1d numpy array
+                TP_count = np.sum(np.logical_and(detections == 1, targets_for_key == 1))
+                FP_count = np.sum(np.logical_and(detections == 1, targets_for_key == 0))
+                FN_count = np.sum(np.logical_and(detections == 0, targets_for_key == 1))
+                TN_count = np.sum(np.logical_and(detections == 0, targets_for_key == 0))
+
+                TP_counts.append(TP_count)
+                FP_counts.append(FP_count)
+                FN_counts.append(FN_count)
+                TN_counts.append(TN_count)
+                if nb_condition_positive > 0:
+                    TPR.append(TP_count / nb_condition_positive)
+                else:
+                    TPR.append(np.nan)
+                if nb_condition_negative > 0:
+                    FPR.append(FP_count / nb_condition_negative)
+                else:
+                    FPR.append(np.nan)
+
+            TPR = np.asarray(TPR).reshape(-1)
+            FPR = np.asarray(FPR).reshape(-1)
+
+            auc_value = auc(FPR, TPR)
+            result_data[key] = auc_value
+
+        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
+
+        with open(filepath, 'w') as fp:
+            json.dump(fp, indent=2)
+
+        return {'result': None, 'metadata': None, 'files': [filepath]}
+
+
 
 class ROC_AUC(Metric):
     def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True, share_with_external: bool = False):
