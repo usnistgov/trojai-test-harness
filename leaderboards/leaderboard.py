@@ -35,6 +35,7 @@ class Leaderboard(object):
     VALID_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,
         'GroupedCrossEntropyViolin': GroupedCrossEntropyViolin,
+        'GroupedROC-AUC': Grouped_ROC_AUC,
         'CrossEntropyConfidenceInterval': CrossEntropyConfidenceInterval,
         'BrierScore': BrierScore,
         'ROC_AUC': ROC_AUC,
