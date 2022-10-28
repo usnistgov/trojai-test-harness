@@ -244,7 +244,7 @@ class Submission(object):
 
         return results
 
-    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True) -> None:
+    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True) -> None:
         logging.info("Checking results for {}".format(actor.name))
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
@@ -259,30 +259,37 @@ class Submission(object):
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
 
-        # truncate log file to N bytes
-        fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
+        if print_details:
+            # truncate log file to N bytes
+            fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
 
-        # start logging to the submission log, in addition to server log
-        cur_logging_level = logging.getLogger().getEffectiveLevel()
-        # set all individual logging handlers to this level
-        for handler in logging.getLogger().handlers:
-            handler.setLevel(cur_logging_level)
-        # this allows us to set the logger itself to debug without modifying the individual handlers
-        logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
+            # start logging to the submission log, in addition to server log
+            cur_logging_level = logging.getLogger().getEffectiveLevel()
+            # set all individual logging handlers to this level
+            for handler in logging.getLogger().handlers:
+                handler.setLevel(cur_logging_level)
+            # this allows us to set the logger itself to debug without modifying the individual handlers
+            logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
 
-        submission_log_handler = logging.FileHandler(slurm_log_filepath)
-        submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
-        submission_log_handler.setLevel(logging.DEBUG)
-        logging.getLogger().addHandler(submission_log_handler)
+            submission_log_handler = logging.FileHandler(slurm_log_filepath)
+            submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
+            submission_log_handler.setLevel(logging.DEBUG)
+            logging.getLogger().addHandler(submission_log_handler)
 
-        # Create team directory
+        # Create team directory on google drive
         try:
-            actor_folder_id = g_drive.create_folder('trojai_results_{}'.format(actor.name))
-            external_folder_id = g_drive.create_folder('trojai_plots_external_{}'.format(actor.name))
+            root_actor_folder_id = g_drive.create_folder('trojai_results_{}'.format(actor.name))
+            root_external_folder_id = g_drive.create_folder('trojai_plots_external_{}'.format(actor.name))
+
+            actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
+            external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
+
         except:
             logging.error('Failed to create google drive actor directories')
-            actor_folder_id = None
-            external_folder_id = None
+            root_actor_folder_id = None
+            root_external_folder_id = None
+            actor_submission_folder_id = None
+            external_actor_submission_folder_id = None
 
         try:
             # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
@@ -318,7 +325,7 @@ class Submission(object):
                 logging.error(msg)
                 self.web_display_parse_errors += ":Executed File Update:"
 
-            predictions, targets, models = self.get_predictions_targets_models(leaderboard, print_details=True)
+            predictions, targets, models = self.get_predictions_targets_models(leaderboard, print_details=print_details)
             metadata_df = leaderboard.load_metadata_csv_into_df()
 
             # Subset data
@@ -335,6 +342,9 @@ class Submission(object):
 
             # Gather metric output files
             for metric_name, metric_filepaths in self.saved_metric_results.items():
+                if metric_name not in submission_metrics:
+                    continue
+
                 metric = submission_metrics[metric_name]
                 if metric.share_with_actor:
                     if isinstance(metric_filepaths, list):
@@ -350,8 +360,8 @@ class Submission(object):
             # Upload to actor folder
             for output_file in output_files:
                 try:
-                    if actor_folder_id is not None and os.path.exists(output_file):
-                        g_drive.upload(output_file, folder_id=actor_folder_id)
+                    if actor_submission_folder_id is not None and os.path.exists(output_file):
+                        g_drive.upload(output_file, folder_id=actor_submission_folder_id)
                     else:
                         logging.error('Unable to upload file: {}'.format(output_file))
                         if ":File Upload:" not in self.web_display_parse_errors:
@@ -364,8 +374,8 @@ class Submission(object):
             # Upload to external folder
             for output_file in external_collab_files:
                 try:
-                    if external_folder_id is not None and os.path.exists(output_file):
-                        g_drive.upload(output_file, folder_id=external_folder_id)
+                    if external_actor_submission_folder_id is not None and os.path.exists(output_file):
+                        g_drive.upload(output_file, folder_id=external_actor_submission_folder_id)
                     else:
                         logging.error('Unable to upload external collab file: {}'.format(output_file))
                 except:
@@ -393,16 +403,17 @@ class Submission(object):
                     self.web_display_execution_errors = info_dict['errors']
 
         finally:
-            # stop outputting logging to submission log file
-            logging.getLogger().removeHandler(submission_log_handler)
+            if print_details:
+                # stop outputting logging to submission log file
+                logging.getLogger().removeHandler(submission_log_handler)
 
-            # set the global logging handlers back to its original level
-            logging.getLogger().setLevel(cur_logging_level)
+                # set the global logging handlers back to its original level
+                logging.getLogger().setLevel(cur_logging_level)
 
         # upload log file to drive
         try:
-            if actor_folder_id is not None and os.path.exists(slurm_log_filepath):
-                g_drive.upload(slurm_log_filepath, folder_id=actor_folder_id)
+            if actor_submission_folder_id is not None and os.path.exists(slurm_log_filepath):
+                g_drive.upload(slurm_log_filepath, folder_id=actor_submission_folder_id)
             else:
                 logging.error('Failed to find slurm output log file: {}'.format(slurm_log_filepath))
                 self.web_display_parse_errors += ":Log File Missing:"
@@ -414,8 +425,8 @@ class Submission(object):
         # upload container output for sts split only
         try:
             if self.data_split_name == 'sts' or self.data_split_name == 'train':
-                if actor_folder_id is not None and os.path.exists(updated_container_output_filepath):
-                    g_drive.upload(updated_container_output_filepath, folder_id=actor_folder_id)
+                if actor_submission_folder_id is not None and os.path.exists(updated_container_output_filepath):
+                    g_drive.upload(updated_container_output_filepath, folder_id=actor_submission_folder_id)
                 else:
                     logging.error('Failed to find container output file: {}'.format(updated_container_output_filepath))
                     self.web_display_parse_errors += ':Container File Missing:'
@@ -435,15 +446,15 @@ class Submission(object):
 
         # Share actor and external folders
         try:
-            if actor_folder_id is not None:
-                g_drive.share(actor_folder_id, actor.email)
+            if root_actor_folder_id is not None:
+                g_drive.share(root_actor_folder_id, actor.email)
         except:
             logging.error('Unable to share actor folder with {}'.format(actor.email))
 
         try:
-            if external_folder_id is not None:
+            if root_external_folder_id is not None:
                 for email in trojai_config.global_metric_email_addresses:
-                    g_drive.share(external_folder_id, email)
+                    g_drive.share(root_external_folder_id, email)
         except:
             logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.global_metric_email_addresses))
 
@@ -948,6 +959,7 @@ class SubmissionManager(object):
         return result_df
 
     def recompute_metrics(self, trojai_config: TrojaiConfig, leaderboard: Leaderboard):
+
         actor_manager = ActorManager.load_json(trojai_config)
         g_drive = DriveIO(trojai_config.token_pickle_filepath)
         log_file_byte_limit = trojai_config.log_file_byte_limit
@@ -956,8 +968,8 @@ class SubmissionManager(object):
             actor = actor_manager.get_from_uuid(actor_uuid)
             for submission in submissions:
                 # Verify it is not active prior to computing metrics
-                if submission.active_slurm_job_name is not None:
-                    submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False)
+                if submission.active_slurm_job_name is None:
+                    submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False, print_details=False)
 
         self.save_json(leaderboard)
 
@@ -978,7 +990,37 @@ def merge_submissions(args):
 
 
 def recompute_metrics(args):
+    # print('Attempting to acquire PID file lock.')
+    # lock_file = '/var/lock/trojai-lockfile'
+    # with open(lock_file, 'w') as f:
+    #     try:
+    #         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    #         print('  PID lock acquired')
+    #         # make sure intermediate folders to the logfile exists
+    #         parent_fp = os.path.dirname(trojai_config.log_filepath)
+    #         if not os.path.exists(parent_fp):
+    #             os.makedirs(parent_fp)
+    #         # Add the log message handler to the logger
+    #         handler = logging.handlers.RotatingFileHandler(trojai_config.log_filepath, maxBytes=100 * 1e6,
+    #                                                        backupCount=10)  # 100MB
+    #         logging.basicConfig(level=logging.INFO,
+    #                             format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
+    #                             handlers=[handler])
+    #         # Enable when debugging
+    #         logging.getLogger().addHandler(logging.StreamHandler())
+    #
+    #         logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
+    #         main(trojai_config)
+    #     except OSError as e:
+    #         print('check-and-launch was already running when called. {}'.format(e))
+    #     finally:
+    #         fcntl.lockf(f, fcntl.LOCK_UN)
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
+                        handlers=[logging.StreamHandler()])
+
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
     submission_manager = SubmissionManager.load_json(leaderboard)
     submission_manager.recompute_metrics(trojai_config, leaderboard)

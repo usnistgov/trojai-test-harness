@@ -38,8 +38,7 @@ class Leaderboard(object):
         'GroupedROC-AUC': Grouped_ROC_AUC,
         'CrossEntropyConfidenceInterval': CrossEntropyConfidenceInterval,
         'BrierScore': BrierScore,
-        'ROC_AUC': ROC_AUC,
-        'ConfusionMatrix': ConfusionMatrix
+        'ROC_AUC': ROC_AUC
     }
 
 

@@ -3,7 +3,7 @@ from leaderboards.metrics import *
 import os
 
 class Dataset(object):
-    ALL_METRICS = [AverageCrossEntropy, CrossEntropyConfidenceInterval, BrierScore, ConfusionMatrix, ROC_AUC]
+    ALL_METRICS = [AverageCrossEntropy, CrossEntropyConfidenceInterval, BrierScore, ROC_AUC]
     BUFFER_TIME = 900
     # 300 models, 3 minutes per model + 15 minute buffer
     DEFAULT_TIMEOUT_SEC = 180 * 300 + BUFFER_TIME

@@ -75,7 +75,7 @@ class GroupedCrossEntropyViolin(Metric):
         self.epsilon = epsilon
 
     def get_name(self):
-        return 'Grouped Cross Entropy Histogram {}'.format('_'.join(self.columns_of_interest))
+        return 'Grouped Cross Entropy Violin {}'.format('_'.join(self.columns_of_interest))
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         metadata = {}
@@ -118,7 +118,7 @@ class GroupedCrossEntropyViolin(Metric):
         axes.set_xticklabels(names, rotation=15, ha='right')
         axes.set_ylabel('Cross Entropy')
 
-        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.pdf'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
+        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight')
 
@@ -198,6 +198,7 @@ class Grouped_ROC_AUC(Metric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         result_data = {}
+        files = []
 
         model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest)
         thresholds = np.arange(0.0, 1.01, 0.01)
@@ -221,7 +222,7 @@ class Grouped_ROC_AUC(Metric):
             FPR = list()
 
             nb_condition_positive = np.sum(targets_for_key == 1)
-            nb_condition_negative = np.sum(targets_for_key == 1)
+            nb_condition_negative = np.sum(targets_for_key == 0)
 
             for t in thresholds:
                 detections = preds_for_key >= t
@@ -245,18 +246,58 @@ class Grouped_ROC_AUC(Metric):
                 else:
                     FPR.append(np.nan)
 
+            TP_counts = np.asarray(TP_counts).reshape(-1)
+            FP_counts = np.asarray(FP_counts).reshape(-1)
+            FN_counts = np.asarray(FN_counts).reshape(-1)
+            TN_counts = np.asarray(TN_counts).reshape(-1)
             TPR = np.asarray(TPR).reshape(-1)
             FPR = np.asarray(FPR).reshape(-1)
+            thresholds = np.asarray(thresholds).reshape(-1)
 
             auc_value = auc(FPR, TPR)
             result_data[key] = auc_value
 
+
+            confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                                       data_split_name, 'Confusion_Matrix', key))
+
+            fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
+                                            confusion_matrix_filepath)
+
+            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                                       data_split_name, 'ROC', key))
+
+            roc_auc = auc(FPR, TPR)
+
+            fig = plt.figure(figsize=(6, 4.5), dpi=300)
+            plt.clf()
+            lw = 2
+            # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
+            plt.plot(FPR, TPR, 'b-', marker='o', markersize=4, linewidth=2)
+            plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
+            plt.xlabel('False Positive Rate (FPR)')
+            plt.ylabel('True Positive Rate (TPR)')
+            plt.title('Receiver Operating Characteristic (ROC)')
+            plt.legend([legend_str], loc='lower right')
+            plt.savefig(roc_filepath)
+            plt.close(fig)
+            plt.clf()
+
+            files.append(confusion_matrix_filepath)
+            files.append(roc_filepath)
+
+
         filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
         with open(filepath, 'w') as fp:
-            json.dump(fp, indent=2)
+            json.dump(result_data, fp,  indent=2)
 
-        return {'result': None, 'metadata': None, 'files': [filepath]}
+        files.append(filepath)
+
+        return {'result': None, 'metadata': None, 'files': files}
 
 
 
@@ -302,56 +343,6 @@ class ROC_AUC(Metric):
             else:
                 FPR.append(np.nan)
 
-        TPR = np.asarray(TPR).reshape(-1)
-        FPR = np.asarray(FPR).reshape(-1)
-
-        return {'result': float(auc(FPR, TPR)), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': None}
-
-    def compare(self, computed, baseline):
-        return computed > baseline
-
-class ConfusionMatrix(Metric):
-    def __init__(self, write_html:bool = False, share_with_actor:bool = True, store_result_in_submission:bool = False, share_with_external: bool = False):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
-
-    def get_name(self):
-        return 'Confusion Matrix'
-
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
-        TP_counts = list()
-        TN_counts = list()
-        FP_counts = list()
-        FN_counts = list()
-        TPR = list()
-        FPR = list()
-
-        thresholds = np.arange(0.0, 1.01, 0.01)
-
-        nb_condition_positive = np.sum(targets == 1)
-        nb_condition_negative = np.sum(targets == 0)
-
-        for t in thresholds:
-            detections = predictions >= t
-
-            # both detections and targets should be a 1d numpy array
-            TP_count = np.sum(np.logical_and(detections == 1, targets == 1))
-            FP_count = np.sum(np.logical_and(detections == 1, targets == 0))
-            FN_count = np.sum(np.logical_and(detections == 0, targets == 1))
-            TN_count = np.sum(np.logical_and(detections == 0, targets == 0))
-
-            TP_counts.append(TP_count)
-            FP_counts.append(FP_count)
-            FN_counts.append(FN_count)
-            TN_counts.append(TN_count)
-            if nb_condition_positive > 0:
-                TPR.append(TP_count / nb_condition_positive)
-            else:
-                TPR.append(np.nan)
-            if nb_condition_negative > 0:
-                FPR.append(FP_count / nb_condition_negative)
-            else:
-                FPR.append(np.nan)
-
         TP_counts = np.asarray(TP_counts).reshape(-1)
         FP_counts = np.asarray(FP_counts).reshape(-1)
         FN_counts = np.asarray(FN_counts).reshape(-1)
@@ -360,12 +351,94 @@ class ConfusionMatrix(Metric):
         FPR = np.asarray(FPR).reshape(-1)
         thresholds = np.asarray(thresholds).reshape(-1)
 
-        output_filepath = os.path.join(output_dirpath,
-                                       '{}_{}-{}-{}-{}.json'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, self.get_name()))
+        confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                                   data_split_name, 'Confusion_Matrix'))
 
         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
-                                        output_filepath)
+                                        confusion_matrix_filepath)
 
-        return {'result': None,
-                'metadata': {'tp_counts': TP_counts, 'fp_counts': FP_counts, 'fn_counts': FN_counts, 'tn_counts': TN_counts, 'tpr': TPR, 'fpr': FPR, 'thresholds': thresholds},
-                'files': [output_filepath]}
+        roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                                   data_split_name, 'ROC'))
+
+        roc_auc = auc(FPR, TPR)
+
+        fig = plt.figure(figsize=(6, 4.5), dpi=300)
+        plt.clf()
+        lw = 2
+        # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
+        plt.plot(FPR, TPR, 'b-', marker='o', markersize=4, linewidth=2)
+        plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
+        plt.xlabel('False Positive Rate (FPR)')
+        plt.ylabel('True Positive Rate (TPR)')
+        plt.title('Receiver Operating Characteristic (ROC)')
+        plt.legend([legend_str], loc='lower right')
+        plt.savefig(roc_filepath)
+        plt.close(fig)
+        plt.clf()
+
+        return {'result': float(auc(FPR, TPR)), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}
+
+    def compare(self, computed, baseline):
+        return computed > baseline
+
+# class ConfusionMatrix(Metric):
+#     def __init__(self, write_html:bool = False, share_with_actor:bool = True, store_result_in_submission:bool = False, share_with_external: bool = False):
+#         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+#
+#     def get_name(self):
+#         return 'Confusion Matrix'
+#
+#     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+#         TP_counts = list()
+#         TN_counts = list()
+#         FP_counts = list()
+#         FN_counts = list()
+#         TPR = list()
+#         FPR = list()
+#
+#         thresholds = np.arange(0.0, 1.01, 0.01)
+#
+#         nb_condition_positive = np.sum(targets == 1)
+#         nb_condition_negative = np.sum(targets == 0)
+#
+#         for t in thresholds:
+#             detections = predictions >= t
+#
+#             # both detections and targets should be a 1d numpy array
+#             TP_count = np.sum(np.logical_and(detections == 1, targets == 1))
+#             FP_count = np.sum(np.logical_and(detections == 1, targets == 0))
+#             FN_count = np.sum(np.logical_and(detections == 0, targets == 1))
+#             TN_count = np.sum(np.logical_and(detections == 0, targets == 0))
+#
+#             TP_counts.append(TP_count)
+#             FP_counts.append(FP_count)
+#             FN_counts.append(FN_count)
+#             TN_counts.append(TN_count)
+#             if nb_condition_positive > 0:
+#                 TPR.append(TP_count / nb_condition_positive)
+#             else:
+#                 TPR.append(np.nan)
+#             if nb_condition_negative > 0:
+#                 FPR.append(FP_count / nb_condition_negative)
+#             else:
+#                 FPR.append(np.nan)
+#
+#         TP_counts = np.asarray(TP_counts).reshape(-1)
+#         FP_counts = np.asarray(FP_counts).reshape(-1)
+#         FN_counts = np.asarray(FN_counts).reshape(-1)
+#         TN_counts = np.asarray(TN_counts).reshape(-1)
+#         TPR = np.asarray(TPR).reshape(-1)
+#         FPR = np.asarray(FPR).reshape(-1)
+#         thresholds = np.asarray(thresholds).reshape(-1)
+#
+#         output_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, self.get_name()))
+#
+#         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
+#                                         output_filepath)
+#
+#         return {'result': None,
+#                 'metadata': {'tp_counts': TP_counts, 'fp_counts': FP_counts, 'fn_counts': FN_counts, 'tn_counts': TN_counts, 'tpr': TPR, 'fpr': FPR, 'thresholds': thresholds},
+#                 'files': [output_filepath]}

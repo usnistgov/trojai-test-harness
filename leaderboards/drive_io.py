@@ -131,8 +131,8 @@ class DriveIO(object):
 
         return file_list
 
-    def query_folder(self, folder_name: str) -> List[GoogleDriveFile]:
-        query = "name = '{}' and trashed = false and mimeType = 'application/vnd.google-apps.folder'".format(folder_name)
+    def query_folder(self, folder_name: str, parent_id='root') -> List[GoogleDriveFile]:
+        query = "name = '{}' and trashed = false and mimeType = 'application/vnd.google-apps.folder' and '{}' in parents".format(folder_name, parent_id)
         folder_list = self.__query_worker(query)
         return folder_list
 
@@ -183,11 +183,12 @@ class DriveIO(object):
                 logging.error('Failed to download file "{}" from Drive.'.format(g_file.name))
                 raise
 
-    def create_folder(self, folder_name) -> str:
+    def create_folder(self, folder_name, parent_id='root') -> str:
         from googleapiclient.errors import HttpError
 
         file_metadata = {
             'name': folder_name,
+            'parents': [parent_id],
             'mimeType': 'application/vnd.google-apps.folder'
         }
 
@@ -196,7 +197,7 @@ class DriveIO(object):
 
         while True:
             try:
-                existing_folders = self.query_folder(folder_name)
+                existing_folders = self.query_folder(folder_name, parent_id=parent_id)
 
                 if len(existing_folders) > 0:
                     return existing_folders[0].id
@@ -240,7 +241,10 @@ class DriveIO(object):
                 if folder_id is None:
                     file_metadata = {'name': file_name}
                 else:
-                    file_metadata = {'name': file_name, 'parents': [folder_id]}
+                    if existing_file_id is not None:
+                        file_metadata = {'name': file_name}
+                    else:
+                        file_metadata = {'name': file_name, 'parents': [folder_id]}
 
                 media = MediaFileUpload(file_path, mimetype=m_type, resumable=True)
 
