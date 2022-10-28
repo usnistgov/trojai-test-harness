@@ -7,6 +7,7 @@ import os
 import time
 import typing
 import pandas as pd
+import fcntl
 
 import collections
 
@@ -990,41 +991,32 @@ def merge_submissions(args):
 
 
 def recompute_metrics(args):
-    # print('Attempting to acquire PID file lock.')
-    # lock_file = '/var/lock/trojai-lockfile'
-    # with open(lock_file, 'w') as f:
-    #     try:
-    #         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    #         print('  PID lock acquired')
-    #         # make sure intermediate folders to the logfile exists
-    #         parent_fp = os.path.dirname(trojai_config.log_filepath)
-    #         if not os.path.exists(parent_fp):
-    #             os.makedirs(parent_fp)
-    #         # Add the log message handler to the logger
-    #         handler = logging.handlers.RotatingFileHandler(trojai_config.log_filepath, maxBytes=100 * 1e6,
-    #                                                        backupCount=10)  # 100MB
-    #         logging.basicConfig(level=logging.INFO,
-    #                             format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
-    #                             handlers=[handler])
-    #         # Enable when debugging
-    #         logging.getLogger().addHandler(logging.StreamHandler())
-    #
-    #         logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
-    #         main(trojai_config)
-    #     except OSError as e:
-    #         print('check-and-launch was already running when called. {}'.format(e))
-    #     finally:
-    #         fcntl.lockf(f, fcntl.LOCK_UN)
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
 
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                         handlers=[logging.StreamHandler()])
 
-    leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    submission_manager = SubmissionManager.load_json(leaderboard)
-    submission_manager.recompute_metrics(trojai_config, leaderboard)
-    print('Finished recomputing metrics for {}'.format(leaderboard.name))
+    print('Attempting to acquire PID file lock.')
+    lock_file = '/var/lock/trojai-lockfile'
+    if args.unsafe:
+        leaderboard = Leaderboard.load_json(trojai_config, args.name)
+        submission_manager = SubmissionManager.load_json(leaderboard)
+        submission_manager.recompute_metrics(trojai_config, leaderboard)
+        print('Finished recomputing metrics for {}'.format(leaderboard.name))
+    else:
+        with open(lock_file, 'w') as f:
+            try:
+                fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                print('  PID lock acquired')
+                leaderboard = Leaderboard.load_json(trojai_config, args.name)
+                submission_manager = SubmissionManager.load_json(leaderboard)
+                submission_manager.recompute_metrics(trojai_config, leaderboard)
+                print('Finished recomputing metrics for {}'.format(leaderboard.name))
+            except OSError as e:
+                print('check-and-launch was already running when called. {}'.format(e))
+            finally:
+                fcntl.lockf(f, fcntl.LOCK_UN)
 
 
 if __name__ == "__main__":
@@ -1044,6 +1036,7 @@ if __name__ == "__main__":
     recompute_metrics_parser = subparser.add_parser('recompute-metrics')
     recompute_metrics_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    recompute_metrics_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
     recompute_metrics_parser.set_defaults(func=recompute_metrics)
 
     args = parser.parse_args()

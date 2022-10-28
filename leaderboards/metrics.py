@@ -302,7 +302,7 @@ class Grouped_ROC_AUC(Metric):
 
 
 class ROC_AUC(Metric):
-    def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True, share_with_external: bool = False):
+    def __init__(self, write_html:bool = True, share_with_actor:bool = True, store_result_in_submission:bool = True, share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
 
     def get_name(self):
@@ -383,62 +383,3 @@ class ROC_AUC(Metric):
 
     def compare(self, computed, baseline):
         return computed > baseline
-
-# class ConfusionMatrix(Metric):
-#     def __init__(self, write_html:bool = False, share_with_actor:bool = True, store_result_in_submission:bool = False, share_with_external: bool = False):
-#         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
-#
-#     def get_name(self):
-#         return 'Confusion Matrix'
-#
-#     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
-#         TP_counts = list()
-#         TN_counts = list()
-#         FP_counts = list()
-#         FN_counts = list()
-#         TPR = list()
-#         FPR = list()
-#
-#         thresholds = np.arange(0.0, 1.01, 0.01)
-#
-#         nb_condition_positive = np.sum(targets == 1)
-#         nb_condition_negative = np.sum(targets == 0)
-#
-#         for t in thresholds:
-#             detections = predictions >= t
-#
-#             # both detections and targets should be a 1d numpy array
-#             TP_count = np.sum(np.logical_and(detections == 1, targets == 1))
-#             FP_count = np.sum(np.logical_and(detections == 1, targets == 0))
-#             FN_count = np.sum(np.logical_and(detections == 0, targets == 1))
-#             TN_count = np.sum(np.logical_and(detections == 0, targets == 0))
-#
-#             TP_counts.append(TP_count)
-#             FP_counts.append(FP_count)
-#             FN_counts.append(FN_count)
-#             TN_counts.append(TN_count)
-#             if nb_condition_positive > 0:
-#                 TPR.append(TP_count / nb_condition_positive)
-#             else:
-#                 TPR.append(np.nan)
-#             if nb_condition_negative > 0:
-#                 FPR.append(FP_count / nb_condition_negative)
-#             else:
-#                 FPR.append(np.nan)
-#
-#         TP_counts = np.asarray(TP_counts).reshape(-1)
-#         FP_counts = np.asarray(FP_counts).reshape(-1)
-#         FN_counts = np.asarray(FN_counts).reshape(-1)
-#         TN_counts = np.asarray(TN_counts).reshape(-1)
-#         TPR = np.asarray(TPR).reshape(-1)
-#         FPR = np.asarray(FPR).reshape(-1)
-#         thresholds = np.asarray(thresholds).reshape(-1)
-#
-#         output_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, self.get_name()))
-#
-#         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
-#                                         output_filepath)
-#
-#         return {'result': None,
-#                 'metadata': {'tp_counts': TP_counts, 'fp_counts': FP_counts, 'fn_counts': FN_counts, 'tn_counts': TN_counts, 'tpr': TPR, 'fpr': FPR, 'thresholds': thresholds},
-#                 'files': [output_filepath]}
