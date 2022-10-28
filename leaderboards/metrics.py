@@ -72,6 +72,10 @@ class GroupedCrossEntropyViolin(Metric):
             self.columns_of_interest = ['all']
         else:
             self.columns_of_interest = columns_of_interest
+
+        if not isinstance(self.columns_of_interest, list):
+            raise RuntimeError('Columns of interest must be passed as a list')
+
         self.epsilon = epsilon
 
     def get_name(self):
@@ -188,6 +192,10 @@ class Grouped_ROC_AUC(Metric):
         self.columns_of_interest = []
         if columns_of_interest is not None:
             self.columns_of_interest = columns_of_interest
+
+        if not isinstance(self.columns_of_interest, list):
+            raise RuntimeError('Columns of interest must be passed as a list')
+
 
     def get_name(self):
         if len(self.columns_of_interest) == 0:
