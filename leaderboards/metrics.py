@@ -113,7 +113,9 @@ class GroupedCrossEntropyViolin(Metric):
             xticks.append(tick)
             tick+=1
 
-        fig, axes = plt.subplots()
+        plt.clf()
+
+        fig, axes = plt.subplots(dpi=300)
         axes.violinplot(dataset=datasets)
         axes.set_title('Cross Entropy Violin Plots for {} in {} for dataset {}'.format(actor_name, leaderboard_name,
                                                                                        data_split_name))
@@ -124,7 +126,7 @@ class GroupedCrossEntropyViolin(Metric):
 
         filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
-        plt.savefig(filepath, bbox_inches='tight')
+        plt.savefig(filepath, bbox_inches='tight', dpi=300)
 
         plt.clf()
 
@@ -277,8 +279,8 @@ class Grouped_ROC_AUC(Metric):
 
             roc_auc = auc(FPR, TPR)
 
-            fig = plt.figure(figsize=(6, 4.5), dpi=300)
             plt.clf()
+            fig = plt.figure(dpi=300)
             lw = 2
             # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
             plt.plot(FPR, TPR, 'b-', marker='o', markersize=4, linewidth=2)
@@ -288,10 +290,9 @@ class Grouped_ROC_AUC(Metric):
             legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
             plt.xlabel('False Positive Rate (FPR)')
             plt.ylabel('True Positive Rate (TPR)')
-            plt.title('Receiver Operating Characteristic (ROC)')
+            plt.title('Receiver Operating Characteristic (ROC) for {} and {}'.format(actor_name, key))
             plt.legend([legend_str], loc='lower right')
-            plt.savefig(roc_filepath)
-            plt.close(fig)
+            plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
             plt.clf()
 
             files.append(confusion_matrix_filepath)
@@ -370,8 +371,8 @@ class ROC_AUC(Metric):
 
         roc_auc = auc(FPR, TPR)
 
-        fig = plt.figure(figsize=(6, 4.5), dpi=300)
         plt.clf()
+        fig = plt.figure(dpi=300)
         lw = 2
         # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
         plt.plot(FPR, TPR, 'b-', marker='o', markersize=4, linewidth=2)
@@ -381,10 +382,9 @@ class ROC_AUC(Metric):
         legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
         plt.xlabel('False Positive Rate (FPR)')
         plt.ylabel('True Positive Rate (TPR)')
-        plt.title('Receiver Operating Characteristic (ROC)')
+        plt.title('Receiver Operating Characteristic (ROC) for {}'.format(actor_name))
         plt.legend([legend_str], loc='lower right')
-        plt.savefig(roc_filepath)
-        plt.close(fig)
+        plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
         plt.clf()
 
         return {'result': float(auc(FPR, TPR)), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}

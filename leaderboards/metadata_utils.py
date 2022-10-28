@@ -44,9 +44,9 @@ def build_model_lists(metadata_df: pd.DataFrame, columns_of_interest: list) -> d
         index = ''
         for key, value in permutation.items():
             if index == '':
-                index = value
+                index = '{}:{}'.format(key, value)
             else:
-                index += ':' + value
+                index += '_{}:{}'.format(key, value)
             subset_df = subset_df[subset_df[key] == value]
 
         # Output the list of models that meet this requirement
