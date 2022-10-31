@@ -281,7 +281,7 @@ class Submission(object):
         try:
             root_trojai_folder_id = g_drive.create_folder('trojai_summary_plots')
             root_actor_folder_id = g_drive.create_folder('trojai_results_{}'.format(actor.name))
-            root_external_folder_id = g_drive.create_folder('trojai_plots_external_{}'.format(actor.name), parent_id=root_trojai_folder_id)
+            root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
 
 
             actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
