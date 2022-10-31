@@ -128,6 +128,7 @@ class GroupedCrossEntropyViolin(Metric):
 
         plt.savefig(filepath, bbox_inches='tight', dpi=300)
 
+        plt.close(fig)
         plt.clf()
 
         return {'result': None, 'metadata': None, 'files': [filepath]}
@@ -293,6 +294,7 @@ class Grouped_ROC_AUC(Metric):
             plt.title('Receiver Operating Characteristic (ROC) for {} and {}'.format(actor_name, key))
             plt.legend([legend_str], loc='lower right')
             plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
+            plt.close(fig)
             plt.clf()
 
             files.append(confusion_matrix_filepath)
@@ -385,6 +387,7 @@ class ROC_AUC(Metric):
         plt.title('Receiver Operating Characteristic (ROC) for {}'.format(actor_name))
         plt.legend([legend_str], loc='lower right')
         plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
+        plt.close(fig)
         plt.clf()
 
         return {'result': float(auc(FPR, TPR)), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}

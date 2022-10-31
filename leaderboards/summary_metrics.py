@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdate
 import time_utils
 
+
 class SummaryMetric(object):
     def __init__(self, share_with_collaborators: bool, add_to_html: bool):
         self.shared_with_collaborators = share_with_collaborators
@@ -14,7 +15,6 @@ class SummaryMetric(object):
 
     def compute_and_write_data(self, leaderboard_name: str, data_split_name: str,  metadata_df: pd.DataFrame, results_df: pd.DataFrame, output_dirpath: str):
         pass
-
 
 
 class SummaryAverageCEOverTime(SummaryMetric):
@@ -66,7 +66,7 @@ class SummaryAverageCEOverTime(SummaryMetric):
         filepath = os.path.join(output_dirpath, 'avgce_{}_{}.png'.format(leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight', dpi=300)
-
+        plt.close(fig)
         plt.clf()
 
         return [filepath]

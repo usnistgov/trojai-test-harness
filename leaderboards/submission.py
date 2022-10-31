@@ -279,8 +279,10 @@ class Submission(object):
 
         # Create team directory on google drive
         try:
+            root_trojai_folder_id = g_drive.create_folder('trojai_summary_plots')
             root_actor_folder_id = g_drive.create_folder('trojai_results_{}'.format(actor.name))
-            root_external_folder_id = g_drive.create_folder('trojai_plots_external_{}'.format(actor.name))
+            root_external_folder_id = g_drive.create_folder('trojai_plots_external_{}'.format(actor.name), parent_id=root_trojai_folder_id)
+
 
             actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
             external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
@@ -288,6 +290,7 @@ class Submission(object):
         except:
             logging.error('Failed to create google drive actor directories')
             root_actor_folder_id = None
+            root_trojai_folder_id = None
             root_external_folder_id = None
             actor_submission_folder_id = None
             external_actor_submission_folder_id = None
@@ -453,9 +456,9 @@ class Submission(object):
             logging.error('Unable to share actor folder with {}'.format(actor.email))
 
         try:
-            if root_external_folder_id is not None:
+            if root_trojai_folder_id is not None:
                 for email in trojai_config.summary_metric_email_addresses:
-                    g_drive.share(root_external_folder_id, email)
+                    g_drive.share(root_trojai_folder_id, email)
         except:
             logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.summary_metric_email_addresses))
 
