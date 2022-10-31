@@ -27,13 +27,14 @@ class TrojaiConfig(object):
         self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
         self.leaderboard_csvs_dirpath = os.path.join(self.datasets_dirpath, 'leaderboard_summary_csvs')
         self.vm_cpu_cores_per_partition = {'es': 10, 'sts': 10}
-        self.job_color_key = {604800: 'success-color-dark text-light',
-                              1209600: 'warning-color-dark',
-                              float('inf'): 'danger-color-dark text-light'}
+        self.job_color_key = {604800: 'text-sucess font-weight-bold',
+                              1209600: 'text-warning font-weight-bold',
+                              float('inf'): 'text-danger font-weight-bold'}
 
-        self.global_metric_email_addresses = []
-        self.global_metrics_dirpath = os.path.join(trojai_dirpath, 'global_metrics')
-
+        self.summary_metric_email_addresses = []
+        self.summary_metrics_dirpath = os.path.join(trojai_dirpath, 'summary_metrics')
+        self.summary_metric_update_timeframe = 3600
+        self.last_summary_metric_update = 0
 
         self.slurm_execute_script_filepath = slurm_execute_script_filepath
         if slurm_execute_script_filepath is None:
@@ -63,8 +64,14 @@ class TrojaiConfig(object):
         os.makedirs(self.results_dirpath, exist_ok=True)
         os.makedirs(self.leaderboard_configs_dirpath, exist_ok=True)
         os.makedirs(self.leaderboard_csvs_dirpath, exist_ok=True)
-        os.makedirs(self.global_metrics_dirpath, exist_ok=True)
+        os.makedirs(self.summary_metrics_dirpath, exist_ok=True)
 
+    def can_apply_summary_updates(self, cur_epoch):
+        if self.last_summary_metric_update + self.summary_metric_update_timeframe <= cur_epoch:
+            self.last_summary_metric_update = cur_epoch
+            self.save_json()
+            return True
+        return False
 
     def __str__(self):
         msg = 'TrojaiConfig: (\n'

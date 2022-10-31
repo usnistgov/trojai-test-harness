@@ -6,6 +6,7 @@
 
 import datetime
 import re
+import matplotlib.dates as mdate
 
 
 def convert_epoch_to_iso(epoch: float) -> str:
@@ -36,6 +37,16 @@ def get_current_epoch() -> int:
     return int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
 
+def convert_to_epoch_from_psudo(time_str: str) -> int:
+    """
+    Converts Psudo ISO time-date string into an epoch number.
+    :param time_str: The ISO time-date string from convert_epoch_to_psudo_iso
+    :return int: unix epoch (seconds since Jan 1st 1970 (UTC))
+    """
+    time = datetime.datetime.strptime(time_str, "%Y%m%dT%H%M%S")
+    time = time.replace(tzinfo=datetime.timezone.utc)
+    return int(time.timestamp())
+
 def convert_to_epoch(time_str: str) -> int:
     """
     Convert an ISO time-date string into an epoch number.
@@ -46,6 +57,16 @@ def convert_to_epoch(time_str: str) -> int:
     time = time.replace(tzinfo=datetime.timezone.utc)
     return int(time.timestamp())
 
+
+def convert_to_datetime(time_str: str) -> datetime.datetime:
+    """
+    Convert an ISO time-date string into a datetime object.
+    :param time_str: An iso time-date string
+    :return int: unix epoch (seconds since Jan 1st 1970 (UTC))
+    """
+    time = datetime.datetime.strptime(time_str[:19], "%Y-%m-%dT%H:%M:%S")
+    time = time.replace(tzinfo=datetime.timezone.utc)
+    return time
 
 def convert_seconds_to_dhms(number_of_seconds: float):
     """

@@ -214,6 +214,83 @@ def main(trojai_config: TrojaiConfig) -> None:
             msg = 'Exception processing actor "{}" loop:\n{}'.format(actor.name, traceback.format_exc())
             logging.error(msg)
 
+    # Apply summary updates
+    cur_epoch = time_utils.get_current_epoch()
+    summary_html_plots = []
+    if trojai_config.can_apply_summary_updates(cur_epoch):
+
+        if not os.path.exists(trojai_config.summary_metrics_dirpath):
+            os.makedirs(trojai_config.summary_metrics_dirpath)
+
+        actor_manager = ActorManager.load_json(trojai_config)
+        trojai_summary_folder_id = g_drive.create_folder('trojai_summary_plots')
+
+        # Run global metric updates for active leaderboards
+        for leaderboard_name, leaderboard in active_leaderboards.items():
+            leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+            submission_manager = active_submission_managers[leaderboard_name]
+
+            leaderboard.generate_metadata_csv(overwrite_csv=True)
+            submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=True)
+
+            metadata_df = leaderboard.load_metadata_csv_into_df()
+            results_df = leaderboard.load_summary_results_csv_into_df()
+
+            for data_split_name in leaderboard.get_all_data_split_names():
+                if data_split_name == 'sts':
+                    continue
+
+                leaderboard_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard_name, data_split_name), trojai_summary_folder_id)
+
+                # Subset metadata and results dfs
+                subset_metadata_df = metadata_df[metadata_df['data_split'] == data_split_name]
+                subset_results_df = results_df[results_df['data_split'] == data_split_name]
+
+                for summary_metric in leaderboard.summary_metrics:
+                    output_files = summary_metric.compute_and_write_data(leaderboard_name, data_split_name, subset_metadata_df, subset_results_df, trojai_config.summary_metrics_dirpath)
+
+                    if summary_metric.shared_with_collaborators:
+                        for file in output_files:
+                            g_drive.upload(file, leaderboard_folder_id)
+
+                    if summary_metric.add_to_html:
+                        summary_html_plots.extend(output_files)
+
+        # Run global metric updates for archive leaderboards if they don't exist
+        for leaderboard_name, leaderboard in archive_leaderboards.items():
+            leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+            submission_manager = SubmissionManager.load_json(leaderboard)
+
+            leaderboard.generate_metadata_csv(overwrite_csv=False)
+            submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
+
+            metadata_df = leaderboard.load_metadata_csv_into_df()
+            results_df = leaderboard.load_summary_results_csv_into_df()
+
+            for data_split_name in leaderboard.get_all_data_split_names():
+                if data_split_name == 'sts':
+                    continue
+
+                leaderboard_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard_name, data_split_name), trojai_summary_folder_id)
+
+                # Subset metadata and results dfs
+                subset_metadata_df = metadata_df[metadata_df['data_split'] == data_split_name]
+                subset_results_df = results_df[results_df['data_split'] == data_split_name]
+
+                for summary_metric in leaderboard.summary_metrics:
+                    output_files = summary_metric.compute_and_write_data(leaderboard_name, data_split_name, subset_metadata_df, subset_results_df, trojai_config.global_metrics_dirpath)
+
+                    if summary_metric.shared_with_collaborators:
+                        for file in output_files:
+                            g_drive.upload(file, leaderboard_folder_id)
+
+                    if summary_metric.add_to_html:
+                        summary_html_plots.extend(output_files)
+
+        # Share summary metrics
+        for email in trojai_config.summary_metric_email_addresses:
+            g_drive.share(trojai_summary_folder_id, email)
+
     # Check web-site updates
     update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=trojai_config.commit_and_push_html)
 
@@ -226,8 +303,6 @@ def main(trojai_config: TrojaiConfig) -> None:
     for leaderboard_name, submission_manager in active_submission_managers.items():
         leaderboard = active_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard)
-
-
 
     logging.info('Finished Check and Launch Actors')
 

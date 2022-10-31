@@ -454,10 +454,10 @@ class Submission(object):
 
         try:
             if root_external_folder_id is not None:
-                for email in trojai_config.global_metric_email_addresses:
+                for email in trojai_config.summary_metric_email_addresses:
                     g_drive.share(root_external_folder_id, email)
         except:
-            logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.global_metric_email_addresses))
+            logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.summary_metric_email_addresses))
 
         if update_actor:
             actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
@@ -915,6 +915,9 @@ class SubmissionManager(object):
 
                 metrics = {}
                 for submission in submissions:
+                    if submission.is_active_job():
+                        continue
+
                     if submission.data_split_name == data_split:
                         raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
                         predictions_np = np.copy(raw_predictions_np)
@@ -955,7 +958,7 @@ class SubmissionManager(object):
 
         result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
 
-        print('Finished writing round results to {}'.format(leaderboard.summary_results_csv_filepath))
+        logging.info('Finished writing round results to {}'.format(leaderboard.summary_results_csv_filepath))
 
         return result_df
 
@@ -969,7 +972,7 @@ class SubmissionManager(object):
             actor = actor_manager.get_from_uuid(actor_uuid)
             for submission in submissions:
                 # Verify it is not active prior to computing metrics
-                if submission.active_slurm_job_name is None:
+                if not submission.is_active_job():
                     submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False, print_details=False)
 
         self.save_json(leaderboard)

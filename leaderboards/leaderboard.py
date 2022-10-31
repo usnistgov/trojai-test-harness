@@ -15,7 +15,7 @@ from leaderboards import json_io
 from leaderboards.dataset import DatasetManager
 from leaderboards.metrics import *
 from leaderboards.tasks import *
-from leaderboards.global_metrics import *
+from leaderboards.summary_metrics import *
 
 
 class Leaderboard(object):
@@ -41,8 +41,11 @@ class Leaderboard(object):
         'ROC_AUC': ROC_AUC
     }
 
+    VALID_SUMMARY_METRIC_NAMES = {
+        'SummaryAverageCEOverTime': SummaryAverageCEOverTime
+    }
 
-    DEFAULT_GLOBAL_METRICS = []
+    DEFAULT_SUMMARY_METRICS = [SummaryAverageCEOverTime]
 
     GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
@@ -71,7 +74,7 @@ class Leaderboard(object):
         self.html_data_split_name_priorities = {}
         self.html_table_sort_options = {}
 
-        self.global_metrics = Leaderboard.DEFAULT_GLOBAL_METRICS
+        self.summary_metrics = Leaderboard.DEFAULT_SUMMARY_METRICS
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
@@ -469,6 +472,34 @@ def remove_metric(args):
 
     print('Removed metric {} to {} for split: {}'.format(metric_name, leaderboard.name, split_name))
 
+def add_summary_metric(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    metric_name = args.metric_name
+
+    metric_params_filepath = args.metric_params_json_filepath
+    metric_param_dict = None
+
+    if metric_params_filepath is not None:
+        try:
+            with open(metric_params_filepath, mode='r', encoding='utf-8') as f:
+                metric_param_dict = json.load(f)
+        except json.decoder.JSONDecodeError:
+            logging.error("JSON decode error for file: {}, is it a proper json?".format(metric_params_filepath))
+            raise
+        except:
+            raise
+
+    if metric_param_dict is None:
+        new_metric = Leaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name]()
+    else:
+        new_metric = Leaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name](**metric_param_dict)
+
+    leaderboard.summary_metrics.append(new_metric)
+    leaderboard.save_json(trojai_config)
+
+    print('Added summary metric {} to {}'.format(metric_name, leaderboard.name))
+
 if __name__ == "__main__":
     import argparse
 
@@ -518,6 +549,13 @@ if __name__ == "__main__":
     remove_metric_parser.add_argument('--split-name', type=str, help='The dataset split name, it not specified then removes the metric from all split names in the leaderboard', required=False, default=None)
     remove_metric_parser.add_argument('--metric-name', type=str, help='The name of the metric to remove', required=True)
     remove_metric_parser.set_defaults(func=remove_metric)
+
+    add_summary_metric_parser = subparser.add_parser('add-summary-metric', help='Adds a summary metric to leaderboard')
+    add_summary_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    add_summary_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    add_summary_metric_parser.add_argument('--metric-name', type=str, choices=Leaderboard.VALID_SUMMARY_METRIC_NAMES, help='The name of the metric to add', required=True)
+    add_summary_metric_parser.add_argument('--metric-params-json-filepath', type=str, help='The filepath to the json file that describes custom metric parameters', default=None)
+    add_summary_metric_parser.set_defaults(func=add_summary_metric)
 
     args = parser.parse_args()
     args.func(args)
