@@ -222,7 +222,6 @@ def main(trojai_config: TrojaiConfig) -> None:
         if not os.path.exists(trojai_config.summary_metrics_dirpath):
             os.makedirs(trojai_config.summary_metrics_dirpath)
 
-        actor_manager = ActorManager.load_json(trojai_config)
         trojai_summary_folder_id = g_drive.create_folder('trojai_summary_plots')
 
         # Run global metric updates for active leaderboards
