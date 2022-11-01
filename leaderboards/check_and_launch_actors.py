@@ -277,7 +277,7 @@ def main(trojai_config: TrojaiConfig) -> None:
                 subset_results_df = results_df[results_df['data_split'] == data_split_name]
 
                 for summary_metric in leaderboard.summary_metrics:
-                    output_files = summary_metric.compute_and_write_data(leaderboard_name, data_split_name, subset_metadata_df, subset_results_df, trojai_config.global_metrics_dirpath)
+                    output_files = summary_metric.compute_and_write_data(leaderboard_name, data_split_name, subset_metadata_df, subset_results_df, trojai_config.summary_metrics_dirpath)
 
                     if summary_metric.shared_with_collaborators:
                         for file in output_files:
