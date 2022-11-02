@@ -149,14 +149,16 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
 
             written_files.append(leaderboards_filepath)
 
-            logging.info('Generating active leaderboard pages')
             for leaderboard in active_leaderboards:
+                logging.info('Generating active leaderboard pages for {}'.format(leaderboard.name))
+
                 submission_manager = active_submission_managers_dict[leaderboard.name]
                 leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=False, g_drive=g_drive)
                 written_files.extend(leaderboard_filepaths)
 
-            logging.info('Generating archive leaderboard pages')
             for leaderboard in archive_leaderboards:
+                logging.info('Generating archive leaderboard pages for {}'.formate(leaderboard.name))
+
                 submission_manager = SubmissionManager.load_json(leaderboard)
                 leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True, g_drive=g_drive)
                 written_files.extend(leaderboard_filepaths)
