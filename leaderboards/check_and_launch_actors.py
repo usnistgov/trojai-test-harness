@@ -303,7 +303,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         leaderboard = active_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard)
 
-    logging.info('Finished Check and Launch Actors')
+    logging.info('Finished Check and Launch Actors, total g_drive API requests: {}'.format(g_drive.request_count))
 
 
 if __name__ == "__main__":

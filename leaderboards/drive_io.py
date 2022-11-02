@@ -35,6 +35,8 @@ class DriveIO(object):
         self.token_pickle_filepath = token_pickle_filepath
         self.page_size = 100
         self.max_retry_count = 4
+        self.request_count = 0
+
         self.__get_service(self.token_pickle_filepath)
 
         self.folder_cache = {}
@@ -83,6 +85,7 @@ class DriveIO(object):
 
             logging.debug('Querying Drive to determine account owner details.')
             response = self.service.about().get(fields="user").execute(num_retries=self.max_retry_count)
+            self.request_count += 1
             self.user_details = response.get('user')
             self.email_address = self.user_details.get('emailAddress')
             logging.info('Connected to Drive for user: "{}" with email "{}".'.format(self.user_details.get('displayName'), self.email_address))
@@ -110,6 +113,7 @@ class DriveIO(object):
                                                              fields="nextPageToken, files(name, id, modifiedTime, owners)",
                                                              pageToken=page_token,
                                                              spaces='drive').execute(num_retries=self.max_retry_count)
+                        self.request_count += 1
                         items.extend(response.get('files'))
                         page_token = response.get('nextPageToken', None)
                         if page_token is None:
@@ -169,6 +173,7 @@ class DriveIO(object):
         while True:
             try:
                 request = self.service.files().get_media(fileId=g_file.id)
+                self.request_count += 1
                 file_data = io.FileIO(os.path.join(output_dirpath, g_file.name), 'wb')
                 downloader = MediaIoBaseDownload(file_data, request)
                 done = False
@@ -221,6 +226,7 @@ class DriveIO(object):
                     return existing_folders[0].id
 
                 file = self.service.files().create(body=file_metadata, fields='id').execute()
+                self.request_count += 1
                 self.folder_cache[folder_key] = file.get('id')
                 self.folder_times[folder_key] = time_utils.get_current_epoch()
                 return file.get('id')
@@ -271,9 +277,11 @@ class DriveIO(object):
                 if existing_file_id is not None:
                     logging.info("Updating existing file '{}' on Drive.".format(file_name))
                     request = self.service.files().update(fileId=existing_file_id, body=file_metadata, media_body=media)
+                    self.request_count += 1
                 else:
                     logging.info("Uploading new file '{}' to Drive.".format(file_name))
                     request = self.service.files().create(body=file_metadata, media_body=media, fields='id')
+                    self.request_count += 1
 
                 response = None
                 # loop while there are additional chunks
@@ -306,6 +314,7 @@ class DriveIO(object):
                 time.sleep(sleep_time)
                 try:
                     self.service.permissions().create(fileId=file_id, body=user_permissions, fields='id', sendNotificationEmail=False).execute()
+                    self.request_count += 1
                     logging.info('Successfully shared file {} with {}.'.format(file_id, share_email))
                     return  # permissions were successfully modified if no exception
                 except:
@@ -317,6 +326,7 @@ class DriveIO(object):
 
     def remove_all_sharing_permissions(self, file_id: str) -> None:
         permissions = self.service.permissions().list(fileId=file_id).execute()
+        self.request_count += 1
         permissions = permissions['permissions']
 
         for permission in permissions:
@@ -327,6 +337,7 @@ class DriveIO(object):
 
                     try:
                         self.service.permissions().delete(fileId=file_id, permissionId=permission['id']).execute()
+                        self.request_count += 1
                         logging.info("Successfully removed share permission '{}' from file {}.".format(permission, file_id))
                         break  # break retry loop
                     except:
