@@ -12,6 +12,7 @@ import mimetypes
 import time
 import logging
 from typing import List
+import time_utils
 
 import socket
 socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
@@ -35,6 +36,11 @@ class DriveIO(object):
         self.page_size = 100
         self.max_retry_count = 4
         self.__get_service(self.token_pickle_filepath)
+
+        self.folder_cache = {}
+        self.folder_times = {}
+        # Cache is stale after 120 seconds
+        self.stale_time_limit = 120
 
     def __get_service(self, token_pickle_filepath):
         from googleapiclient.discovery import build
@@ -185,6 +191,18 @@ class DriveIO(object):
 
     def create_folder(self, folder_name, parent_id='root') -> str:
         from googleapiclient.errors import HttpError
+        folder_key = '{}_{}'.format(folder_name, parent_id)
+        if folder_key in self.folder_cache.keys():
+            # Check staleness
+            if folder_key in self.folder_times.keys():
+                folder_time = self.folder_times[folder_key]
+
+                cur_epoch = time_utils.get_current_epoch()
+                if folder_time + self.stale_time_limit > cur_epoch:
+                    return self.folder_cache[folder_key]
+                else:
+                    del self.folder_cache[folder_key]
+                    del self.folder_times[folder_key]
 
         file_metadata = {
             'name': folder_name,
@@ -203,6 +221,8 @@ class DriveIO(object):
                     return existing_folders[0].id
 
                 file = self.service.files().create(body=file_metadata, fields='id').execute()
+                self.folder_cache[folder_key] = file.get('id')
+                self.folder_times[folder_key] = time_utils.get_current_epoch()
                 return file.get('id')
 
             except HttpError as e:
