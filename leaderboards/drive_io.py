@@ -193,7 +193,7 @@ class DriveIO(object):
         }
 
         retry_count = 0
-        logging.info('Creating google drive folder {}'.format(folder_name))
+        logging.debug('Creating google drive folder {}'.format(folder_name))
 
         while True:
             try:
@@ -363,3 +363,8 @@ class DriveIO(object):
         return submission
 
 
+    def create_summary_root_folder(self):
+        return self.create_folder('trojai_summary_plots')
+
+    def create_actor_root_folder(self, actor_name):
+        return self.create_folder('trojai_results_{}'.format(actor_name))

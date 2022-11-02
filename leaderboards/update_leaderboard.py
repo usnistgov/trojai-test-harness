@@ -15,9 +15,12 @@ from leaderboards import html_output
 from leaderboards.actor import ActorManager
 from leaderboards.submission import SubmissionManager
 from leaderboards.leaderboard import Leaderboard
+from leaderboards.drive_io import DriveIO
 
 
 def main(trojai_config: TrojaiConfig, commit_and_push: bool):
+    g_drive = DriveIO(trojai_config.token_pickle_filepath)
+
     active_leaderboards = {}
     active_submission_managers = {}
     archive_leaderboards = {}
@@ -39,7 +42,7 @@ def main(trojai_config: TrojaiConfig, commit_and_push: bool):
 
     # Update web-site
     logging.debug('Updating website.')
-    html_output.update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=commit_and_push)
+    html_output.update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=commit_and_push, g_drive=g_drive)
     logging.debug('Finished updating website.')
 
 

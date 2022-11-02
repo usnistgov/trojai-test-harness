@@ -19,6 +19,7 @@ from leaderboards import slurm
 from leaderboards.mail_io import TrojaiMail
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.leaderboard import Leaderboard
+from leaderboards.drive_io import DriveIO
 
 def get_leaderboard_javascript_content(leaderboard: Leaderboard):
     content = ''
@@ -35,7 +36,7 @@ def get_leaderboard_javascript_content(leaderboard: Leaderboard):
         content += "$('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
     return content
 
-def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpath: str, leaderboard: Leaderboard, submission_manager: SubmissionManager, actor_manager: ActorManager, html_default_leaderboard: str, cur_epoch: int, is_archived: bool):
+def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpath: str, leaderboard: Leaderboard, submission_manager: SubmissionManager, actor_manager: ActorManager, html_default_leaderboard: str, cur_epoch: int, is_archived: bool, g_drive):
     written_files = []
 
     # Check for existence of about files for each leaderboard
@@ -76,15 +77,15 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
                                                       leaderboard.highlight_old_submissions, data_split_name,
                                                       execute_window, cur_epoch, trojai_config.job_color_key)
             written_files.append(filepath)
-        filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, actor_manager, data_split_name)
+        filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, actor_manager, data_split_name, g_drive)
         written_files.append(filepath)
-        filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, actor_manager, data_split_name)
+        filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, actor_manager, data_split_name, g_drive)
         written_files.append(filepath)
 
     return written_files
 
 
-def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, archive_leaderboards_dict: dict, commit_and_push: bool):
+def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, archive_leaderboards_dict: dict, commit_and_push: bool, g_drive: DriveIO):
     cur_epoch = time_utils.get_current_epoch()
 
     lock_filepath = "/var/lock/htmlpush-lockfile"
@@ -150,12 +151,12 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
 
             for leaderboard in active_leaderboards:
                 submission_manager = active_submission_managers_dict[leaderboard.name]
-                leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=False)
+                leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=False, g_drive=g_drive)
                 written_files.extend(leaderboard_filepaths)
 
             for leaderboard in archive_leaderboards:
                 submission_manager = SubmissionManager.load_json(leaderboard)
-                leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True)
+                leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True, g_drive=g_drive)
                 written_files.extend(leaderboard_filepaths)
                 # Save submission_manager in case we update metrics
                 submission_manager.save_json(leaderboard)

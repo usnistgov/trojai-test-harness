@@ -279,11 +279,9 @@ class Submission(object):
 
         # Create team directory on google drive
         try:
-            root_trojai_folder_id = g_drive.create_folder('trojai_summary_plots')
-            root_actor_folder_id = g_drive.create_folder('trojai_results_{}'.format(actor.name))
+            root_trojai_folder_id = g_drive.create_summary_root_folder()
+            root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
             root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
-
-
             actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
             external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
 
@@ -339,51 +337,8 @@ class Submission(object):
 
             # Compute metrics
             for metric_name, metric in submission_metrics.items():
-                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
+                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
-            output_files = []
-            external_collab_files = []
-
-            # Gather metric output files
-            for metric_name, metric_filepaths in self.saved_metric_results.items():
-                if metric_name not in submission_metrics:
-                    continue
-
-                metric = submission_metrics[metric_name]
-                if metric.share_with_actor:
-                    if isinstance(metric_filepaths, list):
-                        output_files.extend(metric_filepaths)
-                    elif isinstance(metric_filepaths, str):
-                        output_files.append(metric_filepaths)
-                if metric.share_with_external:
-                    if isinstance(metric_filepaths, list):
-                        external_collab_files.extend(metric_filepaths)
-                    elif isinstance(metric_filepaths, str):
-                        external_collab_files.append(metric_filepaths)
-
-            # Upload to actor folder
-            for output_file in output_files:
-                try:
-                    if actor_submission_folder_id is not None and os.path.exists(output_file):
-                        g_drive.upload(output_file, folder_id=actor_submission_folder_id)
-                    else:
-                        logging.error('Unable to upload file: {}'.format(output_file))
-                        if ":File Upload:" not in self.web_display_parse_errors:
-                            self.web_display_parse_errors += ":File Upload:"
-                except:
-                    logging.error('Unable to upload file: {}'.format(output_file))
-                    if ":File Upload:" not in self.web_display_parse_errors:
-                        self.web_display_parse_errors += ":File Upload:"
-
-            # Upload to external folder
-            for output_file in external_collab_files:
-                try:
-                    if external_actor_submission_folder_id is not None and os.path.exists(output_file):
-                        g_drive.upload(output_file, folder_id=external_actor_submission_folder_id)
-                    else:
-                        logging.error('Unable to upload external collab file: {}'.format(output_file))
-                except:
-                    logging.error('Unable to upload external collab file: {}'.format(output_file))
             # load the runtime info from the vm-executor
             if not os.path.exists(info_filepath):
                 logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
@@ -468,7 +423,7 @@ class Submission(object):
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
-    def compute_metric(self, actor_name, metric, predictions, targets, models, metadata_df, store_results=True):
+    def compute_metric(self, actor_name, metric, predictions, targets, models, metadata_df, g_drive, actor_folder_id, external_folder_id, store_results=True):
         metric_output_dirpath = os.path.join(self.execution_results_dirpath)
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
@@ -479,7 +434,20 @@ class Submission(object):
                 self.metric_results[metric.get_name()] = metric_output['result']
 
             files = metric_output['files']
-            self.saved_metric_results[metric.get_name()] = files
+            if files is not None:
+                self.saved_metric_results[metric.get_name()] = files
+
+                # Convert to list if we only get a str
+                if isinstance(files, str):
+                    files = [files]
+
+                for file in files:
+                    if not os.path.exists(file):
+                        continue
+                    if metric.share_with_actor and actor_folder_id is not None:
+                        g_drive.upload(file, folder_id=actor_folder_id)
+                    if metric.share_with_external and external_folder_id is not None:
+                        g_drive.upload(file, folder_id=external_folder_id)
 
         return metric_output
 
@@ -514,7 +482,8 @@ class Submission(object):
         num_missing_predictions = np.count_nonzero(np.isnan(predictions))
         num_total_predictions = predictions.size
 
-        logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
+        if print_details:
+            logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
 
         if update_nan_with_default:
             predictions[np.isnan(predictions)] = default_result
@@ -631,9 +600,25 @@ class Submission(object):
             self.active_slurm_job_name = None
             self.web_display_execution_errors += ":Slurm Script Error:"
 
-    def get_result_table_row(self, a: Airium, actor: Actor, leaderboard: Leaderboard):
+    def get_result_table_row(self, a: Airium, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO):
         if self.is_active_job():
             return
+
+        try:
+            root_trojai_folder_id = g_drive.create_summary_root_folder()
+            root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
+            root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
+
+            actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
+            external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
+
+        except:
+            logging.error('Failed to create google drive actor directories')
+            root_actor_folder_id = None
+            root_trojai_folder_id = None
+            root_external_folder_id = None
+            actor_submission_folder_id = None
+            external_actor_submission_folder_id = None
 
         submission_timestr = time_utils.convert_epoch_to_iso(self.submission_epoch)
 
@@ -661,14 +646,17 @@ class Submission(object):
             a.td(_t=actor.name)
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
             for metric_name, metric in submission_metrics.items():
-                if metric.store_result_in_submission:
-                    if metric_name not in self.metric_results.keys():
-                        predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                        self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
-                if metric.share_with_actor:
-                    if metric_name not in self.saved_metric_results.keys():
-                        predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                        self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
+
+                # Check if the metric result had not been computed and it should be stored in the submission
+                # If the metric result is not there, then we need to recompute
+                if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
+                    predictions, targets, models = self.get_predictions_targets_models(leaderboard)
+                    self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+
+                # Check if we has not shared a metric with actor or external
+                if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
+                    predictions, targets, models = self.get_predictions_targets_models(leaderboard)
+                    self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
@@ -701,7 +689,22 @@ class SubmissionManager(object):
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
-    def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor) -> List[Submission]:
+    def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor, g_drive: DriveIO) -> List[Submission]:
+        # Create team directory on google drive
+        try:
+            root_trojai_folder_id = g_drive.create_summary_root_folder()
+            root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
+            root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
+            actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, data_split_name), parent_id=root_actor_folder_id)
+            external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, data_split_name), parent_id=root_external_folder_id)
+
+        except:
+            logging.error('Failed to create google drive actor directories')
+            root_actor_folder_id = None
+            root_trojai_folder_id = None
+            root_external_folder_id = None
+            actor_submission_folder_id = None
+            external_actor_submission_folder_id = None
         execution_submissions = list()
 
         actor_submissions = self.__submissions[actor.uuid]
@@ -715,9 +718,9 @@ class SubmissionManager(object):
             if submission.data_split_name == data_split_name:
                 metric = submission_metrics[metric_name]
 
-                if metric_name not in submission.metric_results.keys():
+                if metric_name not in submission.metric_results.keys() or metric_name not in submission.saved_metric_results.keys():
                     predictions, targets, models = submission.get_predictions_targets_models(leaderboard, print_details=False)
-                    submission.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
+                    submission.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
                 metric_value = submission.metric_results[metric_name]
                 if metric.compare(metric_value, metric_criteria):
@@ -784,7 +787,8 @@ class SubmissionManager(object):
     def load_json(leaderboard: Leaderboard) -> 'SubmissionManager':
         return SubmissionManager.load_json_custom(leaderboard.submissions_filepath, leaderboard.name)
 
-    def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str):
+    def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
+
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         metadata_df = leaderboard.load_metadata_csv_into_df()
@@ -837,23 +841,22 @@ class SubmissionManager(object):
                                 if evaluation_metric_name in s.metric_results.keys():
                                     metric_score = s.metric_results[evaluation_metric_name]
                                 else:
-                                    predictions, targets, models = s.get_predictions_targets_models(leaderboard)
-                                    s.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata)
-                                    metric_score = s.metric_results[evaluation_metric_name]
+                                    metric_score = None
 
-                                if best_submission_score is None or metric.compare(metric_score, best_submission_score):
-                                    best_submission_score = metric_score
-                                    best_submission = s
+                                if metric_score is not None:
+                                    if best_submission_score is None or metric.compare(metric_score, best_submission_score):
+                                        best_submission_score = metric_score
+                                        best_submission = s
 
                             if best_submission is not None:
-                                best_submission.get_result_table_row(a, actor, leaderboard)
+                                best_submission.get_result_table_row(a, actor, leaderboard, g_drive)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))
 
         return result_filepath
 
-    def write_score_table(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str):
+    def write_score_table(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
         result_filename = 'results-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         a = Airium()
@@ -889,7 +892,7 @@ class SubmissionManager(object):
                         for actor_uuid, submissions in valid_submissions.items():
                             actor = actor_manager.get_from_uuid(actor_uuid)
                             for s in submissions:
-                                s.get_result_table_row(a, actor, leaderboard)
+                                s.get_result_table_row(a, actor, leaderboard, g_drive)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))
