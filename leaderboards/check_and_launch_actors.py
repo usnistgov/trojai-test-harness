@@ -218,7 +218,7 @@ def main(trojai_config: TrojaiConfig) -> None:
     cur_epoch = time_utils.get_current_epoch()
     summary_html_plots = []
     if trojai_config.can_apply_summary_updates(cur_epoch):
-
+        logging.info('Applying summary metric updates')
         if not os.path.exists(trojai_config.summary_metrics_dirpath):
             os.makedirs(trojai_config.summary_metrics_dirpath)
 
@@ -291,6 +291,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             g_drive.share(trojai_summary_folder_id, email)
 
     # Check web-site updates
+    logging.info('Updating HTML pages')
     update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, commit_and_push=trojai_config.commit_and_push_html, g_drive=g_drive)
 
     # Write all updates to actors back to file

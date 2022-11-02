@@ -650,11 +650,13 @@ class Submission(object):
                 # Check if the metric result had not been computed and it should be stored in the submission
                 # If the metric result is not there, then we need to recompute
                 if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
+                    logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
                     predictions, targets, models = self.get_predictions_targets_models(leaderboard)
                     self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
                 # Check if we has not shared a metric with actor or external
                 if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
+                    logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
                     predictions, targets, models = self.get_predictions_targets_models(leaderboard)
                     self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
