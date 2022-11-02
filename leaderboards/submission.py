@@ -604,22 +604,6 @@ class Submission(object):
         if self.is_active_job():
             return
 
-        try:
-            root_trojai_folder_id = g_drive.create_summary_root_folder()
-            root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
-            root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
-
-            actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
-            external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
-
-        except:
-            logging.error('Failed to create google drive actor directories')
-            root_actor_folder_id = None
-            root_trojai_folder_id = None
-            root_external_folder_id = None
-            actor_submission_folder_id = None
-            external_actor_submission_folder_id = None
-
         submission_timestr = time_utils.convert_epoch_to_iso(self.submission_epoch)
 
         # if self.execution_epoch == 0 or self.execution_epoch is None:
@@ -637,29 +621,10 @@ class Submission(object):
         if len(self.web_display_parse_errors.strip()) == 0:
             self.web_display_parse_errors = "None"
 
-        metadata_df = leaderboard.load_metadata_csv_into_df()
-
-        # Subset data
-        data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
-
         with a.tr():
             a.td(_t=actor.name)
             submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
             for metric_name, metric in submission_metrics.items():
-
-                # Check if the metric result had not been computed and it should be stored in the submission
-                # If the metric result is not there, then we need to recompute
-                if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
-                    logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
-                    predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                    self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
-
-                # Check if we has not shared a metric with actor or external
-                if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
-                    logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
-                    predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                    self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
-
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
                     if isinstance(metric_value, float):
@@ -677,6 +642,34 @@ class Submission(object):
             a.td(_t=self.web_display_parse_errors)
             a.td(_t=self.web_display_execution_errors)
 
+    def has_new_metrics(self, leaderboard: Leaderboard) -> bool:
+        submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
+        for metric_name, metric in submission_metrics.items():
+            if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
+                return True
+
+            if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
+                return True
+        return False
+
+    def compute_missing_metrics(self, actor: Actor, leaderboard: Leaderboard, metadata_df: pd.DataFrame, g_drive: DriveIO, actor_submission_folder_id, external_actor_submission_folder_id):
+        submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
+        for metric_name, metric in submission_metrics.items():
+            if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
+                logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
+
+                predictions, targets, models = self.get_predictions_targets_models(leaderboard)
+                data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
+                self.compute_metric(actor.name, metric, predictions, targets, models, self.data_split_name, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+
+            if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
+                logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
+
+                predictions, targets, models = self.get_predictions_targets_models(leaderboard)
+                data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
+                self.compute_metric(actor.name, metric, predictions, targets, models, self.data_split_name, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+
+
 class SubmissionManager(object):
     def __init__(self, leaderboard_name):
         self.leaderboard_name = leaderboard_name
@@ -690,6 +683,41 @@ class SubmissionManager(object):
             for s in submissions:
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
+
+    def check_for_new_metrics(self, leaderboard: Leaderboard, actor_manager: ActorManager, g_drive: DriveIO):
+        try:
+            root_trojai_folder_id = g_drive.create_summary_root_folder()
+        except:
+            logging.error('Failed to create google drive actor directories')
+            return
+
+        metadata_df = leaderboard.load_metadata_csv_into_df()
+
+        for actor_uuid, submissions in self.__submissions.items():
+            actor = actor_manager.get_from_uuid(actor_uuid)
+
+            try:
+                root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
+                root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
+            except:
+                logging.error('Failed to create google drive actor directories')
+                continue
+
+            for submission in submissions:
+                if submission.active_slurm_job_name is not None:
+                    continue
+                if submission.has_new_metrics(leaderboard):
+                    try:
+                        actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, submission.data_split_name), parent_id=root_actor_folder_id)
+                        external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, submission.data_split_name), parent_id=root_external_folder_id)
+                    except Exception as e:
+                        logging.error('Failed to create google drive actor directories')
+                        continue
+
+                    submission.compute_missing_metrics(actor, leaderboard, metadata_df, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+
+
+
 
     def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor, g_drive: DriveIO) -> List[Submission]:
         # Create team directory on google drive
@@ -793,10 +821,6 @@ class SubmissionManager(object):
 
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
-        metadata_df = leaderboard.load_metadata_csv_into_df()
-
-        # Subset data
-        data_split_metadata = metadata_df[metadata_df['data_split'] == data_split_name]
 
         a = Airium()
 

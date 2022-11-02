@@ -85,7 +85,7 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
     return written_files
 
 
-def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, archive_leaderboards_dict: dict, commit_and_push: bool, g_drive: DriveIO):
+def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, active_leaderboards_dict: dict, active_submission_managers_dict: dict, archive_leaderboards_dict: dict, archive_submission_managers_dict: dict, commit_and_push: bool, g_drive: DriveIO):
     cur_epoch = time_utils.get_current_epoch()
 
     lock_filepath = "/var/lock/htmlpush-lockfile"
@@ -157,13 +157,11 @@ def update_html_pages(trojai_config: TrojaiConfig, actor_manager: ActorManager, 
                 written_files.extend(leaderboard_filepaths)
 
             for leaderboard in archive_leaderboards:
-                logging.info('Generating archive leaderboard pages for {}'.formate(leaderboard.name))
+                logging.info('Generating archive leaderboard pages for {}'.format(leaderboard.name))
 
-                submission_manager = SubmissionManager.load_json(leaderboard)
+                submission_manager = archive_submission_managers_dict[leaderboard.name]
                 leaderboard_filepaths = write_html_leaderboard_pages(trojai_config, html_output_dirpath, leaderboard, submission_manager, actor_manager, html_default_leaderboard, cur_epoch, is_archived=True, g_drive=g_drive)
                 written_files.extend(leaderboard_filepaths)
-                # Save submission_manager in case we update metrics
-                submission_manager.save_json(leaderboard)
 
             table_javascript_filepath = os.path.join(trojai_config.html_repo_dirpath, 'js', 'trojai-table-init.js')
 
