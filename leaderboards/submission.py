@@ -933,8 +933,6 @@ class SubmissionManager(object):
 
     def generate_round_results_csv(self, leaderboard: Leaderboard, actor_manager: ActorManager, overwrite_csv: bool = True):
 
-        df = leaderboard.load_metadata_csv_into_df()
-
         if os.path.exists(leaderboard.summary_results_csv_filepath) and not overwrite_csv:
             logging.info('Skipping building round results: {} already exists and overwrite is disabled.'.format(leaderboard.summary_results_csv_filepath))
             return
@@ -949,11 +947,12 @@ class SubmissionManager(object):
             for data_split in leaderboard.get_all_data_split_names():
                 leaderboard_metrics = leaderboard.get_submission_metrics(data_split)
 
-                all_model_ids = list(df.loc[df['data_split'] == data_split, 'model_name'].unique())
+                # all_model_ids = list(df.loc[df['data_split'] == data_split, 'model_name'].unique())
+                # all_model_ids.sort()
 
                 metrics = {}
                 for submission in submissions:
-                    if submission.is_active_job():
+                    if submission.active_slurm_job_name is not None:
                         continue
 
                     if submission.data_split_name == data_split:
@@ -978,15 +977,15 @@ class SubmissionManager(object):
                                 else:
                                     raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
                         new_data = {}
-                        new_data['model_name'] = all_model_ids
-                        new_data['team_name'] = [actor.name] * len(all_model_ids)
-                        new_data['submission_timestamp'] = [time_str] * len(all_model_ids)
-                        new_data['data_split'] = [data_split] * len(all_model_ids)
+                        new_data['model_name'] = model_names
+                        new_data['team_name'] = [actor.name] * len(model_names)
+                        new_data['submission_timestamp'] = [time_str] * len(model_names)
+                        new_data['data_split'] = [data_split] * len(model_names)
                         new_data['prediction'] = [float(i) for i in raw_predictions_np]
                         new_data['ground_truth'] = [float(i) for i in raw_targets_np]
                         for key, value in metrics.items():
                             data = [float(i) for i in value]
-                            if len(data) == len(all_model_ids):
+                            if len(data) == len(model_names):
                                 new_data[key] = data
 
                         new_df = pd.DataFrame(new_data)
