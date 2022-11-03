@@ -472,8 +472,14 @@ class Submission(object):
             if self.data_split_name == 'sts':
                 logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
 
-        predictions = np.array(list(results.values())).reshape(-1, 1)
-        targets = np.array(list(ground_truth_dict.values())).reshape(-1, 1)
+        model_names = list(ground_truth_dict.keys())
+        model_names.sort()
+        predictions = np.zeros(len(model_names))
+        targets = np.zeros(len(model_names))
+
+        for i in range(len(model_names)):
+            predictions[i] = results[model_names[i]]
+            targets[i] = ground_truth_dict[model_names[i]]
 
         if not np.any(np.isfinite(predictions)) and print_details:
             logging.warning('Found no parse-able results from container execution.')
@@ -487,8 +493,8 @@ class Submission(object):
 
         if update_nan_with_default:
             predictions[np.isnan(predictions)] = default_result
-        model_list = list(ground_truth_dict.keys())
-        return predictions, targets, model_list
+
+        return predictions, targets, model_names
 
     def get_submission_filepath(self):
         return os.path.join(self.actor_submission_dirpath, self.g_file.name)
