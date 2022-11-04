@@ -607,7 +607,7 @@ class Submission(object):
             self.web_display_execution_errors += ":Slurm Script Error:"
 
     def get_result_table_row(self, a: Airium, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO):
-        if self.is_active_job():
+        if self.active_slurm_job_name is not None:
             return
 
         submission_timestr = time_utils.convert_epoch_to_iso(self.submission_epoch)
@@ -867,7 +867,7 @@ class SubmissionManager(object):
                             best_submission = None
                             actor = actor_manager.get_from_uuid(actor_uuid)
                             for s in submissions:
-                                if s.is_active_job():
+                                if s.active_slurm_job_name is not None:
                                     continue
 
                                 if evaluation_metric_name in s.metric_results.keys():
