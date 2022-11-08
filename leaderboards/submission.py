@@ -666,14 +666,14 @@ class Submission(object):
 
                 predictions, targets, models = self.get_predictions_targets_models(leaderboard)
                 data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
-                self.compute_metric(actor.name, metric, predictions, targets, models, self.data_split_name, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
             if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
                 logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
 
                 predictions, targets, models = self.get_predictions_targets_models(leaderboard)
                 data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
-                self.compute_metric(actor.name, metric, predictions, targets, models, self.data_split_name, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
 
 class SubmissionManager(object):
