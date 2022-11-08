@@ -1009,10 +1009,24 @@ class SubmissionManager(object):
             actor = actor_manager.get_from_uuid(actor_uuid)
             for submission in submissions:
                 # Verify it is not active prior to computing metrics
-                if not submission.is_active_job():
+                if submission.active_slurm_job_name is None:
                     submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False, print_details=False)
 
         self.save_json(leaderboard)
+
+    def fix_metric(self, leaderboard: Leaderboard, metric_name):
+        for actor_uuid, submissions in self.__submissions.items():
+            for submission in submissions:
+                if submission.active_slurm_job_name is None:
+                    if metric_name in submission.metric_results.keys():
+                        del submission.metric_results[metric_name]
+
+                    if metric_name in submission.saved_metric_results.keys():
+                        del submission.saved_metric_results[metric_name]
+
+        self.save_json(leaderboard)
+
+
 
 
 def merge_submissions(args):
@@ -1059,6 +1073,37 @@ def recompute_metrics(args):
                 fcntl.lockf(f, fcntl.LOCK_UN)
 
 
+def fix_metric(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
+                        handlers=[logging.StreamHandler()])
+
+    print('Attempting to acquire PID file lock.')
+    lock_file = '/var/lock/trojai-lockfile'
+    if args.unsafe:
+        leaderboard = Leaderboard.load_json(trojai_config, args.name)
+        submission_manager = SubmissionManager.load_json(leaderboard)
+        metric_name = args.metric_name
+        submission_manager.fix_metric(leaderboard, metric_name)
+        print('Finished fixing metric for {}'.format(leaderboard.name))
+    else:
+        with open(lock_file, 'w') as f:
+            try:
+                fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                print('  PID lock acquired')
+                leaderboard = Leaderboard.load_json(trojai_config, args.name)
+                submission_manager = SubmissionManager.load_json(leaderboard)
+                metric_name = args.metric_name
+                submission_manager.fix_metric(leaderboard, metric_name)
+                print('Finished fixing metric for {}'.format(leaderboard.name))
+            except OSError as e:
+                print('check-and-launch was already running when called. {}'.format(e))
+            finally:
+                fcntl.lockf(f, fcntl.LOCK_UN)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -1078,6 +1123,12 @@ if __name__ == "__main__":
     recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     recompute_metrics_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
     recompute_metrics_parser.set_defaults(func=recompute_metrics)
+
+    fix_metric_parser = subparser.add_parser('fix-metric')
+    fix_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    fix_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    fix_metric_parser.add_argument('--metric-name', type=str, help='The name of the metric to reset', required=True)
+    fix_metric_parser.set_defaults(func=fix_metric)
 
     args = parser.parse_args()
     args.func(args)
