@@ -1087,7 +1087,7 @@ def fix_metric(args):
         submission_manager = SubmissionManager.load_json(leaderboard)
         metric_name = args.metric_name
         submission_manager.fix_metric(leaderboard, metric_name)
-        print('Finished fixing metric for {}'.format(leaderboard.name))
+        print('Finished fixing metric for {}, metric name {}'.format(leaderboard.name, metric_name))
     else:
         with open(lock_file, 'w') as f:
             try:
@@ -1097,7 +1097,7 @@ def fix_metric(args):
                 submission_manager = SubmissionManager.load_json(leaderboard)
                 metric_name = args.metric_name
                 submission_manager.fix_metric(leaderboard, metric_name)
-                print('Finished fixing metric for {}'.format(leaderboard.name))
+                print('Finished fixing metric for {}, metric name {}'.format(leaderboard.name, metric_name))
             except OSError as e:
                 print('check-and-launch was already running when called. {}'.format(e))
             finally:
@@ -1128,6 +1128,8 @@ if __name__ == "__main__":
     fix_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     fix_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     fix_metric_parser.add_argument('--metric-name', type=str, help='The name of the metric to reset', required=True)
+    fix_metric_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
+
     fix_metric_parser.set_defaults(func=fix_metric)
 
     args = parser.parse_args()
