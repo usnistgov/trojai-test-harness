@@ -66,6 +66,8 @@ def create_reduced_config(args):
                     reduced_config = None
                     if 'round10' in round_name:
                         reduced_config = get_round10_reduced_config(config_dict)
+                    if 'round1' in round_name or 'round2' in round_name or 'round3' in round_name or 'round4' in round_name:
+                        reduced_config = get_round1_2_3_4_reduced_config(config_dict)
                     else:
                         raise RuntimeError('Must implement function to get {} reduced configuration', round_name)
 
