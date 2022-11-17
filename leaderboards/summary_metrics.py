@@ -5,7 +5,7 @@ import os
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdate
-import time_utils
+from leaderboards import time_utils
 
 
 class SummaryMetric(object):
