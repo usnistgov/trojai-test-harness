@@ -12,6 +12,18 @@ def get_round10_reduced_config(config_dict):
 
     reduced_config['model_architecture'] = config_data_location['model_architecture']
     reduced_config['source_dataset'] = config_data_location['source_dataset']
+
+    return reduced_config
+
+def get_round1_2_3_4_reduced_config(config_dict):
+    reduced_config = dict()
+
+    config_data_location = config_dict
+    if 'py/state' in config_dict:
+        config_data_location = config_dict['py/state']
+
+    reduced_config['model_architecture'] = config_data_location['MODEL_ARCHITECTURE']
+    reduced_config['source_dataset'] = config_data_location['source_dataset']
     return reduced_config
 
 def create_reduced_config(args):

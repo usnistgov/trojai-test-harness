@@ -298,6 +298,7 @@ def main(trojai_config: TrojaiConfig) -> None:
                         summary_html_plots.extend(output_files)
 
         # Share summary metrics
+        g_drive.remove_all_sharing_permissions(trojai_summary_folder_id)
         for email in trojai_config.summary_metric_email_addresses:
             g_drive.share(trojai_summary_folder_id, email)
 

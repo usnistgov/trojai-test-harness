@@ -406,12 +406,14 @@ class Submission(object):
         # Share actor and external folders
         try:
             if root_actor_folder_id is not None:
+                g_drive.remove_all_sharing_permissions(root_actor_folder_id)
                 g_drive.share(root_actor_folder_id, actor.email)
         except:
             logging.error('Unable to share actor folder with {}'.format(actor.email))
 
         try:
             if root_trojai_folder_id is not None:
+                g_drive.remove_all_sharing_permissions(root_trojai_folder_id)
                 for email in trojai_config.summary_metric_email_addresses:
                     g_drive.share(root_trojai_folder_id, email)
         except:
