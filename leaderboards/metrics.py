@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import os
 
 from leaderboards import fs_utils
-import metadata_utils
+from leaderboards import metadata_utils
 
 
 
