@@ -242,7 +242,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             submission_manager = active_submission_managers[leaderboard_name]
 
             leaderboard.generate_metadata_csv(overwrite_csv=True)
-            submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=True)
+            submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
 
             metadata_df = leaderboard.load_metadata_csv_into_df()
             results_df = leaderboard.load_summary_results_csv_into_df()

@@ -931,11 +931,11 @@ class SubmissionManager(object):
 
         return result_filepath
 
-    def generate_round_results_csv(self, leaderboard: Leaderboard, actor_manager: ActorManager, overwrite_csv: bool = True):
-
+    def generate_round_results_csv(self, leaderboard: Leaderboard, actor_manager: ActorManager, overwrite_csv: bool = False):
         if os.path.exists(leaderboard.summary_results_csv_filepath) and not overwrite_csv:
-            logging.info('Skipping building round results: {} already exists and overwrite is disabled.'.format(leaderboard.summary_results_csv_filepath))
-            return
+            result_df = leaderboard.load_summary_results_csv_into_df()
+        else:
+            result_df = None
 
         all_dfs = []
 
@@ -947,22 +947,24 @@ class SubmissionManager(object):
             for data_split in leaderboard.get_all_data_split_names():
                 leaderboard_metrics = leaderboard.get_submission_metrics(data_split)
 
-                # all_model_ids = list(df.loc[df['data_split'] == data_split, 'model_name'].unique())
-                # all_model_ids.sort()
-
                 metrics = {}
                 for submission in submissions:
                     if submission.active_slurm_job_name is not None:
                         continue
 
                     if submission.data_split_name == data_split:
+                        time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
+
+                        # Check if the submission already exists in the result df
+                        if result_df is not None and not result_df[(result_df['team_name'] == actor.name) & (result_df['submission_timestamp'] == time_str) & (result_df['data_split'] == data_split)].empty:
+                            continue
+
                         raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
                         predictions_np = np.copy(raw_predictions_np)
                         predictions_np[np.isnan(predictions_np)] = default_result
 
                         # Subset data
                         data_split_metadata = metadata_df[metadata_df['data_split'] == data_split]
-                        time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
 
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
@@ -988,14 +990,23 @@ class SubmissionManager(object):
                             if len(data) == len(model_names):
                                 new_data[key] = data
 
-                        new_df = pd.DataFrame(new_data)
-                        all_dfs.append(new_df)
+                        all_dfs.append(pd.json_normalize(new_data))
 
-        result_df = pd.concat(all_dfs)
+        logging.info('Total dataframes added = {}'.format(len(all_dfs)))
 
-        result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
+        if len(all_dfs) > 0:
+            new_results_df = pd.concat(all_dfs, axis=0)
 
-        logging.info('Finished writing round results to {}'.format(leaderboard.summary_results_csv_filepath))
+            if result_df is not None:
+                result_df = pd.concat([result_df, new_results_df])
+            else:
+                result_df = new_results_df
+
+            result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
+        else:
+            logging.info('No new dataframes to be added. Skipping write')
+
+        logging.info('Finished processing round results for {}'.format(leaderboard.summary_results_csv_filepath))
 
         return result_df
 
