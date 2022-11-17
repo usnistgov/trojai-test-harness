@@ -12,7 +12,7 @@ import mimetypes
 import time
 import logging
 from typing import List
-import time_utils
+from leaderboards import time_utils
 
 import socket
 socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
