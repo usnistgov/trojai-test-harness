@@ -15,7 +15,7 @@ def get_round10_reduced_config(config_dict):
 
     return reduced_config
 
-def get_round1_2_3_4_reduced_config(config_dict):
+def get_round1_2_3_reduced_config(config_dict):
     reduced_config = dict()
 
     config_data_location = config_dict
@@ -23,6 +23,16 @@ def get_round1_2_3_4_reduced_config(config_dict):
         config_data_location = config_dict['py/state']
 
     reduced_config['model_architecture'] = config_data_location['MODEL_ARCHITECTURE']
+    return reduced_config
+
+def get_round4_reduced_config(config_dict):
+    reduced_config = dict()
+
+    config_data_location = config_dict
+    if 'py/state' in config_dict:
+        config_data_location = config_dict['py/state']
+
+    reduced_config['model_architecture'] = config_data_location['model_architecture']
     return reduced_config
 
 def create_reduced_config(args):
@@ -65,8 +75,10 @@ def create_reduced_config(args):
                     reduced_config = None
                     if 'round10' in round_name:
                         reduced_config = get_round10_reduced_config(config_dict)
-                    if 'round1' in round_name or 'round2' in round_name or 'round3' in round_name or 'round4' in round_name:
-                        reduced_config = get_round1_2_3_4_reduced_config(config_dict)
+                    if 'round1' in round_name or 'round2' in round_name or 'round3' in round_name:
+                        reduced_config = get_round1_2_3_reduced_config(config_dict)
+                    if 'round4' in round_name:
+                        reduced_config = get_round4_reduced_config(config_dict)
                     else:
                         raise RuntimeError('Must implement function to get {} reduced configuration', round_name)
 
