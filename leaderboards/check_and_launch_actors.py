@@ -236,10 +236,12 @@ def main(trojai_config: TrojaiConfig) -> None:
     for leaderboard_name, leaderboard in active_leaderboards.items():
         submission_manager = active_submission_managers[leaderboard.name]
         submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
+        submission_manager.save_json(leaderboard)
 
     for leaderboard_name, leaderboard in archive_leaderboards.items():
         submission_manager = archive_submission_managers[leaderboard.name]
         submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
+        submission_manager.save_json(leaderboard)
 
     # Apply summary updates
     cur_epoch = time_utils.get_current_epoch()
