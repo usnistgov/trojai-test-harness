@@ -216,6 +216,21 @@ def main(trojai_config: TrojaiConfig) -> None:
             msg = 'Exception processing actor "{}" loop:\n{}'.format(actor.name, traceback.format_exc())
             logging.error(msg)
 
+    logging.info('Saving actors and submission managers prior to checking new metrics')
+    # Write all updates to actors back to file
+    logging.debug('Serializing updated actor_manger back to json.')
+    actor_manager.save_json(trojai_config)
+
+    logging.debug('Serializing updated submission_managers back to json.')
+    # Should only have to save the submission manager. Leaderboard should be static
+    for leaderboard_name, submission_manager in active_submission_managers.items():
+        leaderboard = active_leaderboards[leaderboard_name]
+        submission_manager.save_json(leaderboard)
+
+    for leaderboard_name, submission_manager in archive_submission_managers.items():
+        leaderboard = archive_leaderboards[leaderboard_name]
+        submission_manager.save_json(leaderboard)
+
     logging.info('Checking for new/missing metrics')
     # Check to see if we need to compute any new/missing metrics
     for leaderboard_name, leaderboard in active_leaderboards.items():
