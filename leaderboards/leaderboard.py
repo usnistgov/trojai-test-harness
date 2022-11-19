@@ -74,7 +74,11 @@ class Leaderboard(object):
         self.html_data_split_name_priorities = {}
         self.html_table_sort_options = {}
 
-        self.summary_metrics = Leaderboard.DEFAULT_SUMMARY_METRICS
+        self.summary_metrics = []
+
+        for metric in Leaderboard.DEFAULT_SUMMARY_METRICS:
+            new_metric = metric()
+            self.summary_metrics.append(new_metric)
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
