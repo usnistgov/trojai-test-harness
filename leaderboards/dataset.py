@@ -29,9 +29,9 @@ class Dataset(object):
             self.source_dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, '{}'.format(Dataset.SOURCE_DATA_NAME))
 
         if self.excluded_files is None:
-            self.excluded_files = trojai_config.default_excluded_files
+            self.excluded_files = copy.deepcopy(trojai_config.default_excluded_files)
 
-        self.required_files = trojai_config.default_required_files
+        self.required_files = copy.deepcopy(trojai_config.default_required_files)
 
         if self.split_name == 'sts':
             self.auto_delete_submission = True
