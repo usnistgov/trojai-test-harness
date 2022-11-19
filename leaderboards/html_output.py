@@ -31,10 +31,9 @@ def get_leaderboard_javascript_content(leaderboard: Leaderboard):
 
         if not leaderboard.has_dataset(split_name):
             continue
-        content += """if ($('#{}').find("th:contains('{}')").length > 0)\n{""".format(key, column_name)
+        content += """if ($('#{}').find("th:contains('{}')").length > 0)\n{{""".format(key, column_name)
         content += """  sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
-        content += "  $('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n\n".format(key, order)
-        content += "}"
+        content += "  $('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n}}\n".format(key, order)
     return content
 
 def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpath: str, leaderboard: Leaderboard, submission_manager: SubmissionManager, actor_manager: ActorManager, html_default_leaderboard: str, cur_epoch: int, is_archived: bool, g_drive):
