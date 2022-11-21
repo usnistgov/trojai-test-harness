@@ -26,7 +26,7 @@ def get_round5_6_reduced_config(config_dict):
     reduced_config['model_architecture'] = config_data_location['model_architecture']
     reduced_config['embedding'] = config_data_location['embedding']
     reduced_config['embedding_flavor'] = config_data_location['embedding_flavor']
-    reduced_config['embedding_filename'] = config_data_location['embedding_filename']
+    reduced_config['embedding_filename'] = '{}-{}.pt'.format(reduced_config['embedding'], reduced_config['embedding_flavor'])
     reduced_config['source_dataset'] = config_data_location['source_dataset']
     reduced_config['train_data_filepath'] = "/home/trojai/sentiment-classification/{}/train.json".format(reduced_config['source_dataset'])
     reduced_config['test_data_filepath'] = "/home/trojai/sentiment-classification/{}/test.json".format(reduced_config['source_dataset'])
