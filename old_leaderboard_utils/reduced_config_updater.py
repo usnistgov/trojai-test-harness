@@ -15,6 +15,23 @@ def get_round10_reduced_config(config_dict):
 
     return reduced_config
 
+def get_round5_6_reduced_config(config_dict):
+    reduced_config = dict()
+
+    config_data_location = config_dict
+    if 'py/state' in config_dict:
+        config_data_location = config_dict['py/state']
+
+    reduced_config['cls_token_is_first'] = config_data_location['cls_token_is_first']
+    reduced_config['model_architecture'] = config_data_location['model_architecture']
+    reduced_config['embedding'] = config_data_location['embedding']
+    reduced_config['embedding_flavor'] = config_data_location['embedding_flavor']
+    reduced_config['embedding_filename'] = config_data_location['embedding_filename']
+    reduced_config['source_dataset'] = config_data_location['source_dataset']
+    reduced_config['train_data_filepath'] = "/home/trojai/sentiment-classification/{}/train.json".format(reduced_config['source_dataset'])
+    reduced_config['test_data_filepath'] = "/home/trojai/sentiment-classification/{}/test.json".format(reduced_config['source_dataset'])
+
+
 def get_round1_2_3_reduced_config(config_dict):
     reduced_config = dict()
 
@@ -79,6 +96,8 @@ def create_reduced_config(args):
                         reduced_config = get_round1_2_3_reduced_config(config_dict)
                     if 'round4' in round_name:
                         reduced_config = get_round4_reduced_config(config_dict)
+                    if 'round5' in round_name or 'round6' in round_name:
+                        reduced_config = get_round5_6_reduced_config(config_dict)
                     else:
                         raise RuntimeError('Must implement function to get {} reduced configuration', round_name)
 
