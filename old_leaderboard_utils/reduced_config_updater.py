@@ -31,6 +31,8 @@ def get_round5_6_reduced_config(config_dict):
     reduced_config['train_data_filepath'] = "/home/trojai/sentiment-classification/{}/train.json".format(reduced_config['source_dataset'])
     reduced_config['test_data_filepath'] = "/home/trojai/sentiment-classification/{}/test.json".format(reduced_config['source_dataset'])
 
+    return reduced_config
+
 
 def get_round1_2_3_reduced_config(config_dict):
     reduced_config = dict()
