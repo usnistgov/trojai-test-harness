@@ -186,6 +186,10 @@ class Leaderboard(object):
 
             all_df_list.append(new_df)
 
+        if len(all_df_list) == 0:
+            logging.warning('Skipping {}, it does not contain any datasets for metadata'.format(self.summary_metadata_csv_filepath))
+            return
+
         all_df = pd.concat(all_df_list)
 
         # Rearrange columns slightly
