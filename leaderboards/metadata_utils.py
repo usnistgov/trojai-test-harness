@@ -9,7 +9,7 @@ import pandas as pd
 import itertools
 
 
-def build_model_lists(metadata_df: pd.DataFrame, columns_of_interest: list) -> dict:
+def build_model_lists(metadata_df: pd.DataFrame, columns_of_interest: list, is_sorted=False) -> dict:
     model_lists = {}
     column_variations = {}
 
@@ -36,6 +36,7 @@ def build_model_lists(metadata_df: pd.DataFrame, columns_of_interest: list) -> d
     keys, values = zip(*column_variations.items())
     permutations_dicts = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
+
     removal_list = []
 
     # Generate lists of models
@@ -60,5 +61,8 @@ def build_model_lists(metadata_df: pd.DataFrame, columns_of_interest: list) -> d
 
     for index in sorted(removal_list, reverse=True):
         del model_lists[index]
+
+    if is_sorted:
+        model_lists = dict(sorted(model_lists.items()))
 
     return model_lists

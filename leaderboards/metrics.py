@@ -92,7 +92,7 @@ class GroupedCrossEntropyViolin(Metric):
         ce = -(a + b)
 
         # Identify models based on columns of interest
-        model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest)
+        model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest, is_sorted=True)
 
         datasets = []
         names = []
