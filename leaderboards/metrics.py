@@ -115,6 +115,7 @@ class GroupedCrossEntropyViolin(Metric):
             tick += 1
 
         plt.clf()
+        plt.rcParams['font.family'] = 'serif'
 
         fig, axes = plt.subplots(dpi=300)
         r = fig.canvas.get_renderer()
