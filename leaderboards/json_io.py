@@ -17,7 +17,7 @@ from leaderboards.mail_io import TrojaiMail
 
 def write(filepath, obj):
     if not filepath.endswith('.json'):
-        raise RuntimeError("Expecting a file ending in '.json'")
+        raise RuntimeError("Expecting a file ending in '.json', got: {}".format(filepath))
     lock_file = '/var/lock/trojai-json_io-lockfile'
     with open(lock_file, 'w') as lfh:
         try:
@@ -37,7 +37,7 @@ def write(filepath, obj):
 
 def read(filepath):
     if not filepath.endswith('.json'):
-        raise RuntimeError("Expecting a file ending in '.json'")
+        raise RuntimeError("Expecting a file ending in '.json', got: {}".format(filepath))
 
     try:
         with open(filepath, mode='r', encoding='utf-8') as f:

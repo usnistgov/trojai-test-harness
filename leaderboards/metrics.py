@@ -13,6 +13,7 @@ from sklearn.metrics import auc
 import pandas as pd
 
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredText
 
 import os
 
@@ -111,19 +112,37 @@ class GroupedCrossEntropyViolin(Metric):
             names.append(key)
             datasets.append(ce_for_key)
             xticks.append(tick)
-            tick+=1
+            tick += 1
 
         plt.clf()
 
         fig, axes = plt.subplots(dpi=300)
+        r = fig.canvas.get_renderer()
         axes.violinplot(dataset=datasets)
         axes.set_title('Cross Entropy Violin Plots for {} in {} for dataset {}'.format(actor_name, leaderboard_name,
                                                                                        data_split_name))
         axes.yaxis.grid(True)
         axes.set_xticks(xticks)
-        axes.set_xticklabels(names, rotation=15, ha='right')
+
+        star_char = ord('a')
+        character_labels = []
+        for i in range(len(names)):
+            character_labels.append(chr(star_char))
+            star_char += 1
+            pass
+
+        #axes.set_xticklabels(character_labels, rotation=15, ha='right')
+        axes.set_xticklabels(character_labels, ha='right')
         axes.set_ylabel('Cross Entropy')
 
+
+        x_legend = '\n'.join(f'{n} - {name}' for n, name in zip(character_labels, names))
+
+        at1 = AnchoredText(x_legend, loc='right', frameon=True, bbox_to_anchor=(0., 0.5), bbox_transform=axes.figure.transFigure)
+        fig.add_artist(at1)
+
+        # t = axes.text(.7, .2, x_legend, transform=axes.figure.transFigure)
+        # fig.subplots_adjust(right=.85)
         filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight', dpi=300)
