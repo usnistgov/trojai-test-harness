@@ -35,8 +35,12 @@ def get_leaderboard_javascript_content(leaderboard: Leaderboard):
                 order = html_sort_options[key]['order']
                 split_name = html_sort_options[key]['split_name']
             else:
-                column_name = 'Cross Entropy'
-                order = 'asc'
+                if table_name == 'jobs':
+                    column_name = 'Submission Timestamp'
+                    order = 'desc'
+                else:
+                    column_name = 'Cross Entropy'
+                    order = 'asc'
                 split_name = data_split_name
 
             content += """if ($('#{}').find("th:contains('{}')").length > 0)\n{{""".format(key, column_name)
