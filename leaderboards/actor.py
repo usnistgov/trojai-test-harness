@@ -25,6 +25,7 @@ class Actor(object):
         self.name = name
         self.poc_email = poc_email
         self.prior_emails = []
+        self.prior_names = []
         self.type = type
 
         self.last_submission_epochs = {}
@@ -225,6 +226,12 @@ class ActorManager(object):
         for actor in self.actors.values():
             if actor.name == actor_name:
                 actors.append(actor)
+
+        if len(actors) == 0:
+            for actor in self.actors.values():
+                for prior_name in actor.prior_names:
+                    if prior_name == actor_name:
+                        actors.append(actor)
 
         if len(actors) == 0:
             raise RuntimeError('Unable to find actor name in ActorManager: {}'.format(actor_name))
