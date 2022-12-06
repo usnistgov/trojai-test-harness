@@ -91,13 +91,13 @@ def create_submission_json(args):
                     os.makedirs(new_submission_results_dirpath)
 
                 if os.path.exists(old_submission_container_dirpath):
-                    print('Copying old submission for {}:{} into new'.format(actor.name, time_str))
+                    print('Copying old submission for {}:{} into new'.format(actor.name, execution_timestamp))
                     shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, dirs_exist_ok=True)
                 else:
                     print('Warning, unable to locate old submissions dirpath: {}'.format(old_submission_container_dirpath))
 
                 if os.path.exists(old_submission_results_dirpath):
-                    print('Copying old submission for {}:{} results into new'.format(actor.name, time_str))
+                    print('Copying old submission for {}:{} results into new'.format(actor.name, execution_timestamp))
                     shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, dirs_exist_ok=True)
                 else:
                     print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
