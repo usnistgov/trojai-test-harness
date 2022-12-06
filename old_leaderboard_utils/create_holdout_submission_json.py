@@ -8,6 +8,7 @@ from leaderboards import json_io
 from leaderboards import time_utils
 
 import os
+import shutil
 
 def create_submission_json(args):
     old_round_dirpath = args.old_holdout_dirpath
@@ -75,11 +76,34 @@ def create_submission_json(args):
             new_submission.web_display_execution_errors = test_submission['web_display_execution_errors']
             new_submission.execution_results_dirpath = os.path.join(new_submission.actor_results_dirpath, new_submission.get_execute_time_str())
 
-            print('Testing')
-            # current_submission_manager.add_submission(actor, new_submission)
+            current_submission_manager.add_submission(actor, new_submission)
 
             if copy_data:
-                pass
+                old_submission_container_dirpath = os.path.join(submissions_dirpath, actor_name, execution_timestamp)
+                old_submission_results_dirpath = os.path.join(results_dirpath, actor_name, execution_timestamp)
+                new_submission_container_dirpath = new_submission.actor_submission_dirpath
+                new_submission_results_dirpath = new_submission.execution_results_dirpath
+
+                if not os.path.exists(new_submission_container_dirpath):
+                    os.makedirs(new_submission_container_dirpath)
+
+                if not os.path.exists(new_submission_results_dirpath):
+                    os.makedirs(new_submission_results_dirpath)
+
+                if os.path.exists(old_submission_container_dirpath):
+                    print('Copying old submission for {}:{} into new'.format(actor.name, time_str))
+                    shutil.copytree(old_submission_container_dirpath, new_submission_container_dirpath, dirs_exist_ok=True)
+                else:
+                    print('Warning, unable to locate old submissions dirpath: {}'.format(old_submission_container_dirpath))
+
+                if os.path.exists(old_submission_results_dirpath):
+                    print('Copying old submission for {}:{} results into new'.format(actor.name, time_str))
+                    shutil.copytree(old_submission_results_dirpath, new_submission_results_dirpath, dirs_exist_ok=True)
+                else:
+                    print('Warning, unable to locate old submissions results dirpath: {}'.format(old_submission_results_dirpath))
+
+
+    current_submission_manager.save_json(leaderboard)
 
 
 if __name__ == '__main__':
