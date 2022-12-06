@@ -24,16 +24,25 @@ from leaderboards.drive_io import DriveIO
 def get_leaderboard_javascript_content(leaderboard: Leaderboard):
     content = ''
     html_sort_options = leaderboard.html_table_sort_options
-    for key, info_dict in html_sort_options.items():
-        column_name = info_dict['column']
-        order = info_dict['order']
-        split_name = info_dict['split_name']
-
-        if not leaderboard.has_dataset(split_name):
+    for data_split_name in leaderboard.html_data_split_name_priorities:
+        if not leaderboard.has_dataset(data_split_name):
             continue
-        content += """if ($('#{}').find("th:contains('{}')").length > 0)\n{{""".format(key, column_name)
-        content += """  sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
-        content += "  $('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n}}\n".format(key, order)
+
+        for table_name in Leaderboard.TABLE_NAMES:
+            key = '{}-{}-{}'.format(leaderboard.name, data_split_name, table_name)
+            if key in html_sort_options:
+                column_name = html_sort_options[key]['column']
+                order = html_sort_options[key]['order']
+                split_name = html_sort_options[key]['split_name']
+            else:
+                column_name = 'Cross Entropy'
+                order = 'asc'
+                split_name = data_split_name
+
+            content += """if ($('#{}').find("th:contains('{}')").length > 0)\n{{""".format(key, column_name)
+            content += """  sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
+            content += "  $('#{}').dataTable({{ order: [[ sort_col, '{}' ]] }});\n}}\n".format(key, order)
+
     return content
 
 def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpath: str, leaderboard: Leaderboard, submission_manager: SubmissionManager, actor_manager: ActorManager, html_default_leaderboard: str, cur_epoch: int, is_archived: bool, g_drive):
