@@ -38,10 +38,10 @@ def create_submission_json(args):
         if actor.email in prior_round_submissions_dict:
             submission_list = prior_round_submissions_dict[actor.email]
         else:
-            print('Failed to find {}, checking prior emails'.format(actor.email))
+            print('Failed to find {}, checking prior emails for {}'.format(actor.email, actor_name))
             for actor_email in actor.prior_emails:
                 if actor_email in prior_round_submissions_dict:
-                    submission_list = prior_round_submissions_dict[actor.email]
+                    submission_list = prior_round_submissions_dict[actor_email]
                     break
 
         if submission_list is None:
