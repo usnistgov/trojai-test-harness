@@ -30,6 +30,7 @@ from leaderboards import fs_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards import hash_utils
+from leaderboards import jsonschema_checker
 
 class Submission(object):
     def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer', submission_epoch: int=None, slurm_queue_name: str=None, submission_leaderboard: Leaderboard = None):
@@ -245,8 +246,43 @@ class Submission(object):
 
         return results
 
-    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True) -> None:
+    def dump_summary_schema_csv(self, trojai_config: TrojaiConfig, actor_name: str,  leaderboard: Leaderboard):
+        summary_schema_csv_filepath = leaderboard.get_summary_schema_csv_filepath(trojai_config)
+
+        default_schema_keys = ['$schema', 'title', 'technique', 'technique_description', 'technique_changes', 'commit_id', 'repo_name', 'required', 'additionalProperties', 'type', 'properties']
+
+        submission_filepath = self.get_submission_filepath()
+        if not os.path.exists(submission_filepath):
+            logging.info('The submission no longer exists {}'.format(submission_filepath))
+            return
+
+        schema_dict = jsonschema_checker.collect_json_metaparams_schema(submission_filepath)
+
+        new_csv = False
+        if not os.path.exists(summary_schema_csv_filepath):
+            new_csv = True
+
+        with open(summary_schema_csv_filepath, 'a') as f:
+            if new_csv:
+                f.write('team_name,data_split,{},submission_filepath'.format(','.join(default_schema_keys)))
+
+            schema_output = '{},{},'.format(actor_name, self.data_split_name)
+
+            for schema_key in default_schema_keys:
+                if schema_dict is None or schema_key not in schema_dict:
+                    schema_output += 'None,'
+                else:
+                    schema_output += '{},'.format(schema_dict[schema_key])
+
+            schema_output += '{}\n'.format(submission_filepath)
+
+            f.write(schema_output)
+
+    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True) -> None:
         logging.info("Checking results for {}".format(actor.name))
+
+        if output_metaparams_csv:
+            self.dump_summary_schema_csv(trojai_config, actor.name, leaderboard)
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.actor_submission_dirpath, self.slurm_output_filename)
@@ -500,6 +536,7 @@ class Submission(object):
 
     def get_submission_filepath(self):
         return os.path.join(self.actor_submission_dirpath, self.g_file.name)
+
 
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=[], custom_python_env_filepath: str = None) -> None:
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
@@ -1023,7 +1060,7 @@ class SubmissionManager(object):
             for submission in submissions:
                 # Verify it is not active prior to computing metrics
                 if submission.active_slurm_job_name is None:
-                    submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False, print_details=False)
+                    submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False, print_details=False, output_metaparams_csv=False)
 
         self.save_json(leaderboard)
 
@@ -1039,6 +1076,13 @@ class SubmissionManager(object):
 
         self.save_json(leaderboard)
 
+    def dump_metaparameter_csv(self, trojai_config: TrojaiConfig, leaderboard: Leaderboard):
+        actor_manager = ActorManager.load_json(trojai_config)
+
+        for actor_uuid, submissions in self.__submissions.items():
+            actor = actor_manager.get_from_uuid(actor_uuid)
+            for submission in submissions:
+                submission.dump_summary_schema_csv(trojai_config, actor.name, leaderboard)
 
 
 
@@ -1117,6 +1161,46 @@ def fix_metric(args):
                 fcntl.lockf(f, fcntl.LOCK_UN)
 
 
+def dump_metaparameters_csv(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
+                        handlers=[logging.StreamHandler()])
+
+    print('Attempting to acquire PID file lock.')
+    lock_file = '/var/lock/trojai-lockfile'
+
+    with open(lock_file, 'w') as f:
+        try:
+            fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            print('  PID lock acquired')
+
+            leaderboard_name = args.name
+            leaderboards = []
+
+            if leaderboard_name is None:
+                for leaderboard_name in trojai_config.active_leaderboard_names:
+                    leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+                    leaderboards.append(leaderboard)
+
+                for leaderboard_name in trojai_config.archive_leaderboard_names:
+                    leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+                    leaderboards.append(leaderboard)
+
+            else:
+                leaderboard = Leaderboard.load_json(trojai_config, args.name)
+                leaderboards.append(leaderboard)
+
+            for leaderboard in leaderboards:
+                submission_manager = SubmissionManager.load_json(leaderboard)
+                submission_manager.dump_metaparameter_csv(trojai_config, leaderboard)
+                print('Finished dumping metaparameters csv for {}'.format(leaderboard.name))
+        except OSError as e:
+            print('check-and-launch was already running when called. {}'.format(e))
+        finally:
+            fcntl.lockf(f, fcntl.LOCK_UN)
+
 if __name__ == "__main__":
     import argparse
 
@@ -1142,8 +1226,12 @@ if __name__ == "__main__":
     fix_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     fix_metric_parser.add_argument('--metric-name', type=str, help='The name of the metric to reset', required=True)
     fix_metric_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
-
     fix_metric_parser.set_defaults(func=fix_metric)
+
+    dump_metaparameters_csv_parser = subparser.add_parser('dump-metaparameters')
+    dump_metaparameters_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    dump_metaparameters_csv_parser.add_argument('--name', type=str, help='The name of the leaderboards', default=None)
+    dump_metaparameters_csv_parser.set_defaults(func=dump_metaparameters_csv)
 
     args = parser.parse_args()
     args.func(args)

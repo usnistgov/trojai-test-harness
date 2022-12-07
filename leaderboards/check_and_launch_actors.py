@@ -203,7 +203,6 @@ def main(trojai_config: TrojaiConfig) -> None:
 
     logging.info('Actor Manger has {} actors.'.format(len(actor_manager.get_keys())))
 
-
     g_drive = DriveIO(trojai_config.token_pickle_filepath)
     # Loop over actors, checking if there is a submission for each
     for actor in actor_manager.get_actors():
@@ -256,6 +255,11 @@ def main(trojai_config: TrojaiConfig) -> None:
         # Run global metric updates for active leaderboards
         for leaderboard_name, leaderboard in active_leaderboards.items():
             leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+
+            # Upload summary schema CSV
+            summary_schema_csv_filepath = leaderboard.get_summary_schema_csv_filepath(trojai_config)
+            g_drive.upload(summary_schema_csv_filepath, folder_id=trojai_summary_folder_id)
+
             submission_manager = active_submission_managers[leaderboard_name]
 
             leaderboard.generate_metadata_csv(overwrite_csv=True)
@@ -274,6 +278,8 @@ def main(trojai_config: TrojaiConfig) -> None:
                 subset_metadata_df = metadata_df[metadata_df['data_split'] == data_split_name]
                 subset_results_df = results_df[results_df['data_split'] == data_split_name]
 
+
+                # Process summary metrics
                 for summary_metric in leaderboard.summary_metrics:
                     output_files = summary_metric.compute_and_write_data(leaderboard_name, data_split_name, subset_metadata_df, subset_results_df, trojai_config.summary_metrics_dirpath)
 

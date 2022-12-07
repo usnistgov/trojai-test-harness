@@ -54,6 +54,8 @@ class Leaderboard(object):
 
     TABLE_NAMES = ['results', 'all-results', 'jobs']
 
+    DEFAULT_SCHEMA_SUMMARY_SUFFIX = 'schema_summary.csv'
+
     def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False):
         if '_' in name:
             raise RuntimeError('Invalid leaderboard name: {}, should not have any underscores "_"'.format(name))
@@ -123,6 +125,9 @@ class Leaderboard(object):
 
         self.initialize_directories()
         self.generate_metadata_csv()
+
+    def get_summary_schema_csv_filepath(self, trojai_config: TrojaiConfig):
+        return os.path.join(trojai_config.summary_metrics_dirpath, '{}-schema-summary.csv'.format(self.name))
 
     def load_summary_results_csv_into_df(self):
         if os.path.exists(self.summary_results_csv_filepath):
