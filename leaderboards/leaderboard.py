@@ -30,7 +30,9 @@ class Leaderboard(object):
                         'image_segmentation': ImageSegmentation,
                         'nlp_sentiment': NaturalLanguageProcessingSentiment,
                         'nlp_ner': NaturalLanguageProcessingNamedEntityRecognition,
-                        'nlp_qa': NaturalLanguageProcessingQuestionAnswering}
+                        'nlp_qa': NaturalLanguageProcessingQuestionAnswering,
+                        "cyber_pdf_malware": CyberPdfMalware,
+                        "rl_lavaworld": ReinforcementLearningLavaWorld}
 
     VALID_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,

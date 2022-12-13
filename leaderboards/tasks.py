@@ -31,7 +31,6 @@ def check_dir_in_container(container_filepath, dirpath_in_container):
 
 
 def cleanup_scratch(host, remote_scratch):
-
     if remote_scratch == '':
         logging.error('Failed to cleanup scratch, errors with passing path: {}, it must not be an empty string'.format(remote_scratch))
         return -1
@@ -478,6 +477,50 @@ class ImageTask(Task):
             task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
         super().__init__(trojai_config, leaderboard_name, task_script_filepath)
 
+
+class CyberTask(Task):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
+        if task_script_filepath is None:
+            task_dirpath = os.path.dirname(os.path.realpath(__file__))
+            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
+            task_script_filepath = os.path.join(task_scripts_dirpath, 'cyber_task.sh')
+        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+
+    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
+        if vm_ip == Task.LOCAL_VM_IP:
+            remote_tokenizer_dirpath = self.scale_params_filepath
+        else:
+            tokenizer_dirname = os.path.basename(self.scale_params_filepath)
+            remote_tokenizer_dirpath = os.path.join(self.remote_dataset_dirpath, tokenizer_dirname)
+        return ['--scale-params-filepath', remote_tokenizer_dirpath]
+
+    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+        if not os.path.exists(self.scale_params_filepath):
+            logging.error('Failed to verify dataset {} for leaderboards: {}; scale_params_filepath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.scale_params_filepath))
+            return False
+
+        return super().verify_dataset(leaderboard_name, dataset)
+
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
+
+        # Copy in tokenizers
+        sc = rsync_file_to_vm(vm_ip, self.scale_params_filepath, self.remote_dataset_dirpath)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} scale_params_filepath copy in may have failed'.format(vm_name), send_mail=True, subject='{} scale_params_filepath copy failed'.format(vm_name))
+
+        return errors
+
+
+class ReinforcementLearningTask(Task):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        if task_script_filepath is None:
+            task_dirpath = os.path.dirname(os.path.realpath(__file__))
+            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
+            task_script_filepath = os.path.join(task_scripts_dirpath, 'rl_task.sh')
+        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+
+
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
@@ -553,3 +596,11 @@ class NaturalLanguageProcessingQuestionAnswering(NaturalLanguageProcessingTask):
         super().__init__(trojai_config, leaderboard_name)
 
 
+class CyberPdfMalware(CyberTask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
+
+
+class ReinforcementLearningLavaWorld(ReinforcementLearningTask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
