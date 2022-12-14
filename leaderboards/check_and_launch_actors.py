@@ -277,11 +277,17 @@ def main(trojai_config: TrojaiConfig) -> None:
 
                 # Subset metadata and results dfs
                 subset_metadata_df = metadata_df[metadata_df['data_split'] == data_split_name]
-                subset_results_df = results_df[results_df['data_split'] == data_split_name]
+                if results_df is not None:
+                    subset_results_df = results_df[results_df['data_split'] == data_split_name]
+                else:
+                    subset_results_df = None
 
 
                 # Process summary metrics
                 for summary_metric in leaderboard.summary_metrics:
+                    if subset_results_df is None:
+                        continue
+                        
                     output_files = summary_metric.compute_and_write_data(leaderboard_name, data_split_name, subset_metadata_df, subset_results_df, trojai_config.summary_metrics_dirpath)
 
                     if summary_metric.shared_with_collaborators:
