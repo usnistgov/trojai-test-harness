@@ -258,7 +258,8 @@ def main(trojai_config: TrojaiConfig) -> None:
 
             # Upload summary schema CSV
             summary_schema_csv_filepath = leaderboard.get_summary_schema_csv_filepath(trojai_config)
-            g_drive.upload(summary_schema_csv_filepath, folder_id=trojai_summary_folder_id)
+            if os.path.exists(summary_schema_csv_filepath):
+                g_drive.upload(summary_schema_csv_filepath, folder_id=trojai_summary_folder_id)
 
             submission_manager = active_submission_managers[leaderboard_name]
 
