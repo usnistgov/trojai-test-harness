@@ -489,11 +489,11 @@ class CyberTask(Task):
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
-            remote_tokenizer_dirpath = self.scale_params_filepath
+            remote_scale_params_filepath = self.scale_params_filepath
         else:
-            tokenizer_dirname = os.path.basename(self.scale_params_filepath)
-            remote_tokenizer_dirpath = os.path.join(self.remote_dataset_dirpath, tokenizer_dirname)
-        return ['--scale-params-filepath', remote_tokenizer_dirpath]
+            scale_params_dirname = os.path.basename(self.scale_params_filepath)
+            remote_scale_params_filepath = os.path.join(self.remote_dataset_dirpath, scale_params_dirname)
+        return ['--scale-params-filepath', remote_scale_params_filepath]
 
     def verify_dataset(self, leaderboard_name, dataset: Dataset):
         if not os.path.exists(self.scale_params_filepath):
@@ -505,7 +505,7 @@ class CyberTask(Task):
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
 
-        # Copy in tokenizers
+        # Copy in scale params
         sc = rsync_file_to_vm(vm_ip, self.scale_params_filepath, self.remote_dataset_dirpath)
         errors += check_subprocess_error(sc, ':Copy in:', '{} scale_params_filepath copy in may have failed'.format(vm_name), send_mail=True, subject='{} scale_params_filepath copy failed'.format(vm_name))
 
