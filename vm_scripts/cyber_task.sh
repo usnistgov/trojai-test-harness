@@ -61,7 +61,7 @@ if [ -z "${SOURCE_DATA_DIR-}" ]; then
     --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
     --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
     --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" \
-     --scale_parameters_filepath "$SCALE_PARAMS_FILEPATH" >> "${RESULT_DIR}/${CONTAINER_NAME}.out" 2>&1
+     --scale_parameters_filepath "$ACTIVE_SCALE_PARAMS_FILEPATH" >> "${RESULT_DIR}/${CONTAINER_NAME}.out" 2>&1
 else
   singularity run --contain --bind "$ACTIVE_DIR" --bind "$SCRATCH_DIR" \
     --bind "$SOURCE_DATA_DIR":"$SOURCE_DATA_DIR":ro --bind "$ROUND_TRAINING_DATASET_DIR":"$ROUND_TRAINING_DATASET_DIR":ro --nv \
@@ -69,5 +69,5 @@ else
     --scratch_dirpath "$SCRATCH_DIR" --examples_dirpath "$ACTIVE_DIR"/clean-example-data \
     --round_training_dataset_dirpath "$ROUND_TRAINING_DATASET_DIR" --metaparameters_filepath "$METAPARAMETERS_FILE" \
     --schema_filepath "$METAPARAMETERS_SCHEMA_FILE" --learned_parameters_dirpath "$LEARNED_PARAMETERS_DIR" \
-    --source_dataset_dirpath "$SOURCE_DATA_DIR" --scale_parameters_filepath "$SCALE_PARAMS_FILEPATH" >> "${RESULT_DIR}/${CONTAINER_NAME}.out" 2>&1
+    --source_dataset_dirpath "$SOURCE_DATA_DIR" --scale_parameters_filepath "$ACTIVE_SCALE_PARAMS_FILEPATH" >> "${RESULT_DIR}/${CONTAINER_NAME}.out" 2>&1
 fi
