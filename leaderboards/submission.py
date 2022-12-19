@@ -1030,7 +1030,7 @@ class SubmissionManager(object):
                             if len(data) == len(model_names):
                                 new_data[key] = data
 
-                        all_dfs.append(new_data)
+                        all_dfs.append(pd.json_normalize(new_data))
 
         logging.info('Total dataframes added = {}'.format(len(all_dfs)))
 
