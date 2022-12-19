@@ -1030,7 +1030,7 @@ class SubmissionManager(object):
                             if len(data) == len(model_names):
                                 new_data[key] = data
 
-                        all_dfs.append(pd.json_normalize(new_data))
+                        all_dfs.append(new_data)
 
         logging.info('Total dataframes added = {}'.format(len(all_dfs)))
 
@@ -1202,6 +1202,16 @@ def dump_metaparameters_csv(args):
         finally:
             fcntl.lockf(f, fcntl.LOCK_UN)
 
+def generate_results_csv(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+    leaderboard = Leaderboard.load_json(trojai_config, args.name)
+    submission_manager = SubmissionManager.load_json(leaderboard)
+
+    submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
+
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -1228,6 +1238,11 @@ if __name__ == "__main__":
     fix_metric_parser.add_argument('--metric-name', type=str, help='The name of the metric to reset', required=True)
     fix_metric_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
     fix_metric_parser.set_defaults(func=fix_metric)
+
+    generate_results_csv_parser = subparser.add_parser('generate-results-csv', help='Generates the RESULTS CSV for a round')
+    generate_results_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    generate_results_csv_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    generate_results_csv_parser.set_defaults(func=generate_results_csv)
 
     dump_metaparameters_csv_parser = subparser.add_parser('dump-metaparameters')
     dump_metaparameters_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
