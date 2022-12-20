@@ -1065,7 +1065,7 @@ class SubmissionManager(object):
 
         dictionary_time_end = time.time()
 
-        logging.info('Total rows added = {}, time to create dictionary: {}'.format(num_dfs_added, dictionary_time_end-dictionary_time_start))
+        logging.info('Total submissions added = {}, time to create dictionary: {}'.format(num_dfs_added, dictionary_time_end-dictionary_time_start))
 
         df_time_start = time.time()
         if num_dfs_added > 0:
