@@ -32,6 +32,9 @@ class Metric(object):
         self.html_priority = 0
         self.html_decimal_places = 5
 
+    def has_metadata(self):
+        raise NotImplementedError()
+
     def get_name(self):
         raise NotImplementedError()
 
@@ -52,6 +55,9 @@ class AverageCrossEntropy(Metric):
 
     def get_name(self):
         return 'Cross Entropy'
+
+    def has_metadata(self):
+        return True
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         predictions = predictions.astype(np.float64)
@@ -78,6 +84,9 @@ class GroupedCrossEntropyViolin(Metric):
             raise RuntimeError('Columns of interest must be passed as a list')
 
         self.epsilon = epsilon
+
+    def has_metadata(self):
+        return False
 
     def get_name(self):
         return 'Grouped Cross Entropy Violin {}'.format('_'.join(self.columns_of_interest))
@@ -169,6 +178,8 @@ class CrossEntropyConfidenceInterval(Metric):
     def get_name(self):
         return 'CE {}% CI'.format(self.level)
 
+    def has_metadata(self):
+        return False
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         predictions = predictions.astype(np.float64)
@@ -199,6 +210,9 @@ class BrierScore(Metric):
     def get_name(self):
         return 'Brier Score'
 
+    def has_metadata(self):
+        return False
+
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
@@ -219,6 +233,8 @@ class Grouped_ROC_AUC(Metric):
         if not isinstance(self.columns_of_interest, list):
             raise RuntimeError('Columns of interest must be passed as a list')
 
+    def has_metadata(self):
+        return False
 
     def get_name(self):
         if len(self.columns_of_interest) == 0:
@@ -338,6 +354,9 @@ class ROC_AUC(Metric):
 
     def get_name(self):
         return 'ROC-AUC'
+
+    def has_metadata(self):
+        return True
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         TP_counts = list()

@@ -1012,16 +1012,17 @@ class SubmissionManager(object):
 
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
-                            metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, time_str, submission.execution_results_dirpath)
+                            if metric.has_metadata():
+                                metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, time_str, submission.execution_results_dirpath)
 
-                            metadata = metric_output['metadata']
+                                metadata = metric_output['metadata']
 
-                            if metadata is not None:
-                                if isinstance(metadata, dict):
-                                    for key, value in metadata.items():
-                                        metrics[key] = value
-                                else:
-                                    raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
+                                if metadata is not None:
+                                    if isinstance(metadata, dict):
+                                        for key, value in metadata.items():
+                                            metrics[key] = value
+                                    else:
+                                        raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
 
                         if 'model_name' in new_data:
                             new_data['model_name'].extend(model_names)
