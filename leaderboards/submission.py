@@ -977,10 +977,14 @@ class SubmissionManager(object):
         else:
             result_df = None
 
-        all_dfs = []
+        num_dfs_added = 0
 
         default_result = leaderboard.get_default_prediction_result()
         metadata_df = leaderboard.load_metadata_csv_into_df()
+
+        new_data = {}
+
+        dictionary_time_start = time.time()
 
         for actor in actor_manager.get_actors():
             submissions = self.get_submissions_by_actor(actor)
@@ -1018,35 +1022,64 @@ class SubmissionManager(object):
                                         metrics[key] = value
                                 else:
                                     raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
-                        new_data = {}
-                        new_data['model_name'] = model_names
-                        new_data['team_name'] = [actor.name] * len(model_names)
-                        new_data['submission_timestamp'] = [time_str] * len(model_names)
-                        new_data['data_split'] = [data_split] * len(model_names)
-                        new_data['prediction'] = [float(i) for i in raw_predictions_np]
-                        new_data['ground_truth'] = [float(i) for i in raw_targets_np]
+
+                        if 'model_name' in new_data:
+                            new_data['model_name'].extend(model_names)
+                        else:
+                            new_data['model_name'] = model_names
+
+                        if 'team_name' in new_data:
+                            new_data['team_name'].extend([actor.name] * len(model_names))
+                        else:
+                            new_data['team_name'] = [actor.name] * len(model_names)
+
+                        if 'submission_timestamp' in new_data:
+                            new_data['submission_timestamp'].extend([time_str] * len(model_names))
+                        else:
+                            new_data['submission_timestamp'] = [time_str] * len(model_names)
+
+                        if 'data_split' in new_data:
+                            new_data['data_split'].extend([data_split] * len(model_names))
+                        else:
+                            new_data['data_split'] = [data_split] * len(model_names)
+
+                        if 'prediction' in new_data:
+                            new_data['prediction'].extend([float(i) for i in raw_predictions_np])
+                        else:
+                            new_data['prediction'] = [float(i) for i in raw_predictions_np]
+
+                        if 'ground_truth' in new_data:
+                            new_data['ground_truth'].extend([float(i) for i in raw_targets_np])
+                        else:
+                            new_data['ground_truth'] = [float(i) for i in raw_targets_np]
+
                         for key, value in metrics.items():
                             data = [float(i) for i in value]
                             if len(data) == len(model_names):
-                                new_data[key] = data
+                                if key in new_data:
+                                    new_data[key].extend(data)
+                                else:
+                                    new_data[key] = data
 
-                        all_dfs.append(pd.json_normalize(new_data))
+                        num_dfs_added += 1
 
-        logging.info('Total dataframes added = {}'.format(len(all_dfs)))
+        dictionary_time_end = time.time()
 
-        if len(all_dfs) > 0:
-            new_results_df = pd.concat(all_dfs, axis=0)
+        logging.info('Total rows added = {}, time to create dictionary: {}'.format(num_dfs_added, dictionary_time_end-dictionary_time_start))
 
-            if result_df is not None:
-                result_df = pd.concat([result_df, new_results_df])
+        df_time_start = time.time()
+        if num_dfs_added > 0:
+            if result_df is None:
+                result_df = pd.DataFrame(new_data)
             else:
-                result_df = new_results_df
+                new_result_df = pd.DataFrame(new_data)
+                result_df = pd.concat([result_df, new_result_df], ignore_index=True)
 
             result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
-        else:
-            logging.info('No new dataframes to be added. Skipping write')
 
-        logging.info('Finished processing round results for {}'.format(leaderboard.summary_results_csv_filepath))
+        df_time_end = time.time()
+
+        logging.info('Finished processing round results for {}, time to create df: {}'.format(leaderboard.summary_results_csv_filepath, df_time_end-df_time_start))
 
         return result_df
 
@@ -1203,6 +1236,9 @@ def dump_metaparameters_csv(args):
             fcntl.lockf(f, fcntl.LOCK_UN)
 
 def generate_results_csv(args):
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
+                        handlers=[logging.StreamHandler()])
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     actor_manager = ActorManager.load_json(trojai_config)
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
