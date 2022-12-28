@@ -398,7 +398,7 @@ class Submission(object):
                     self.web_display_execution_errors = info_dict['errors']
 
                     # Check for early abort to reset actor time window
-                    if 'Container Parameters' in self.web_display_parse_errors or 'Schema Header' in self.web_display_parse_errors:
+                    if 'Container Parameters' in self.web_display_execution_errors or 'Schema Header' in self.web_display_execution_errors:
                         actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
         finally:
             if print_details:
