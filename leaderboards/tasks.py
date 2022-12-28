@@ -219,23 +219,23 @@ class Task(object):
 
         if 'title' in schema_dict:
             if default_title == schema_dict['title']:
-                errors += ':Schema Header:'
+                errors = ':Schema Header:'
 
         if 'technique_description' in schema_dict:
             if default_technique_description == schema_dict['technique_description']:
-                errors += ':Schema Header:'
+                errors = ':Schema Header:'
 
         if 'technique_changes' in schema_dict:
             if default_technique_changes == schema_dict['technique_changes']:
-                errors += ':Schema Header:'
+                errors = ':Schema Header:'
 
         if 'commit_id' in schema_dict:
             if default_commit_id == schema_dict['commit_id']:
-                errors += ':Schema Header:'
+                errors = ':Schema Header:'
 
         if 'repo_name' in schema_dict:
             if default_repo_name == schema_dict['repo_name']:
-                errors += ':Schema Header:'
+                errors = ':Schema Header:'
 
         return errors
 
