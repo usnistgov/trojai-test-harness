@@ -1,4 +1,5 @@
 from leaderboards.trojai_config import TrojaiConfig
+from leaderboards.actor import ActorManager, Actor
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.mail_io import TrojaiMail
 from leaderboards.drive_io import DriveIO
@@ -15,6 +16,9 @@ import os
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
          vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None, job_id=None,
          custom_metaparameter_filepath=None, subset_model_ids=None):
+
+    actor_manager = ActorManager.load_json(trojai_config)
+    actor = actor_manager.get_from_name(team_name)
 
     logging.info('**************************************************')
     logging.info('Executing Container within VM for team: {} within VM: {}'.format(team_name, vm_name))
@@ -85,7 +89,8 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     schema_errors = task.run_submission_schema_header_checks(submission_filepath)
     errors += schema_errors
 
-    if submission_errors or schema_errors: # and team_name != 'trojai-example:
+
+    if actor.type == 'performer' and (submission_errors or schema_errors): # and team_name != 'trojai-example:
         logging.info('Failed submission and/or schema checks. Aborting execution.')
     else:
         # Step 5) Run basic VM cleanups (scratch)
