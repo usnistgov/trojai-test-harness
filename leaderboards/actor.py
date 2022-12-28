@@ -98,6 +98,9 @@ class Actor(object):
         self.job_statuses[leaderboard_key] = 'None'
         self.file_statuses[leaderboard_key] = 'None'
 
+    def reset_leaderboard_time_window(self, leaderboard_name, data_split_name):
+        self.update_last_submission_epoch(leaderboard_name, data_split_name, 0)
+
     def __str__(self):
         msg = 'Actor: (\n'
         for key, value in self.__dict__.items():

@@ -78,38 +78,46 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += task.run_basic_checks(vm_ip, vm_name)
 
     # Step 4) Check task parameters in container (files and directories, schema checker)
-    errors += task.run_submission_checks(submission_filepath)
+    submission_errors = task.run_submission_checks(submission_filepath)
+    errors += submission_errors
 
-    # Step 5) Run basic VM cleanups (scratch)
-    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
+    # Step 4a) Check schema
+    schema_errors = task.run_submission_schema_header_checks(submission_filepath)
+    errors += schema_errors
 
-    # Add some delays
-    time.sleep(2)
+    if submission_errors or schema_errors: # and team_name != 'trojai-example:
+        logging.info('Failed submission and/or schema checks. Aborting execution.')
+    else:
+        # Step 5) Run basic VM cleanups (scratch)
+        errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
 
-    # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
-    errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath)
+        # Add some delays
+        time.sleep(2)
 
-    # Add some delays
-    time.sleep(2)
+        # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
+        errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath)
 
-    # Step 7) Execute submission and check errors
-    errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath, subset_model_ids)
+        # Add some delays
+        time.sleep(2)
 
-    # Add some delays
-    time.sleep(2)
+        # Step 7) Execute submission and check errors
+        errors += task.execute_submission(vm_ip, vm_name, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath, subset_model_ids)
 
-    # Step 8) Copy out results
-    errors += task.copy_out_results(vm_ip, vm_name, result_dirpath, custom_remote_home, custom_remote_scratch_with_job_id)
+        # Add some delays
+        time.sleep(2)
 
-    # Add some delays
-    time.sleep(2)
+        # Step 8) Copy out results
+        errors += task.copy_out_results(vm_ip, vm_name, result_dirpath, custom_remote_home, custom_remote_scratch_with_job_id)
 
-    # Step 9) Re-run basic VM cleanups
-    errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
+        # Add some delays
+        time.sleep(2)
 
-    logging.info('**************************************************')
-    logging.info('Container Execution Complete for team: {}'.format(team_name))
-    logging.info('**************************************************')
+        # Step 9) Re-run basic VM cleanups
+        errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
+
+        logging.info('**************************************************')
+        logging.info('Container Execution Complete for team: {}'.format(team_name))
+        logging.info('**************************************************')
 
     # Step 10) Update info dictionary (execution, errors)
     info_dict['errors'] = errors
@@ -119,7 +127,6 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     if vm_ip == Task.LOCAL_VM_IP:
         if os.path.exists(custom_remote_scratch_with_job_id):
             os.rmdir(custom_remote_scratch_with_job_id)
-
 
     # Build per model execution time dictionary
     model_execution_time_dict = dict()

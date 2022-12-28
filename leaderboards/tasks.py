@@ -206,6 +206,40 @@ class Task(object):
 
         return errors
 
+    def run_submission_schema_header_checks(self, submission_filepath):
+        errors = ''
+
+        schema_dict = jsonschema_checker.collect_json_metaparams_schema(submission_filepath)
+
+        default_title = 'Trojan Detection Container (trojai-example) - The template detector to be used within the TrojAI competition.'
+        default_technique_description = 'Extracts model weights and trains a random forest regressor.'
+        default_technique_changes = 'Output metaparameter.json file after reconfiguration'
+        default_commit_id = ''
+        default_repo_name = 'https://github.com/usnistgov/trojai-example'
+
+        if 'title' in schema_dict:
+            if default_title == schema_dict['title']:
+                errors += ':Schema Header:'
+
+        if 'technique_description' in schema_dict:
+            if default_technique_description == schema_dict['technique_description']:
+                errors += ':Schema Header:'
+
+        if 'technique_changes' in schema_dict:
+            if default_technique_changes == schema_dict['technique_changes']:
+                errors += ':Schema Header:'
+
+        if 'commit_id' in schema_dict:
+            if default_commit_id == schema_dict['commit_id']:
+                errors += ':Schema Header:'
+
+        if 'repo_name' in schema_dict:
+            if default_repo_name == schema_dict['repo_name']:
+                errors += ':Schema Header:'
+
+        return errors
+
+
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         logging.info('Copying in task data')
 
