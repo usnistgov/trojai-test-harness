@@ -90,7 +90,8 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     errors += schema_errors
 
 
-    if actor.type == 'performer' and (submission_errors or schema_errors): # and team_name != 'trojai-example:
+    #if actor.type == 'performer' and (submission_errors or schema_errors) and team_name != 'trojai-example:
+    if submission_errors or schema_errors:  # and team_name != 'trojai-example:
         logging.info('Failed submission and/or schema checks. Aborting execution.')
     else:
         # Step 5) Run basic VM cleanups (scratch)
