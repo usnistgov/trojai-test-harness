@@ -285,7 +285,7 @@ class Submission(object):
             self.dump_summary_schema_csv(trojai_config, actor.name, leaderboard)
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
-        slurm_log_filepath = os.path.join(self.actor_submission_dirpath, self.slurm_output_filename)
+        slurm_log_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
 
         container_output_filename = self.g_file.name + '.out'
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
