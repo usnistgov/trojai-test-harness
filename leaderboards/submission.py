@@ -291,7 +291,7 @@ class Submission(object):
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
 
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
-        updated_container_output_filename = '{}_{}.{}'.format(actor.name, epoch_str, container_output_filename)
+        updated_container_output_filename = '{}_{}.{}'.format(actor.name, epoch_str, container_output_filename + '.txt')
         updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
