@@ -21,6 +21,9 @@ from leaderboards import time_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.html_output import update_html_pages
 
+import warnings
+
+
 
 def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard],  active_submission_managers: Dict[str, SubmissionManager]) -> None:
 
@@ -360,6 +363,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
 
 if __name__ == "__main__":
+    warnings.filterwarnings("ignore", module="matplotlib\..*")
     import argparse
 
     parser = argparse.ArgumentParser(description='Check and Launch script for TrojAI challenge participants')
