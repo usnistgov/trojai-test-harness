@@ -1015,7 +1015,8 @@ class SubmissionManager(object):
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
                             if metric.has_metadata():
-                                metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, time_str, submission.execution_results_dirpath)
+                                metric_time_str = time_utils.convert_epoch_to_psudo_iso(submission.submission_epoch)
+                                metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, metric_time_str, submission.execution_results_dirpath)
 
                                 metadata = metric_output['metadata']
 
