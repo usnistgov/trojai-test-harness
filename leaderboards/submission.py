@@ -881,9 +881,10 @@ class SubmissionManager(object):
                 if submission.data_split_name == data_split_name:
                     valid_submissions[actor_uuid].append(submission)
 
+        evaluation_metric_name = leaderboard.get_evaluation_metric_name(data_split_name)
 
         with a.div(klass='card-body card-body-cascade pb-0'):
-            a.h2(klass='pb-q card-title', _t='Results')
+            a.h2(klass='pb-q card-title', _t='Best Results based on {}'.format(evaluation_metric_name))
             with a.div(klass='table-responsive'):
                 with a.table(id='{}-{}-results'.format(leaderboard.name, data_split_name), klass='table table-striped table-bordered table-sm'):
                     with a.thead():
@@ -901,7 +902,6 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
                         submission_metrics = leaderboard.get_submission_metrics(data_split_name)
-                        evaluation_metric_name = leaderboard.get_evaluation_metric_name(data_split_name)
                         metric = submission_metrics[evaluation_metric_name]
 
                         for actor_uuid, submissions in valid_submissions.items():
