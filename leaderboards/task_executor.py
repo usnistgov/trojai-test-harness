@@ -172,6 +172,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s")
 
+    logging.getLogger().addHandler(logging.StreamHandler())
+
     parser = argparse.ArgumentParser(description='Starts/Stops VMs')
     parser.add_argument('--team-name', type=str,
                         help='The team name',

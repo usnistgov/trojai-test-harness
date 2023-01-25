@@ -15,24 +15,28 @@ import traceback
 from leaderboards.mail_io import TrojaiMail
 
 
-def write(filepath, obj):
+def write(filepath, obj, with_lock=True):
     if not filepath.endswith('.json'):
         raise RuntimeError("Expecting a file ending in '.json', got: {}".format(filepath))
-    lock_file = '/var/lock/trojai-json_io-lockfile'
-    with open(lock_file, 'w') as lfh:
-        try:
-            fcntl.lockf(lfh, fcntl.LOCK_EX)
+    if with_lock:
+        lock_file = '/var/lock/trojai-json_io-lockfile'
+        with open(lock_file, 'w') as lfh:
+            try:
+                fcntl.lockf(lfh, fcntl.LOCK_EX)
 
-            with open(filepath, mode='w', encoding='utf-8') as f:
-                f.write(jsonpickle.encode(obj, warn=True, indent=2))
-        except Exception as ex:
-            logging.error(ex)
-            msg = 'json_io failed writing file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
-            TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
-            raise
-        finally:
-            fcntl.lockf(lfh, fcntl.LOCK_UN)
-            os.remove(lock_file)
+                with open(filepath, mode='w', encoding='utf-8') as f:
+                    f.write(jsonpickle.encode(obj, warn=True, indent=2))
+            except Exception as ex:
+                logging.error(ex)
+                msg = 'json_io failed writing file "{}" releasing file lock regardless.{}'.format(filepath, traceback.format_exc())
+                TrojaiMail().send('trojai@nist.gov','json_io write fallback lockfile release',msg)
+                raise
+            finally:
+                fcntl.lockf(lfh, fcntl.LOCK_UN)
+                os.remove(lock_file)
+    else:
+        with open(filepath, mode='w', encoding='utf-8') as f:
+            f.write(jsonpickle.encode(obj, warn=True, indent=2))
 
 
 def read(filepath):

@@ -320,7 +320,6 @@ class Submission(object):
             root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
             actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
             external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
-
         except:
             logging.error('Failed to create google drive actor directories')
             root_actor_folder_id = None
@@ -574,7 +573,7 @@ class Submission(object):
 
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
-        self.slurm_output_filename = '{}.{}_{}.{}.log.txt'.format(self.leaderboard_name, actor.name, epoch_str, self.data_split_name)
+        self.slurm_output_filename = '{}.{}_{}_{}.log.txt'.format(self.leaderboard_name, actor.name, epoch_str, self.data_split_name)
         slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
