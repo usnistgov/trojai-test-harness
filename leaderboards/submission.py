@@ -301,17 +301,17 @@ class Submission(object):
             fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
 
             # start logging to the submission log, in addition to server log
-            cur_logging_level = logging.getLogger().getEffectiveLevel()
+            # cur_logging_level = logging.getLogger().getEffectiveLevel()
             # set all individual logging handlers to this level
-            for handler in logging.getLogger().handlers:
-                handler.setLevel(cur_logging_level)
+            # for handler in logging.getLogger().handlers:
+            #     handler.setLevel(cur_logging_level)
             # this allows us to set the logger itself to debug without modifying the individual handlers
-            logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
+            # logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
 
-            submission_log_handler = logging.FileHandler(slurm_log_filepath)
-            submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
-            submission_log_handler.setLevel(logging.DEBUG)
-            logging.getLogger().addHandler(submission_log_handler)
+            # submission_log_handler = logging.FileHandler(slurm_log_filepath)
+            # submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
+            # submission_log_handler.setLevel(logging.DEBUG)
+            # logging.getLogger().addHandler(submission_log_handler)
 
         # Create team directory on google drive
         try:
@@ -401,11 +401,12 @@ class Submission(object):
                         actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
         finally:
             if print_details:
+                pass
                 # stop outputting logging to submission log file
-                logging.getLogger().removeHandler(submission_log_handler)
+                # logging.getLogger().removeHandler(submission_log_handler)
 
                 # set the global logging handlers back to its original level
-                logging.getLogger().setLevel(cur_logging_level)
+                # logging.getLogger().setLevel(cur_logging_level)
 
         # upload log file to drive
         try:
