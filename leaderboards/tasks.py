@@ -220,25 +220,29 @@ class Task(object):
         if 'title' in schema_dict:
             if default_title == schema_dict['title']:
                 errors = ':Schema Header:'
+                logging.warning('schema "title" is not valid')
 
         if 'technique_description' in schema_dict:
             if default_technique_description == schema_dict['technique_description']:
                 errors = ':Schema Header:'
+                logging.warning('schema "technique_description" is not valid')
 
         if 'technique_changes' in schema_dict:
             if default_technique_changes == schema_dict['technique_changes']:
                 errors = ':Schema Header:'
+                logging.warning('schema "technique_changes" is not valid')
 
         if 'commit_id' in schema_dict:
             if default_commit_id == schema_dict['commit_id']:
                 errors = ':Schema Header:'
+                logging.warning('schema "commit_id" is not valid')
 
         if 'repo_name' in schema_dict:
             if default_repo_name == schema_dict['repo_name']:
                 errors = ':Schema Header:'
+                logging.warning('schema "repo_name" is not valid')
 
         return errors
-
 
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         logging.info('Copying in task data')
