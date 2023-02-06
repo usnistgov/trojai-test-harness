@@ -83,6 +83,8 @@ class Submission(object):
         return msg
 
     def get_slurm_job_name(self, actor: Actor):
+        # submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+        # return '{}_{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name, submission_epoch_str)
         return '{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name)
 
     def get_submission_hash(self):
@@ -819,6 +821,15 @@ class SubmissionManager(object):
             if submission.data_split_name == data_split_name:
                 if submission.is_active_job():
                     return True
+        return False
+
+    def has_submission_file_id(self, actor: Actor, new_modified_epoch):
+        submissions = self.get_submissions_by_actor(actor)
+
+        for submission in submissions:
+            if submission.g_file.modified_epoch == new_modified_epoch:
+                return True
+
         return False
 
 
