@@ -396,7 +396,7 @@ if __name__ == "__main__":
                                 format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                                 handlers=[handler])
             # Enable when debugging
-            logging.getLogger().addHandler(logging.StreamHandler())
+            # logging.getLogger().addHandler(logging.StreamHandler())
 
             logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
             main(trojai_config)
