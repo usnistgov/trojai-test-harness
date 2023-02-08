@@ -119,26 +119,22 @@ def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
 class Task(object):
     LOCAL_VM_IP = 'local'
 
-    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath: str, evaluate_models_filepath: str = None,
-                 evaluate_model_filepath: str = None, remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
-        self.evaluate_models_filepath = evaluate_models_filepath
-        self.evaluate_model_filepath = evaluate_model_filepath
-        self.task_script_filepath = task_script_filepath
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_type: str, evaluate_model_python_filepath: str = None,  remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
+        self.task_type = task_type
 
         self.default_prediction_result = 0.5
 
         self.remote_home = remote_home
         self.remote_dataset_dirpath = self.get_remote_dataset_dirpath(self.remote_home, leaderboard_name)
         self.remote_scratch = remote_scratch
+        self.evaluate_model_python_filepath = evaluate_model_python_filepath
 
         task_dirpath = os.path.dirname(os.path.realpath(__file__))
         vm_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
 
-        if self.evaluate_models_filepath is None:
-            self.evaluate_models_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_models.sh')
+        if self.evaluate_model_python_filepath is None:
+            self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
 
-        if self.evaluate_model_filepath is None:
-            self.evaluate_model_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_model.sh')
 
     def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
         return os.path.join(remote_dirpath, 'datasets', leaderboard_name)
@@ -220,22 +216,27 @@ class Task(object):
         if 'title' in schema_dict:
             if default_title == schema_dict['title']:
                 errors = ':Schema Header:'
+                logging.warning('schema "title" is not valid')
 
         if 'technique_description' in schema_dict:
             if default_technique_description == schema_dict['technique_description']:
                 errors = ':Schema Header:'
+                logging.warning('schema "technique_description" is not valid')
 
         if 'technique_changes' in schema_dict:
             if default_technique_changes == schema_dict['technique_changes']:
                 errors = ':Schema Header:'
+                logging.warning('schema "technique_changes" is not valid')
 
         if 'commit_id' in schema_dict:
             if default_commit_id == schema_dict['commit_id']:
                 errors = ':Schema Header:'
+                logging.warning('schema "commit_id" is not valid')
 
         if 'repo_name' in schema_dict:
             if default_repo_name == schema_dict['repo_name']:
                 errors = ':Schema Header:'
+                logging.warning('schema "repo_name" is not valid')
 
         return errors
 
@@ -261,12 +262,8 @@ class Task(object):
 
         # copy in evaluate scripts (all models and single model) and update permissions
         permissions_params = ['--perms', '--chmod=u+rwx']
-        sc = rsync_file_to_vm(vm_ip, self.evaluate_model_filepath, remote_home, source_params=permissions_params)
-        errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate model script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
-        sc = rsync_file_to_vm(vm_ip, self.evaluate_models_filepath, remote_home, source_params=permissions_params)
-        errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate models script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
-        sc = rsync_file_to_vm(vm_ip, self.task_script_filepath, remote_home, source_params=permissions_params)
-        errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate models script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate models script copy failed'.format(vm_name))
+        sc = rsync_file_to_vm(vm_ip, self.evaluate_model_python_filepath, remote_home, source_params=permissions_params)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate python model script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
 
         # copy in submission filepath
         sc = rsync_file_to_vm(vm_ip, submission_filepath, remote_scratch)
@@ -305,7 +302,7 @@ class Task(object):
 
         return errors
 
-    def execute_submission(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
+    def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -316,18 +313,16 @@ class Task(object):
             remote_scratch = custom_remote_scratch
 
         errors = ''
-        remote_evaluate_models_filepath = os.path.join(remote_home, os.path.basename(self.evaluate_models_filepath))
+        remote_evaluate_models_python_filepath = os.path.join(remote_home, os.path.basename(self.evaluate_model_python_filepath))
         submission_name = os.path.basename(submission_filepath)
 
         start_time = time.time()
         logging.info('Starting execution of {}.'.format(submission_name))
 
-        # First two parameters must be MODEL_DIR, CONTAINER_NAME, TASK SCRIPT FILEPATH, and round training dataset dirpath all remaining will be passed onto task-specific script
-
         if vm_ip == Task.LOCAL_VM_IP:
-            params = ['timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
+            params = ['timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', python_execution_env_filepath, remote_evaluate_models_python_filepath]
         else:
-            params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', remote_evaluate_models_filepath]
+            params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', python_execution_env_filepath, remote_evaluate_models_python_filepath]
 
         params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids, custom_result_dirpath))
         params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_result_dirpath))
@@ -371,44 +366,38 @@ class Task(object):
 
         submission_name = os.path.basename(submission_filepath)
         remote_submission_filepath = os.path.join(remote_scratch, submission_name)
-
-        task_script_filepath = os.path.join(remote_home, os.path.basename(self.task_script_filepath))
-        evaluate_model_script_filepath = os.path.join(remote_home, os.path.basename(self.evaluate_model_filepath))
-
         result_dirpath = os.path.join(remote_scratch, 'results')
 
         if custom_result_dirpath is not None:
             result_dirpath = custom_result_dirpath
 
-        args = ['--evaluate-model-filepath', evaluate_model_script_filepath, '--model-dir', remote_models_dirpath, '--container-path', '{}'.format(remote_submission_filepath), '--task-script',
-                task_script_filepath, '--training-dir', remote_training_dataset_dirpath, '--remote-home', remote_home, '--remote-scratch', remote_scratch,
-                '--result-dir', result_dirpath]
+        args = ['--models-dirpath', remote_models_dirpath, '--task-type', self.task_type, '--submission-filepath', '{}'.format(remote_submission_filepath),
+                '--home-dirpath', remote_home, '--scratch-dirpath', remote_scratch,
+                '--training-dataset-dirpath', remote_training_dataset_dirpath, '--result-dirpath', result_dirpath]
 
         # Add excluded files into list
+        args.append('--rsync-excludes')
         for excluded_file in dataset.excluded_files:
-            args.append('--rsync-exclude')
             args.append('{}'.format(excluded_file))
 
         if custom_metaparameter_filepath is not None:
             metaparameter_name = os.path.basename(custom_metaparameter_filepath)
             metaparameter_filepath = os.path.join(remote_scratch, metaparameter_name)
-            args.append('--metaparam-file')
+            args.append('--metaparameter-filepath')
             args.append('{}'.format(metaparameter_filepath))
 
         if subset_model_ids is not None:
+            args.append('--subset-model-id')
             for subset_model_id in subset_model_ids:
-                args.append('--subset-model-id')
                 args.append('{}'.format(subset_model_id))
-            pass
 
         if dataset.source_dataset_dirpath is not None:
             if vm_ip == Task.LOCAL_VM_IP:
                 remote_source_data_dirpath = dataset.source_dataset_dirpath
-                pass
             else:
                 source_data_dirname = os.path.basename(dataset.source_dataset_dirpath)
                 remote_source_data_dirpath = os.path.join(self.remote_dataset_dirpath, source_data_dirname)
-            args.extend(['--source-dir', remote_source_data_dirpath])
+            args.extend(['--source-dataset-dirpath', remote_source_data_dirpath])
 
         return args
 
@@ -505,21 +494,13 @@ class Task(object):
 
 class ImageTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
-        if task_script_filepath is None:
-            task_dirpath = os.path.dirname(os.path.realpath(__file__))
-            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
-            task_script_filepath = os.path.join(task_scripts_dirpath, 'image_task.sh')
-        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+        super().__init__(trojai_config, leaderboard_name, 'image', task_script_filepath)
 
 
 class CyberTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
-        if task_script_filepath is None:
-            task_dirpath = os.path.dirname(os.path.realpath(__file__))
-            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
-            task_script_filepath = os.path.join(task_scripts_dirpath, 'cyber_task.sh')
-        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+        super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
@@ -548,21 +529,13 @@ class CyberTask(Task):
 
 class ReinforcementLearningTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
-        if task_script_filepath is None:
-            task_dirpath = os.path.dirname(os.path.realpath(__file__))
-            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
-            task_script_filepath = os.path.join(task_scripts_dirpath, 'rl_task.sh')
-        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+        super().__init__(trojai_config, leaderboard_name, 'rl', task_script_filepath)
 
 
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
-        if task_script_filepath is None:
-            task_dirpath = os.path.dirname(os.path.realpath(__file__))
-            task_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'task_scripts'))
-            task_script_filepath = os.path.join(task_scripts_dirpath, 'nlp_task.sh')
-        super().__init__(trojai_config, leaderboard_name, task_script_filepath)
+        super().__init__(trojai_config, leaderboard_name, 'nlp', task_script_filepath)
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:

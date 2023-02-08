@@ -15,7 +15,7 @@ import os
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
          vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str, custom_remote_home=None, custom_remote_scratch=None, job_id=None,
-         custom_metaparameter_filepath=None, subset_model_ids=None):
+         custom_metaparameter_filepath=None, subset_model_ids=None, custom_evaluate_python_env_filepath=None):
 
     actor_manager = ActorManager.load_json(trojai_config)
     actor = actor_manager.get_from_name(team_name)
@@ -153,6 +153,8 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
                     if line.startswith('execution_time'):
                         toks = line.split(' ')
                         model_execution_time_dict[model_name] = float(toks[1])
+                    else:
+                        model_execution_time_dict[model_name] = float(line)
                     line = execution_time_fh.readline().strip()
 
         except:
@@ -200,6 +202,8 @@ if __name__ == '__main__':
     parser.add_argument('--custom-remote-scratch', type=str,
                         help='The custom scratch directory',
                         default=None)
+    parser.add_argument('--custom-evaluate-python-env-filepath', type=str,
+                        help='The filepath to the python environment that will be used for evaluation', default=None)
 
     parser.add_argument('--custom-metaparameters-filepath', type=str, help='The custom metaparameters filepath to use', default=None)
     parser.add_argument('--model-ids-subset', nargs='*', help='The list of model IDs to subset when launching', default=None)
@@ -211,7 +215,9 @@ if __name__ == '__main__':
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
-    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email, args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch, args.job_id, args.custom_metaparameters_filepath, args.model_ids_subset)
+    main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email,
+         args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch, args.job_id,
+         args.custom_metaparameters_filepath, args.model_ids_subset, args.custom_evaluate_python_env_filepath)
 
 
 

@@ -23,6 +23,7 @@ class TrojaiConfig(object):
         self.trojai_test_harness_dirpath = os.path.normpath(os.path.join(file_dirpath, '..'))
         self.task_evaluator_script_filepath = os.path.join(file_dirpath, 'task_executor.py')
         self.python_env = '/home/trojai/trojai-env/bin/python3'
+        self.evaluate_python_env = '/home/trojai/miniconda3/envs/trojai_evaluate/bin/python'
         self.default_excluded_files = ["detailed_stats.csv", "config.json", "ground_truth.csv", "log.txt", "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv", "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
         self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
         self.leaderboard_csvs_dirpath = os.path.join(self.datasets_dirpath, 'leaderboard_summary_csvs')
