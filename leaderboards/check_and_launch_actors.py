@@ -21,6 +21,9 @@ from leaderboards import time_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.html_output import update_html_pages
 
+import warnings
+
+
 
 def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard],  active_submission_managers: Dict[str, SubmissionManager]) -> None:
 
@@ -135,12 +138,17 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
                 actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
             else:
                 if int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
-                    logging.info('Submission timestamp is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
-                    submission = Submission(g_file, actor, leaderboard, data_split_name)
-                    submission_manager.add_submission(actor, submission)
-                    logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.g_file.name, actor.email))
-                    exec_epoch = time_utils.get_current_epoch()
-                    submission.execute(actor, trojai_config, exec_epoch)
+                    if not submission_manager.has_submission_file_id(actor, g_file.modified_epoch):
+                        logging.info('Submission timestamp is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
+                        submission = Submission(g_file, actor, leaderboard, data_split_name)
+                        submission_manager.add_submission(actor, submission)
+                        logging.info('Added submission file name "{}" to manager from email "{}"'.format(submission.g_file.name, actor.email))
+                        exec_epoch = time_utils.get_current_epoch()
+                        submission.execute(actor, trojai_config, exec_epoch)
+                    else:
+                        logging.info(
+                            'Submission found is the same within one of the submissions already in the submission manager for team {}; new file name: {}, new file epoch: {}'.format(
+                                actor.name, g_file.name, g_file.modified_epoch))
                 else:
                     logging.info('Submission found is the same as the last execution run for team {}; new file name: {}, new file epoch: {}, last file epoch: {}'.format(actor.name, g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
                     actor.update_job_status(leaderboard_name, data_split_name, 'None')
@@ -360,6 +368,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
 
 if __name__ == "__main__":
+    warnings.filterwarnings("ignore", module="matplotlib\..*")
     import argparse
 
     parser = argparse.ArgumentParser(description='Check and Launch script for TrojAI challenge participants')
@@ -387,7 +396,7 @@ if __name__ == "__main__":
                                 format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                                 handlers=[handler])
             # Enable when debugging
-            logging.getLogger().addHandler(logging.StreamHandler())
+            # logging.getLogger().addHandler(logging.StreamHandler())
 
             logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
             main(trojai_config)

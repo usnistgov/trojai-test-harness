@@ -83,7 +83,8 @@ class Submission(object):
         return msg
 
     def get_slurm_job_name(self, actor: Actor):
-        return '{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name)
+        submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+        return '{}_{}_{}_{}'.format(actor.name, self.leaderboard_name, self.data_split_name, submission_epoch_str)
 
     def get_submission_hash(self):
         return hash_utils.load_hash(self.get_submission_filepath())
@@ -285,13 +286,13 @@ class Submission(object):
             self.dump_summary_schema_csv(trojai_config, actor.name, leaderboard)
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
-        slurm_log_filepath = os.path.join(self.actor_submission_dirpath, self.slurm_output_filename)
+        slurm_log_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
 
         container_output_filename = self.g_file.name + '.out'
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
 
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
-        updated_container_output_filename = '{}_{}.{}'.format(actor.name, epoch_str, container_output_filename)
+        updated_container_output_filename = '{}_{}.{}'.format(actor.name, epoch_str, container_output_filename + '.txt')
         updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
@@ -301,17 +302,17 @@ class Submission(object):
             fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
 
             # start logging to the submission log, in addition to server log
-            cur_logging_level = logging.getLogger().getEffectiveLevel()
+            # cur_logging_level = logging.getLogger().getEffectiveLevel()
             # set all individual logging handlers to this level
-            for handler in logging.getLogger().handlers:
-                handler.setLevel(cur_logging_level)
+            # for handler in logging.getLogger().handlers:
+            #     handler.setLevel(cur_logging_level)
             # this allows us to set the logger itself to debug without modifying the individual handlers
-            logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
+            # logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
 
-            submission_log_handler = logging.FileHandler(slurm_log_filepath)
-            submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
-            submission_log_handler.setLevel(logging.DEBUG)
-            logging.getLogger().addHandler(submission_log_handler)
+            # submission_log_handler = logging.FileHandler(slurm_log_filepath)
+            # submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
+            # submission_log_handler.setLevel(logging.DEBUG)
+            # logging.getLogger().addHandler(submission_log_handler)
 
         # Create team directory on google drive
         try:
@@ -320,7 +321,6 @@ class Submission(object):
             root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
             actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
             external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
-
         except:
             logging.error('Failed to create google drive actor directories')
             root_actor_folder_id = None
@@ -402,11 +402,12 @@ class Submission(object):
                         actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
         finally:
             if print_details:
+                pass
                 # stop outputting logging to submission log file
-                logging.getLogger().removeHandler(submission_log_handler)
+                # logging.getLogger().removeHandler(submission_log_handler)
 
                 # set the global logging handlers back to its original level
-                logging.getLogger().setLevel(cur_logging_level)
+                # logging.getLogger().setLevel(cur_logging_level)
 
         # upload log file to drive
         try:
@@ -574,7 +575,7 @@ class Submission(object):
 
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
-        self.slurm_output_filename = '{}.{}_{}.{}.log.txt'.format(self.leaderboard_name, actor.name, epoch_str, self.data_split_name)
+        self.slurm_output_filename = '{}.{}_{}_{}.log.txt'.format(self.leaderboard_name, actor.name, epoch_str, self.data_split_name)
         slurm_output_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
         # cmd_str_list = [slurm_script_filepath, actor.name, actor.email, submission_filepath, result_dirpath,  trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
         # cmd_str_list = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':', '--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath, slurm_script_filepath, actor.name, actor.email, submission_filepath, self.execution_results_dirpath, trojai_config_filepath, self.leaderboard_name, self.data_split_name, test_harness_dirpath, python_executable, task_executor_script_filepath]
@@ -821,6 +822,15 @@ class SubmissionManager(object):
                     return True
         return False
 
+    def has_submission_file_id(self, actor: Actor, new_modified_epoch):
+        submissions = self.get_submissions_by_actor(actor)
+
+        for submission in submissions:
+            if submission.g_file.modified_epoch == new_modified_epoch:
+                return True
+
+        return False
+
 
     def add_submission(self, actor: Actor, submission: Submission) -> None:
         self.get_submissions_by_actor(actor).append(submission)
@@ -881,9 +891,10 @@ class SubmissionManager(object):
                 if submission.data_split_name == data_split_name:
                     valid_submissions[actor_uuid].append(submission)
 
+        evaluation_metric_name = leaderboard.get_evaluation_metric_name(data_split_name)
 
         with a.div(klass='card-body card-body-cascade pb-0'):
-            a.h2(klass='pb-q card-title', _t='Results')
+            a.h2(klass='pb-q card-title', _t='Best Results based on {}'.format(evaluation_metric_name))
             with a.div(klass='table-responsive'):
                 with a.table(id='{}-{}-results'.format(leaderboard.name, data_split_name), klass='table table-striped table-bordered table-sm'):
                     with a.thead():
@@ -901,7 +912,6 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
                         submission_metrics = leaderboard.get_submission_metrics(data_split_name)
-                        evaluation_metric_name = leaderboard.get_evaluation_metric_name(data_split_name)
                         metric = submission_metrics[evaluation_metric_name]
 
                         for actor_uuid, submissions in valid_submissions.items():
@@ -1016,7 +1026,8 @@ class SubmissionManager(object):
                         # Get full metric results
                         for metric_name, metric in leaderboard_metrics.items():
                             if metric.has_metadata():
-                                metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, time_str, submission.execution_results_dirpath)
+                                metric_time_str = time_utils.convert_epoch_to_psudo_iso(submission.submission_epoch)
+                                metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, metric_time_str, submission.execution_results_dirpath)
 
                                 metadata = metric_output['metadata']
 

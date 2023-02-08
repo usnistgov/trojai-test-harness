@@ -240,7 +240,6 @@ class Task(object):
 
         return errors
 
-
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         logging.info('Copying in task data')
 

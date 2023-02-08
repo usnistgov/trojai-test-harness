@@ -20,7 +20,7 @@ class GoogleDriveFile(object):
         return msg
 
     def save_json(self, file_path: str):
-        json_io.write(file_path, self)
+        json_io.write(file_path, self, with_lock=False)
 
     @staticmethod
     def load_json(file_path: str):
