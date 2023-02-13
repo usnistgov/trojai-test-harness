@@ -160,6 +160,8 @@ class EvaluateTask(ABC):
             if os.path.exists(active_result_filepath):
                 shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
 
+        container_instance.stop()
+
     @abstractmethod
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
         options = ['--contain', '--bind', active_dirpath, '--bind', scratch_dirpath, '--bind', '{}:{}:ro'.format(self.training_dataset_dirpath, self.training_dataset_dirpath), '--nv']
