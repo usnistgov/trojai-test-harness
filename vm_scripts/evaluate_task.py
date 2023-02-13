@@ -18,7 +18,6 @@ def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list):
     params.extend(glob.glob(source_dirpath))
     params.append(dest_dirpath)
 
-    logging.info(' '.join(params))
     child = subprocess.Popen(params)
     return child.wait()
 
@@ -61,6 +60,8 @@ class EvaluateTask(ABC):
         self.result_prefix_filename = result_prefix_filename
         self.subset_model_ids = subset_model_ids
 
+        if not os.path.exists(self.result_dirpath):
+            os.makedirs(self.result_dirpath, exist_ok=True)
 
         self.container_name = os.path.splitext(self.submission_filepath)[0]
 
