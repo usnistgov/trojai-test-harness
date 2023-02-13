@@ -135,12 +135,19 @@ class Task(object):
         if self.evaluate_model_python_filepath is None:
             self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
 
+    def get_task_type(self):
+        raise NotImplementedError()
+
     def check_instance_params(self, trojai_config: TrojaiConfig):
         has_updated = False
         if not hasattr(self, 'evaluate_model_python_filepath'):
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
             vm_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
             self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
+            has_updated = True
+
+        if not hasattr(self, 'task_type'):
+            self.task_type = self.get_task_type()
             has_updated = True
 
         return has_updated
@@ -504,11 +511,17 @@ class ImageTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'image', task_script_filepath)
 
+    def get_task_type(self):
+        return 'image'
+
 
 class CyberTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
         super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
+
+    def get_task_type(self):
+        return 'cyber'
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
@@ -539,11 +552,16 @@ class ReinforcementLearningTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'rl', task_script_filepath)
 
+    def get_task_type(self):
+        return 'rl'
 
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
         super().__init__(trojai_config, leaderboard_name, 'nlp', task_script_filepath)
+
+    def get_task_type(self):
+        return 'nlp'
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
