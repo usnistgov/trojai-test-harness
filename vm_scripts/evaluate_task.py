@@ -5,6 +5,7 @@ import random
 import shutil
 import subprocess
 import logging
+import glob
 from logging import FileHandler
 import time
 from spython.main import Client
@@ -14,7 +15,7 @@ from abc import ABC, abstractmethod
 def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list, with_shell=False):
     params = ['rsync']
     params.extend(rsync_args)
-    params.append(source_dirpath)
+    params.extend(glob.glob(source_dirpath))
     params.append(dest_dirpath)
 
     logging.info(' '.join(params))
