@@ -11,12 +11,13 @@ from spython.main import Client
 
 from abc import ABC, abstractmethod
 
-def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list):
+def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list, with_shell=False):
     params = ['rsync']
     params.extend(rsync_args)
     params.append(source_dirpath)
     params.append(dest_dirpath)
-    child = subprocess.Popen(params)
+
+    child = subprocess.Popen(params, shell=with_shell)
     return child.wait()
 
 def clean_dirpath_contents(dirpath: str):
@@ -113,7 +114,7 @@ class EvaluateTask(ABC):
             for rsync_exclude in self.rsync_excludes:
                 rsync_params.append('--exclude={}'.format(rsync_exclude))
 
-            rsync_dirpath(os.path.join(model_dirpath, '*'), active_dirpath, rsync_params)
+            rsync_dirpath(os.path.join(model_dirpath, '*'), active_dirpath, rsync_params, with_shell=True)
 
             # check for reduced-config, and copy it if it does exist to config.json
             reduced_config_filepath = os.path.join(active_dirpath, 'reduced-config.json')
