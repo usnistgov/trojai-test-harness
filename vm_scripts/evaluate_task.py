@@ -137,7 +137,7 @@ class EvaluateTask(ABC):
 
             if 'message' in result:
                 with open(container_output_filepath, 'w') as f:
-                    f.write(result['message'])
+                    f.write(str(result['message']))
             else:
                 logging.error('Failed to obtain result from singularity execution: {}'.format(result))
 
