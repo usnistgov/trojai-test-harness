@@ -85,6 +85,7 @@ class EvaluateTask(ABC):
         logging.basicConfig(level=logging.INFO,
                             format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                             handlers=[handler])
+        logging.getLogger().addHandler(logging.StreamHandler())
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
