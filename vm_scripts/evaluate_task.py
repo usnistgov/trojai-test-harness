@@ -17,7 +17,7 @@ def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list, with
     params.append(source_dirpath)
     params.append(dest_dirpath)
 
-    print(params)
+    logging.info(params)
     child = subprocess.Popen(params, shell=with_shell)
     return child.wait()
 
