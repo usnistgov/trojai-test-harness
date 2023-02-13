@@ -157,7 +157,8 @@ class EvaluateTask(ABC):
             logging.info('Finished executing {}, returned status code: {}'.format(model_dirname, return_code))
 
             # copy results back to real output filename
-            shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+            if os.path.exists(active_result_filepath):
+                shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
 
     @abstractmethod
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
