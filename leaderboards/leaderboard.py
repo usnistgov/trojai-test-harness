@@ -128,6 +128,9 @@ class Leaderboard(object):
         self.initialize_directories()
         self.generate_metadata_csv()
 
+    def check_instance_data(self, trojai_config: TrojaiConfig):
+        self.task.check_instance_params(trojai_config)
+
     def get_summary_schema_csv_filepath(self, trojai_config: TrojaiConfig):
         return os.path.join(trojai_config.summary_metrics_dirpath, '{}-schema-summary.csv'.format(self.name))
 
