@@ -136,10 +136,14 @@ class Task(object):
             self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
 
     def check_instance_params(self, trojai_config: TrojaiConfig):
+        has_updated = False
         if not hasattr(self, 'evaluate_model_python_filepath'):
             task_dirpath = os.path.dirname(os.path.realpath(__file__))
             vm_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
             self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
+            has_updated = True
+
+        return has_updated
 
     def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
         return os.path.join(remote_dirpath, 'datasets', leaderboard_name)
