@@ -357,7 +357,7 @@ if __name__ == '__main__':
     task_type = args.task_type
 
     evaluate_task_instance = VALID_TASK_TYPES[task_type](args.models_dirpath, args.submission_filepath, args.home_dirpath,
-                         args.result_dirpath, args.scratch_dirpath, args.training_dataset_dirpath, args.metaparameters_filepath,
+                         args.result_dirpath, args.scratch_dirpath, args.training_dataset_dirpath, args.metaparameter_filepath,
                          args.rsync_excludes, args.learned_parameters_dirpath, args.source_dataset_dirpath,
                          args.result_prefix_filename, args.subset_model_ids)
 
