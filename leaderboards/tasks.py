@@ -358,7 +358,12 @@ class Task(object):
 
         logging.debug('Launching with params {}'.format(' '.join(params)))
 
-        child = subprocess.Popen(params)
+        child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with child.stdout:
+            for line in iter(child.stdout.readline, b''):
+                logging.info('Execution: {}'.format(line.decode()))
+
         execute_status = child.wait()
 
         execution_time = time.time() - start_time
