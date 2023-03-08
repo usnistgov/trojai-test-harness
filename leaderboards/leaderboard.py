@@ -93,8 +93,10 @@ class Leaderboard(object):
             for split_name in Leaderboard.DEFAULT_DATASET_SPLIT_NAMES:
                 if split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
                     can_submit = True
+                    on_html = True
                 else:
                     can_submit = False
+                    on_html = False
 
                 if split_name == 'sts':
                     slurm_queue_name = Leaderboard.STS_SLURM_QUEUE_NAME
@@ -108,25 +110,31 @@ class Leaderboard(object):
 
                 if os.path.exists(source_data_filepath):
                     has_source_data = True
-                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data)
-
-        for split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
-            self.html_data_split_name_priorities[split_name] = 0
-            for table_name in Leaderboard.TABLE_NAMES:
-                key = '{}-{}-{}'.format(self.name, split_name, table_name)
-                if table_name == 'jobs':
-                    self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'desc', 'split_name': split_name}
-                else:
-                    if split_name == 'sts':
-                        self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'desc', 'split_name': split_name}
-                    else:
-                        if self.dataset_manager.has_dataset(split_name):
-                            self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name), 'order': 'asc', 'split_name': split_name}
-                        else:
-                            self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'asc', 'split_name': split_name}
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data, on_html)
 
         self.initialize_directories()
         self.generate_metadata_csv()
+
+    def initialize_html_options(self, split_name: str, on_html: bool):
+        if on_html:
+            self.html_data_split_name_priorities[split_name] = 0
+        for table_name in Leaderboard.TABLE_NAMES:
+            key = '{}-{}-{}'.format(self.name, split_name, table_name)
+            if table_name == 'jobs':
+                self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'desc',
+                                                     'split_name': split_name}
+            else:
+                if split_name == 'sts':
+                    self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'desc',
+                                                         'split_name': split_name}
+                else:
+                    if self.dataset_manager.has_dataset(split_name):
+                        self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name),
+                                                             'order': 'asc', 'split_name': split_name}
+                    else:
+                        self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'asc',
+                                                             'split_name': split_name}
+
 
     def check_instance_data(self, trojai_config: TrojaiConfig):
         has_updated = False
@@ -293,7 +301,7 @@ class Leaderboard(object):
         dataset = self.dataset_manager.get(data_split_name)
         return dataset.get_num_models()
 
-    def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, generate_metadata_csv: bool=False):
+    def add_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, generate_metadata_csv: bool=False, on_html: bool=False):
         if self.dataset_manager.has_dataset(split_name):
             raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
 
@@ -302,6 +310,8 @@ class Leaderboard(object):
             self.dataset_manager.add_dataset(dataset)
             if generate_metadata_csv:
                 self.generate_metadata_csv(overwrite_csv=True)
+
+            self.initialize_html_options(split_name, on_html)
             return True
         return False
 
@@ -425,12 +435,12 @@ def add_dataset_to_leaderboard(args):
         slurm_queue_name = args.slurm_queue_name
 
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data, generate_metadata_csv=True):
+    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data, generate_metadata_csv=True, on_html=args.on_html):
         leaderboard.save_json(trojai_config)
 
         print('Added dataset {} to {}'.format(args.split_name, args.name))
-
-    print('Failed to add dataset')
+    else:
+        print('Failed to add dataset')
 
 
 def generate_summary_metadata(args):
@@ -545,6 +555,7 @@ if __name__ == "__main__":
     add_dataset_parser.add_argument('--can-submit', action='store_true', help='Whether actors can submit to the dataset')
     add_dataset_parser.add_argument('--slurm-queue-name', type=str, help='The name of the slurm queue')
     add_dataset_parser.add_argument('--slurm-nice', type=int, help='The nice value when launching jobs for this dataset (0 is highest priority)', default=0)
+    add_dataset_parser.add_argument('--on-html', action='store_true', help='Whether the dataset will be shown on the HTML page')
     add_dataset_parser.set_defaults(func=add_dataset_to_leaderboard)
 
     summary_results_parser = subparser.add_parser('generate_summary_metadata', help='Generates the METADATA CSV file for the leaderboard')
