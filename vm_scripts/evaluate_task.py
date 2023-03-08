@@ -5,6 +5,7 @@ import random
 import shutil
 import subprocess
 import logging
+import glob
 from logging import FileHandler
 import time
 from spython.main import Client
@@ -14,8 +15,9 @@ from abc import ABC, abstractmethod
 def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list):
     params = ['rsync']
     params.extend(rsync_args)
-    params.append(source_dirpath)
+    params.extend(glob.glob(source_dirpath))
     params.append(dest_dirpath)
+
     child = subprocess.Popen(params)
     return child.wait()
 
@@ -58,6 +60,8 @@ class EvaluateTask(ABC):
         self.result_prefix_filename = result_prefix_filename
         self.subset_model_ids = subset_model_ids
 
+        if not os.path.exists(self.result_dirpath):
+            os.makedirs(self.result_dirpath, exist_ok=True)
 
         self.container_name = os.path.splitext(self.submission_filepath)[0]
 
@@ -83,6 +87,7 @@ class EvaluateTask(ABC):
         logging.basicConfig(level=logging.INFO,
                             format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                             handlers=[handler])
+        logging.getLogger().addHandler(logging.StreamHandler())
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
@@ -132,7 +137,7 @@ class EvaluateTask(ABC):
 
             if 'message' in result:
                 with open(container_output_filepath, 'w') as f:
-                    f.write(result['message'])
+                    f.write(str(result['message']))
             else:
                 logging.error('Failed to obtain result from singularity execution: {}'.format(result))
 
@@ -152,7 +157,10 @@ class EvaluateTask(ABC):
             logging.info('Finished executing {}, returned status code: {}'.format(model_dirname, return_code))
 
             # copy results back to real output filename
-            shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+            if os.path.exists(active_result_filepath):
+                shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+
+        container_instance.stop()
 
     @abstractmethod
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
@@ -338,26 +346,26 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Entry point to execute containers')
 
-    parser.add_argument('--models-dirpath',  type=str, description='The directory path to models to evaluate', required=True)
-    parser.add_argument('--task-type', type=str, choices=VALID_TASK_TYPES.keys(), description='The type of submission', required=True)
-    parser.add_argument('--submission-filepath', type=str, description='The filepath to the submission', required=True)
-    parser.add_argument('--home-dirpath', type=str, description='The directory path to home', required=True)
-    parser.add_argument('--result-dirpath', type=str, description='The directory path for results', required=True)
-    parser.add_argument('--scratch-dirpath', type=str, description='The directory path for scratch', required=True)
-    parser.add_argument('--training-dataset-dirpath', type=str, description='The directory path to the training dataset', required=True)
-    parser.add_argument('--metaparameter-filepath', type=str, description='The directory path for the metaparameters file when running custom metaparameters', required=False, default=None)
-    parser.add_argument('--rsync-excludes', nargs='*', description='List of files to exclude for rsyncing data', required=False, default=None)
-    parser.add_argument('--learned-parameters-dirpath', type=str, description='The directory path to the learned parameters', required=False, default=None)
-    parser.add_argument('--source-dataset-dirpath', type=str, description='The source dataset directory path', required=False, default=None)
-    parser.add_argument('--result-prefix-filename', type=str, description='The prefix name given to results', required=False, default=None)
-    parser.add_argument('--subset-model-ids', nargs='*', description='List of model IDs to evaluate on', required=False, default=None)
+    parser.add_argument('--models-dirpath',  type=str, help='The directory path to models to evaluate', required=True)
+    parser.add_argument('--task-type', type=str, choices=VALID_TASK_TYPES.keys(), help='The type of submission', required=True)
+    parser.add_argument('--submission-filepath', type=str, help='The filepath to the submission', required=True)
+    parser.add_argument('--home-dirpath', type=str, help='The directory path to home', required=True)
+    parser.add_argument('--result-dirpath', type=str, help='The directory path for results', required=True)
+    parser.add_argument('--scratch-dirpath', type=str, help='The directory path for scratch', required=True)
+    parser.add_argument('--training-dataset-dirpath', type=str, help='The directory path to the training dataset', required=True)
+    parser.add_argument('--metaparameter-filepath', type=str, help='The directory path for the metaparameters file when running custom metaparameters', required=False, default=None)
+    parser.add_argument('--rsync-excludes', nargs='*', help='List of files to exclude for rsyncing data', required=False, default=None)
+    parser.add_argument('--learned-parameters-dirpath', type=str, help='The directory path to the learned parameters', required=False, default=None)
+    parser.add_argument('--source-dataset-dirpath', type=str, help='The source dataset directory path', required=False, default=None)
+    parser.add_argument('--result-prefix-filename', type=str, help='The prefix name given to results', required=False, default=None)
+    parser.add_argument('--subset-model-ids', nargs='*', help='List of model IDs to evaluate on', required=False, default=None)
 
     args, extras = parser.parse_known_args()
 
     task_type = args.task_type
 
     evaluate_task_instance = VALID_TASK_TYPES[task_type](args.models_dirpath, args.submission_filepath, args.home_dirpath,
-                         args.result_dirpath, args.scratch_dirpath, args.training_dataset_dirpath, args.metaparameters_filepath,
+                         args.result_dirpath, args.scratch_dirpath, args.training_dataset_dirpath, args.metaparameter_filepath,
                          args.rsync_excludes, args.learned_parameters_dirpath, args.source_dataset_dirpath,
                          args.result_prefix_filename, args.subset_model_ids)
 

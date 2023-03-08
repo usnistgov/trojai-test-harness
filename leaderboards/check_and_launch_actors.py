@@ -193,6 +193,9 @@ def main(trojai_config: TrojaiConfig) -> None:
         if leaderboard is None:
             continue
 
+        # Check for any new instance data during development
+        leaderboard.check_instance_data(trojai_config)
+
         active_leaderboards[leaderboard_name] = leaderboard
         submission_manager = SubmissionManager.load_json(leaderboard)
         active_submission_managers[leaderboard_name] = submission_manager

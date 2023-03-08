@@ -174,23 +174,27 @@ def build_json_config(json_schema, json_original_config, randomly_perturb_param=
 
         if 'technique' not in json_schema:
             if print_warnings:
-                print('Missing "technique" in root schema, see "https://github.com/usnistgov/trojai-example/blob/master/metaparameters_schema.json" for an example')
+                print('Missing "technique" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'technique_description' not in json_schema:
             if print_warnings:
-                print('Missing "technique_description" in root schema, see "https://github.com/usnistgov/trojai-example/blob/master/metaparameters_schema.json" for an example')
+                print('Missing "technique_description" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'technique_changes' not in json_schema:
             if print_warnings:
-                print('Missing "technique_changes" in root schema, see "https://github.com/usnistgov/trojai-example/blob/master/metaparameters_schema.json" for an example')
+                print('Missing "technique_changes" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'commit_id' not in json_schema:
             if print_warnings:
-                print('Missing "commit_id" in root schema, see "https://github.com/usnistgov/trojai-example/blob/master/metaparameters_schema.json" for an example')
+                print('Missing "commit_id" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'repo_name' not in json_schema:
             if print_warnings:
-                print('Missing "repo_name" in root schema, see "https://github.com/usnistgov/trojai-example/blob/master/metaparameters_schema.json" for an example')
+                print('Missing "repo_name" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+            num_issues += 1
+        if 'technique_type' not in json_schema:
+            if print_warnings:
+                print('Missing "technique_type" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
 
     resolved_json_schema = _resolve.resolve_all_refs(copy.deepcopy(json_schema))

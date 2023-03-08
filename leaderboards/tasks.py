@@ -118,6 +118,7 @@ def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
 
 class Task(object):
     LOCAL_VM_IP = 'local'
+    VALID_TECHNIQUE_TYPES = ['Weight Analysis', 'Trigger Inversion', 'Attribution Analysis', 'Jacobian Inspection', 'Other']
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_type: str, evaluate_model_python_filepath: str = None,  remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
         self.task_type = task_type
@@ -135,6 +136,22 @@ class Task(object):
         if self.evaluate_model_python_filepath is None:
             self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
 
+    def get_task_type(self):
+        raise NotImplementedError()
+
+    def check_instance_params(self, trojai_config: TrojaiConfig):
+        has_updated = False
+        if not hasattr(self, 'evaluate_model_python_filepath'):
+            task_dirpath = os.path.dirname(os.path.realpath(__file__))
+            vm_scripts_dirpath = os.path.normpath(os.path.join(task_dirpath, '..', 'vm_scripts'))
+            self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
+            has_updated = True
+
+        if not hasattr(self, 'task_type'):
+            self.task_type = self.get_task_type()
+            has_updated = True
+
+        return has_updated
 
     def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
         return os.path.join(remote_dirpath, 'datasets', leaderboard_name)
@@ -238,6 +255,19 @@ class Task(object):
                 errors = ':Schema Header:'
                 logging.warning('schema "repo_name" is not valid')
 
+        if 'technique_type' in schema_dict:
+            if not isinstance(schema_dict['technique_type'], list):
+                errors = ':Schema Header:'
+                logging.warning('schema "technique_type" should be a list')
+            if len(schema_dict['technique_type']) == 0:
+                errors = ':Schema Header:'
+                logging.warning('schema "technique_type" should have at least one item in it')
+
+            for technique_type in schema_dict['technique_type']:
+                if technique_type.upper() not in map(str.upper, Task.VALID_TECHNIQUE_TYPES):
+                    errors = ':Schema Header:'
+                    logging.warning('schema "technique_type" value "{}" is not found from list of valid technique types {}. Contact the TrojAI team to add your technique type.'.format(technique_type, Task.VALID_TECHNIQUE_TYPES))
+
         return errors
 
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
@@ -328,7 +358,12 @@ class Task(object):
 
         logging.debug('Launching with params {}'.format(' '.join(params)))
 
-        child = subprocess.Popen(params)
+        child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with child.stdout:
+            for line in iter(child.stdout.readline, b''):
+                logging.info('Execution: {}'.format(line.decode()))
+
         execute_status = child.wait()
 
         execution_time = time.time() - start_time
@@ -495,11 +530,17 @@ class ImageTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'image', task_script_filepath)
 
+    def get_task_type(self):
+        return 'image'
+
 
 class CyberTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
         super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
+
+    def get_task_type(self):
+        return 'cyber'
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
@@ -530,11 +571,16 @@ class ReinforcementLearningTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'rl', task_script_filepath)
 
+    def get_task_type(self):
+        return 'rl'
 
 class NaturalLanguageProcessingTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
         super().__init__(trojai_config, leaderboard_name, 'nlp', task_script_filepath)
+
+    def get_task_type(self):
+        return 'nlp'
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
