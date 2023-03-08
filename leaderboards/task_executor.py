@@ -96,6 +96,9 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
     #if submission_errors or schema_errors:  # and team_name != 'trojai-example:
         logging.info('Failed submission and/or schema checks. Aborting execution.')
     else:
+        # Step 4b) Copy in environment to VM
+        errors += task.copy_in_env(vm_ip, vm_name, trojai_config, custom_remote_home, custom_remote_scratch_with_job_id)
+
         # Step 5) Run basic VM cleanups (scratch)
         errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
 

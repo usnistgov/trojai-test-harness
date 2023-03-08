@@ -270,6 +270,23 @@ class Task(object):
 
         return errors
 
+    def copy_in_env(self, vm_ip, vm_name, trojai_config: TrojaiConfig, custom_remote_home: str=None, custom_remote_scratch: str=None):
+        logging.info('Copying in env')
+        remote_home = self.remote_home
+        remote_scratch = self.remote_scratch
+
+        if custom_remote_home is not None:
+            remote_home = custom_remote_home
+
+        if custom_remote_scratch is not None:
+            remote_scratch = custom_remote_scratch
+
+        errors = ''
+        sc = rsync_dir_to_vm(vm_ip, trojai_config.local_trojai_conda_env, remote_home)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} failed to copy in conda env {}'.format(vm_name), trojai_config.local_trojai_conda_env)
+
+        return errors
+
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         logging.info('Copying in task data')
 
@@ -293,6 +310,9 @@ class Task(object):
         permissions_params = ['--perms', '--chmod=u+rwx']
         sc = rsync_file_to_vm(vm_ip, self.evaluate_model_python_filepath, remote_home, source_params=permissions_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate python model script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
+
+        # Copy in conda env
+
 
         # copy in submission filepath
         sc = rsync_file_to_vm(vm_ip, submission_filepath, remote_scratch)
