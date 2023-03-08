@@ -118,6 +118,7 @@ def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
 
 class Task(object):
     LOCAL_VM_IP = 'local'
+    VALID_TECHNIQUE_TYPES = ['Weight Analysis', 'Trigger Inversion', 'Attribution Analysis', 'Jacobian Inspection', 'Other']
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_type: str, evaluate_model_python_filepath: str = None,  remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
         self.task_type = task_type
@@ -253,6 +254,19 @@ class Task(object):
             if default_repo_name == schema_dict['repo_name']:
                 errors = ':Schema Header:'
                 logging.warning('schema "repo_name" is not valid')
+
+        if 'technique_type' in schema_dict:
+            if not isinstance(schema_dict['technique_type'], list):
+                errors = ':Schema Header:'
+                logging.warning('schema "technique_type" should be a list')
+            if len(schema_dict['technique_type']) == 0:
+                errors = ':Schema Header:'
+                logging.warning('schema "technique_type" should have at least one item in it')
+
+            for technique_type in schema_dict['technique_type']:
+                if technique_type.upper() not in map(str.upper, Task.VALID_TECHNIQUE_TYPES):
+                    errors = ':Schema Header:'
+                    logging.warning('schema "technique_type" value "{}" is not found from list of valid technique types {}. Contact the TrojAI team to add your technique type.'.format(technique_type, Task.VALID_TECHNIQUE_TYPES))
 
         return errors
 
