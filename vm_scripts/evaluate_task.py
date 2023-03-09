@@ -84,13 +84,18 @@ class EvaluateTask(ABC):
             self.result_prefix_filename = ''
 
         log_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
-        print("Log filepath in VM = {}".format(log_filepath))
-        handler = FileHandler(log_filepath)
+        logging.info("Log filepath in VM = {}".format(log_filepath))
+        # handler = FileHandler(log_filepath)
 
+        # logging.basicConfig(level=logging.INFO,
+        #                     format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
+        #                     handlers=[handler])
         logging.basicConfig(level=logging.INFO,
                             format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
-                            handlers=[handler])
+                            filename=log_filepath)
+
         logging.getLogger().addHandler(logging.StreamHandler())
+        logging.info("Log filepath in VM = {}".format(log_filepath))
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
