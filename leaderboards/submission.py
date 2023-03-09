@@ -297,9 +297,9 @@ class Submission(object):
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
 
-        if print_details:
-            # truncate log file to N bytes
-            fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
+        # if print_details:
+        #     # truncate log file to N bytes
+        #     fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
 
             # start logging to the submission log, in addition to server log
             # cur_logging_level = logging.getLogger().getEffectiveLevel()

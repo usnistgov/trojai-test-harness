@@ -380,9 +380,9 @@ class Task(object):
 
         child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-        with child.stdout:
-            for line in iter(child.stdout.readline, b''):
-                logging.info('Execution: {}'.format(line.decode()))
+        # with child.stdout:
+        #     for line in iter(child.stdout.readline, b''):
+        #         logging.info('Execution: {}'.format(line.decode()))
 
         execute_status = child.wait()
 
