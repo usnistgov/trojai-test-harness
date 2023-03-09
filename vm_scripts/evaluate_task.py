@@ -47,6 +47,7 @@ class EvaluateTask(ABC):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
+
         self.models_dirpath = models_dirpath
         self.submission_filepath = submission_filepath
         self.home_dirpath = home_dirpath
@@ -82,7 +83,9 @@ class EvaluateTask(ABC):
         if self.result_prefix_filename is None:
             self.result_prefix_filename = ''
 
-        handler = FileHandler(os.path.join(self.result_dirpath, '{}.out'.format(self.container_name)))
+        log_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
+        print("Log filepath in VM = {}".format(log_filepath))
+        handler = FileHandler(log_filepath)
 
         logging.basicConfig(level=logging.INFO,
                             format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
@@ -187,9 +190,19 @@ class EvaluateImageTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath)
@@ -224,9 +237,19 @@ class EvaluateNLPTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
 
         parser = argparse.ArgumentParser(description='Parser for NLP')
         parser.add_argument('--tokenizer-dirpath', type=str, help='The directory path to tokenizers', required=True)
@@ -282,9 +305,19 @@ class EvaluateRLTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
     # TODO: Implement
 
 
@@ -302,9 +335,19 @@ class EvaluateCyberTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
 
         parser = argparse.ArgumentParser(description='Parser for Cyber')
         parser.add_argument('--scale-params-filepath', type=str, help='The filepath to the scale parameters file', required=True)
@@ -364,9 +407,17 @@ if __name__ == '__main__':
 
     task_type = args.task_type
 
-    evaluate_task_instance = VALID_TASK_TYPES[task_type](args.models_dirpath, args.submission_filepath, args.home_dirpath,
-                         args.result_dirpath, args.scratch_dirpath, args.training_dataset_dirpath, args.metaparameter_filepath,
-                         args.rsync_excludes, args.learned_parameters_dirpath, args.source_dataset_dirpath,
-                         args.result_prefix_filename, args.subset_model_ids)
+    evaluate_task_instance = VALID_TASK_TYPES[task_type](models_dirpath=args.models_dirpath,
+                                                         submission_filepath=args.submission_filepath,
+                                                         home_dirpath=args.home_dirpath,
+                                                         result_dirpath=args.result_dirpath,
+                                                         scratch_dirpath=args.scratch_dirpath,
+                                                         training_dataset_dirpath=args.training_dataset_dirpath,
+                                                         metaparameters_filepath=args.metaparameter_filepath,
+                                                         rsync_excludes=args.rsync_excludes,
+                                                         learned_parameters_dirpath=args.learned_parameters_dirpath,
+                                                         source_dataset_dirpath=args.source_dataset_dirpath,
+                                                         result_prefix_filename=args.result_prefix_filename,
+                                                         subset_model_ids=args.subset_model_ids)
 
     evaluate_task_instance.process_models()
