@@ -283,7 +283,7 @@ class Task(object):
 
         errors = ''
         sc = rsync_dir_to_vm(vm_ip, trojai_config.local_trojai_conda_env, remote_home)
-        errors += check_subprocess_error(sc, ':Copy in:', '{} failed to copy in conda env {}'.format(vm_name), trojai_config.local_trojai_conda_env)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} failed to copy in conda env {}'.format(vm_name, trojai_config.local_trojai_conda_env))
 
         return errors
 
