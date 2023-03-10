@@ -25,7 +25,9 @@ class StreamToLogger(object):
    def write(self, buf):
       for line in buf.rstrip().splitlines():
          self.logger.log(self.log_level, line.rstrip())
- 
+
+    def flush(self):
+        pass
 
 
 def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list):
