@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import logging
 import glob
-from logging import FileHandler
 import time
 from spython.main import Client
 
