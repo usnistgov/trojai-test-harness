@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import os
 import random
 import shutil
@@ -11,6 +12,21 @@ import time
 from spython.main import Client
 
 from abc import ABC, abstractmethod
+
+class StreamToLogger(object):
+   """
+   Fake file-like stream object that redirects writes to a logger instance.
+   """
+   def __init__(self, logger, log_level=logging.INFO):
+      self.logger = logger
+      self.log_level = log_level
+      self.linebuf = ''
+ 
+   def write(self, buf):
+      for line in buf.rstrip().splitlines():
+         self.logger.log(self.log_level, line.rstrip())
+ 
+
 
 def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list):
     params = ['rsync']
@@ -90,8 +106,12 @@ class EvaluateTask(ABC):
         logging.basicConfig(level=logging.INFO,
                             format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                             filename=log_filepath)
+        # capture container stdout and stderror
+        logger = logging.getLogger()
+        # THIS CANNOT CO-EXIST WITH A logging.StreamHandler() AS IT WILL CAUSE AN INFINITE LOGGING LOOP
+        sys.stdout = StreamToLogger(logger, logging.INFO)
+        sys.stderr = StreamToLogger(logger, logging.ERROR)
 
-        logging.getLogger().addHandler(logging.StreamHandler())
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
@@ -103,15 +123,16 @@ class EvaluateTask(ABC):
         if not os.path.exists(container_scratch_dirpath):
             os.makedirs(container_scratch_dirpath)
 
-        model_files = os.listdir(self.models_dirpath)
+        model_files = [fn for fn in os.listdir(self.models_dirpath) if fn.startswith('id-')]
         random.shuffle(model_files)
 
         options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
+        logging.info("Starting container instance.")
         container_instance = Client.instance(self.submission_filepath, options=options)
-        for model_dirname in model_files:
-            if not model_dirname.startswith('id'):
-                continue
-
+        logging.info("Container started.")
+        for model_idx in range(len(model_files)):
+            model_dirname = model_files[model_idx]
+        
             # Clean up scratch and active dir prior to running
             clean_dirpath_contents(container_scratch_dirpath)
             clean_dirpath_contents(active_dirpath)
@@ -129,10 +150,9 @@ class EvaluateTask(ABC):
             if os.path.exists(reduced_config_filepath):
                 shutil.copy(reduced_config_filepath, os.path.join(active_dirpath, 'config.json'))
 
-            logging.info('Starting execution of {}'.format(model_dirname))
+            logging.info('Starting execution of {} ({}/{})'.format(model_dirname, model_idx, len(model_files)))
 
             active_result_filepath = os.path.join(active_dirpath, 'result.txt')
-            container_output_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
 
             container_start_time = time.time()
             container_args = self.get_execute_task_args(active_dirpath, container_scratch_dirpath, active_result_filepath)
@@ -158,7 +178,9 @@ class EvaluateTask(ABC):
             if os.path.exists(active_result_filepath):
                 shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
 
+        logging.info("All model executions complete, stopping continer.")
         container_instance.stop()
+        logging.info("Container stopped.")
 
     @abstractmethod
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):

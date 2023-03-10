@@ -378,7 +378,8 @@ class Task(object):
 
         logging.debug('Launching with params {}'.format(' '.join(params)))
 
-        child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        child = subprocess.Popen(params)
 
         # with child.stdout:
         #     for line in iter(child.stdout.readline, b''):
