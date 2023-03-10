@@ -288,7 +288,8 @@ class Submission(object):
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
 
-        container_output_filename = self.g_file.name + '.out'
+        # container_output_filename = self.g_file.name + '.out'
+        container_output_filename = os.path.splitext(self.g_file.name)[0] + '.out'
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
 
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
@@ -296,6 +297,8 @@ class Submission(object):
         updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
+        else:
+            logging.warning("Missing output log file: {}".format(container_output_filepath))
 
         # if print_details:
         #     # truncate log file to N bytes
