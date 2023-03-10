@@ -110,7 +110,7 @@ class Leaderboard(object):
 
                 if os.path.exists(source_data_filepath):
                     has_source_data = True
-                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data, on_html)
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data, generate_metadata_csv=False, on_html=on_html)
 
         self.initialize_directories()
         self.generate_metadata_csv()

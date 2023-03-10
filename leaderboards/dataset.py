@@ -6,8 +6,8 @@ class Dataset(object):
     ALL_METRICS = [AverageCrossEntropy, CrossEntropyConfidenceInterval, BrierScore, ROC_AUC]
     BUFFER_TIME = 900
     # 300 models, 3 minutes per model + 15 minute buffer
-    DEFAULT_TIMEOUT_SEC = 180 * 300 + BUFFER_TIME
-    DEFAULT_STS_TIMEOUT_SEC = 180 * 10 + BUFFER_TIME
+    DEFAULT_TIMEOUT_SEC = 600 * 300 + BUFFER_TIME
+    DEFAULT_STS_TIMEOUT_SEC = 600 * 10 + BUFFER_TIME
     DATASET_SUFFIX = 'dataset'
     # DATASET_GROUNDTRUTH_NAME = 'groundtruth'
     MODEL_DIRNAME = 'models'
