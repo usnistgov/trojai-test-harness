@@ -64,11 +64,10 @@ def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], rem
         params.extend([source_filepath, 'trojai@' + host + ':' + remote_path])
     params.extend(remote_params)
 
-    test = ' '.join(params)
-    logging.debug(test)
+    logging.debug(' '.join(params))
 
-    child = subprocess.Popen(params)
-    return child.wait()
+    rc = subprocess.run(params)
+    return rc.returncode
 
 
 def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], remote_params = []):
@@ -80,27 +79,29 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     params.extend(source_params)
 
     if host == Task.LOCAL_VM_IP:
-        params.extend([source_dirpath, '' + remote_dirpath + ''])
+        params.extend([shlex.quote(source_dirpath), shlex.quote(remote_dirpath)])
     else:
-        params.extend([source_dirpath, 'trojai@' + host + ':' + remote_dirpath + ''])
+        params.extend([source_dirpath, 'trojai@' + host + ':' + remote_dirpath])
     params.extend(remote_params)
 
-    test = ' '.join(params)
-    logging.debug(test)
+    logging.debug(' '.join(params))
 
-    child = subprocess.Popen(params)
-    return child.wait()
+    rc = subprocess.run(params)
+    return rc.returncode
 
 
 def scp_dir_from_vm(host, remote_dirpath, local_dirpath):
     logging.debug('remote: {} to {}'.format(remote_dirpath, local_dirpath))
     if host == Task.LOCAL_VM_IP:
         cmd = ['cp', '-r'] + glob.glob('{}/*'.format(remote_dirpath)) + [local_dirpath]
-        logging.debug(' '.join(cmd))
-        child = subprocess.Popen(cmd)
+        # child = subprocess.Popen(cmd)
     else:
-        child = subprocess.Popen(['scp', '-r', '-q', 'trojai@{}:{}/*'.format(host, remote_dirpath), local_dirpath])
-    return child.wait()
+        cmd = ['scp', '-r', '-q', 'trojai@{}:{}/*'.format(host, remote_dirpath), local_dirpath]
+        # child = subprocess.Popen(cmd)
+    logging.info(' '.join(cmd))
+    rc = subprocess.run(cmd)
+    return rc.returncode
+    # return child.wait()
 
 
 def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
@@ -367,7 +368,7 @@ class Task(object):
         submission_name = os.path.basename(submission_filepath)
 
         start_time = time.time()
-        logging.info('Starting execution of {}.'.format(submission_name))
+        logging.info('Starting execution of {}'.format(submission_name))
 
         if vm_ip == Task.LOCAL_VM_IP:
             params = ['timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', python_execution_env_filepath, remote_evaluate_models_python_filepath]
@@ -380,13 +381,14 @@ class Task(object):
         logging.info('Launching with params {}'.format(' '.join(params)))
 
         # child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        child = subprocess.Popen(params)
-
+        # child = subprocess.Popen(params)
         # with child.stdout:
         #     for line in iter(child.stdout.readline, b''):
         #         logging.info('Execution: {}'.format(line.decode()))
+        # execute_status = child.wait()
 
-        execute_status = child.wait()
+        rc = subprocess.run(params)
+        execute_status = rc.returncode
 
         execution_time = time.time() - start_time
         logging.info('Submission: {}, runtime: {} seconds'.format(submission_name, execution_time))
@@ -422,30 +424,30 @@ class Task(object):
 
         submission_name = os.path.basename(submission_filepath)
         remote_submission_filepath = os.path.join(remote_scratch, submission_name)
+        remote_submission_filepath = "'{}'".format(remote_submission_filepath)
         result_dirpath = os.path.join(remote_scratch, 'results')
 
         if custom_result_dirpath is not None:
             result_dirpath = custom_result_dirpath
 
-        args = ['--models-dirpath', remote_models_dirpath, '--task-type', self.task_type, '--submission-filepath', '{}'.format(remote_submission_filepath),
-                '--home-dirpath', remote_home, '--scratch-dirpath', remote_scratch,
+        args = ['--models-dirpath', remote_models_dirpath, '--task-type', self.task_type, '--submission-filepath', remote_submission_filepath, '--home-dirpath', remote_home, '--scratch-dirpath', remote_scratch,
                 '--training-dataset-dirpath', remote_training_dataset_dirpath, '--result-dirpath', result_dirpath]
 
         # Add excluded files into list
         args.append('--rsync-excludes')
         for excluded_file in dataset.excluded_files:
-            args.append('{}'.format(excluded_file))
+            args.append(excluded_file)
 
         if custom_metaparameter_filepath is not None:
             metaparameter_name = os.path.basename(custom_metaparameter_filepath)
             metaparameter_filepath = os.path.join(remote_scratch, metaparameter_name)
             args.append('--metaparameter-filepath')
-            args.append('{}'.format(metaparameter_filepath))
+            args.append(metaparameter_filepath)
 
         if subset_model_ids is not None:
             args.append('--subset-model-id')
             for subset_model_id in subset_model_ids:
-                args.append('{}'.format(subset_model_id))
+                args.append(subset_model_id)
 
         if dataset.source_dataset_dirpath is not None:
             if vm_ip == Task.LOCAL_VM_IP:

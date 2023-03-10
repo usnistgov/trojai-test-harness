@@ -123,7 +123,8 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
         time.sleep(2)
 
         # Step 9) Re-run basic VM cleanups
-        errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
+        # TODO add back in
+        # errors += task.cleanup_vm(vm_ip, vm_name, custom_remote_home, custom_remote_scratch_with_job_id)
 
         logging.info('**************************************************')
         logging.info('Container Execution Complete for team: {}'.format(team_name))
@@ -177,8 +178,6 @@ if __name__ == '__main__':
     # logs written to stdout are captured by slurm
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s")
-
-    logging.getLogger().addHandler(logging.StreamHandler())
 
     parser = argparse.ArgumentParser(description='Starts/Stops VMs')
     parser.add_argument('--team-name', type=str,

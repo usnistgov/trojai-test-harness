@@ -593,13 +593,17 @@ class Submission(object):
                 raise RuntimeError('Local execution requires user-specified home, scratch, and slurm partition')
 
             sbatch_control_params = ['sbatch']
-            sbatch_vm_params = ['--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes',
-                                '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task),
-                                '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath]
+            sbatch_vm_params = ['--partition', self.slurm_queue_name, 
+            '--nice={}'.format(self.slurm_nice), 
+            '--nodes', '1', 
+            '--ntasks-per-node', '1', 
+            '--cpus-per-task', str(cpus_per_task), 
+            '-J', self.active_slurm_job_name, 
+            '--parsable', '-o', slurm_output_filepath]
             container_launch_params = [slurm_script_filepath,
-                                       "--team-name", actor.name,
-                                       "--team-email", actor.email,
-                                       "--submission-filepath", submission_filepath,
+                                       "--team-name", "'{}'".format(actor.name),
+                                       "--team-email", "'{}'".format(actor.email),
+                                       "--submission-filepath", "'{}'".format(submission_filepath),
                                        "--result-dirpath", self.execution_results_dirpath,
                                        "--trojai-config-filepath", trojai_config_filepath,
                                        "--leaderboard-name", self.leaderboard_name,
@@ -608,15 +612,27 @@ class Submission(object):
                                        "--python-exec", python_executable,
                                        "--task-executor-filepath", task_executor_script_filepath,
                                        "--is-local",
-                                       "--custom-home", custom_home_dirpath,
-                                       "--custom-scratch", custom_scratch_dirpath]
+                                       "--custom-home", "'{}'".format(custom_home_dirpath),
+                                       "--custom-scratch", "'{}'".format(custom_scratch_dirpath)]
         else:
-            sbatch_control_params = ['sbatch', '--partition', control_slurm_queue, '--parsable', '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', '1', ':']
-            sbatch_vm_params = ['--partition', self.slurm_queue_name, '--nice={}'.format(self.slurm_nice), '--nodes', '1', '--ntasks-per-node', '1', '--cpus-per-task', str(cpus_per_task), '--exclusive', '-J', self.active_slurm_job_name, '--parsable', '-o', slurm_output_filepath]
+            sbatch_control_params = ['sbatch', 
+            '--partition', control_slurm_queue, 
+            '--parsable', 
+            '--nice={}'.format(self.slurm_nice), 
+            '--nodes', '1', 
+            '--ntasks-per-node', '1', 
+            '--cpus-per-task', '1', ':']
+            sbatch_vm_params = ['--partition', self.slurm_queue_name, 
+            '--nice={}'.format(self.slurm_nice), 
+            '--nodes', '1', 
+            '--ntasks-per-node', '1', 
+            '--cpus-per-task', str(cpus_per_task), 
+            '--exclusive', '-J', self.active_slurm_job_name, 
+            '--parsable', '-o', slurm_output_filepath]
             container_launch_params = [slurm_script_filepath,
-                                       "--team-name", actor.name,
-                                       "--team-email", actor.email,
-                                       "--submission-filepath", submission_filepath,
+                                       "--team-name", "'{}'".format(actor.name),
+                                       "--team-email", "'{}'".format(actor.email),
+                                       "--submission-filepath", "'{}'".format(submission_filepath),
                                        "--result-dirpath", self.execution_results_dirpath,
                                        "--trojai-config-filepath", trojai_config_filepath,
                                        "--leaderboard-name", self.leaderboard_name,
@@ -637,11 +653,14 @@ class Submission(object):
 
         logging.info('launching sbatch command: \n{}'.format(' '.join(cmd_str_list)))
 
-        out = subprocess.Popen(cmd_str_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        rc = subprocess.run(cmd_str_list, capture_output=True)
+        stdout = rc.stdout
+        stderr = rc.stderr
+        # out = subprocess.Popen(cmd_str_list,
+        #     stdout=subprocess.PIPE,
+        #     stderr=subprocess.PIPE)
 
-        stdout, stderr = out.communicate()
+        # stdout, stderr = out.communicate()
 
         # Check if there are no errors reported from sbatch
         if stderr == b'':

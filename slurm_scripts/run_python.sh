@@ -7,42 +7,42 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --team-name)
     shift
-    TEAM_NAME=$1 ;;
+    TEAM_NAME="$1" ;;
   --team-email)
     shift
-    TEAM_EMAIL=$1 ;;
+    TEAM_EMAIL="$1" ;;
   --submission-filepath)
     shift
-    SUBMISSION_FILEPATH=$1 ;;
+    SUBMISSION_FILEPATH="$1" ;;
   --result-dirpath)
     shift
-    RESULT_DIRPATH=$1 ;;
+    RESULT_DIRPATH="$1" ;;
   --trojai-config-filepath)
     shift
-    TROJAI_CONFIG_FILEPATH=$1 ;;
+    TROJAI_CONFIG_FILEPATH="$1" ;;
   --leaderboard-name)
     shift
-    LEADERBOARD_NAME=$1 ;;
+    LEADERBOARD_NAME="$1" ;;
   --data-split-name)
     shift
-    DATA_SPLIT_NAME=$1 ;;
+    DATA_SPLIT_NAME="$1" ;;
   --trojai-test-harness-dirpath)
     shift
-    TROJAI_TEST_HARNESS_DIRPATH=$1 ;;
+    TROJAI_TEST_HARNESS_DIRPATH="$1" ;;
   --python-exec)
     shift
-    PYTHON_EXEC=$1 ;;
+    PYTHON_EXEC="$1" ;;
   --task-executor-filepath)
     shift
-    TASK_EXECUTOR_FILEPATH=$1 ;;
+    TASK_EXECUTOR_FILEPATH="$1" ;;
   --is-local)
     EXECUTE_LOCAL=1 ;;
   --custom-home)
     shift
-    CUSTOM_HOME=$1 ;;
+    CUSTOM_HOME="$1" ;;
   --custom-scratch)
     shift
-    CUSTOM_SCRATCH=$1 ;;
+    CUSTOM_SCRATCH="$1" ;;
   *)
     EXTRA_ARGS+=("$1") ;;
   esac
@@ -62,16 +62,16 @@ fi
 
 if [ -z "${EXECUTE_LOCAL-}" ]; then
   echo "Normal execution"
-  PYTHONPATH=$TROJAI_TEST_HARNESS_DIRPATH $PYTHON_EXEC -u $TASK_EXECUTOR_FILEPATH --team-name $TEAM_NAME --team-email $TEAM_EMAIL --container-filepath $SUBMISSION_FILEPATH --result-dirpath $RESULT_DIRPATH --trojai-config-filepath $TROJAI_CONFIG_FILEPATH --leaderboard-name $LEADERBOARD_NAME --data-split-name $DATA_SPLIT_NAME --vm-name $SLURM_JOB_NODELIST_PACK_GROUP_1 --job-id $SLURM_JOB_ID
+  PYTHONPATH="$TROJAI_TEST_HARNESS_DIRPATH" "$PYTHON_EXEC" -u "$TASK_EXECUTOR_FILEPATH" --team-name "$TEAM_NAME" --team-email "$TEAM_EMAIL" --container-filepath "$SUBMISSION_FILEPATH" --result-dirpath "$RESULT_DIRPATH" --trojai-config-filepath "$TROJAI_CONFIG_FILEPATH" --leaderboard-name "$LEADERBOARD_NAME" --data-split-name "$DATA_SPLIT_NAME" --vm-name "$SLURM_JOB_NODELIST_PACK_GROUP_1" --job-id "$SLURM_JOB_ID"
 else
   echo "Executing locally"
   if [ -z "${CUSTOM_HOME-}" ]; then
-    CUSTOM_HOME=$HOME
+    CUSTOM_HOME="$HOME"
   fi
 
   if [ -z "${CUSTOM_SCRATCH-}" ]; then
     CUSTOM_SCRATCH="/scratch/$USER"
   fi
-  PYTHONPATH=$TROJAI_TEST_HARNESS_DIRPATH $PYTHON_EXEC -u $TASK_EXECUTOR_FILEPATH --team-name $TEAM_NAME --team-email $TEAM_EMAIL --container-filepath $SUBMISSION_FILEPATH --result-dirpath $RESULT_DIRPATH --trojai-config-filepath $TROJAI_CONFIG_FILEPATH --leaderboard-name $LEADERBOARD_NAME --data-split-name $DATA_SPLIT_NAME --vm-name "local" --custom-remote-home $CUSTOM_HOME --custom-remote-scratch $CUSTOM_SCRATCH --job-id $SLURM_JOB_ID
+  PYTHONPATH="$TROJAI_TEST_HARNESS_DIRPATH" "$PYTHON_EXEC" -u "$TASK_EXECUTOR_FILEPATH" --team-name "$TEAM_NAME" --team-email "$TEAM_EMAIL" --container-filepath "$SUBMISSION_FILEPATH" --result-dirpath "$RESULT_DIRPATH" --trojai-config-filepath "$TROJAI_CONFIG_FILEPATH" --leaderboard-name "$LEADERBOARD_NAME" --data-split-name "$DATA_SPLIT_NAME" --vm-name "local" --custom-remote-home "$CUSTOM_HOME" --custom-remote-scratch "$CUSTOM_SCRATCH" --job-id "$SLURM_JOB_ID"
 fi
 
