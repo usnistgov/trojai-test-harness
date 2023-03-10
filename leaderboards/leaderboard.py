@@ -21,7 +21,7 @@ from leaderboards.summary_metrics import *
 class Leaderboard(object):
     INFO_FILENAME = 'info.json'
     TRAIN_DATASET_NAME = 'train'
-    DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout']
+    DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
     VALID_TASK_NAMES = {'image_summary': ImageSummary,
                         'nlp_summary': NaturalLanguageProcessingSummary,
