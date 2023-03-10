@@ -376,7 +376,7 @@ class Task(object):
         params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids, custom_result_dirpath))
         params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_result_dirpath))
 
-        logging.debug('Launching with params {}'.format(' '.join(params)))
+        logging.info('Launching with params {}'.format(' '.join(params)))
 
         # child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         child = subprocess.Popen(params)
