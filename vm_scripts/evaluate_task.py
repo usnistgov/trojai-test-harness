@@ -64,7 +64,8 @@ class EvaluateTask(ABC):
         if not os.path.exists(self.result_dirpath):
             os.makedirs(self.result_dirpath, exist_ok=True)
 
-        self.container_name = os.path.splitext(self.submission_filepath)[0]
+        self.container_name = os.path.basename(self.submission_filepath)
+        self.container_name = os.path.splitext(self.container_name)[0]
 
         if self.metaparameters_filepath is None:
             self.metaparameters_filepath = '/metaparameters.json'
@@ -83,19 +84,14 @@ class EvaluateTask(ABC):
         if self.result_prefix_filename is None:
             self.result_prefix_filename = ''
 
+        # std:out from the Client.run(container_instance, container_args, return_result=True)
+        # will be directed to this log file
         log_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
-        logging.info("Log filepath in VM = {}".format(log_filepath))
-        # handler = FileHandler(log_filepath)
-
-        # logging.basicConfig(level=logging.INFO,
-        #                     format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
-        #                     handlers=[handler])
         logging.basicConfig(level=logging.INFO,
                             format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
                             filename=log_filepath)
 
         logging.getLogger().addHandler(logging.StreamHandler())
-        logging.info("Log filepath in VM = {}".format(log_filepath))
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
@@ -142,12 +138,6 @@ class EvaluateTask(ABC):
             container_args = self.get_execute_task_args(active_dirpath, container_scratch_dirpath, active_result_filepath)
 
             result = Client.run(container_instance, container_args, return_result=True)
-
-            if 'message' in result:
-                with open(container_output_filepath, 'w') as f:
-                    f.write(str(result['message']))
-            else:
-                logging.error('Failed to obtain result from singularity execution: {}'.format(result))
 
             return_code = -1
             if 'return_code' in result:
