@@ -323,8 +323,17 @@ def is_schema_configuration_valid(json_schema, config):
     return num_issues == 0
 
 def is_container_configuration_valid(container_filepath):
+    import logging
     json_schema = collect_json_metaparams_schema(container_filepath)
     json_original_config = collect_json_metaparams(container_filepath)
+
+    if json_schema is None:
+        logging.info("Failed to load json_schema from container {}".format(container_filepath))
+        return False
+
+    if json_original_config is None:
+        logging.info("Failed to load original config from container {}".format(container_filepath))
+        return False
 
     return is_schema_configuration_valid(json_schema, json_original_config)
 
