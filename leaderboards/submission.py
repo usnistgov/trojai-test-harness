@@ -118,7 +118,12 @@ class Submission(object):
     def has_errors(self):
         if self.web_display_parse_errors == 'None' and self.web_display_execution_errors == 'None':
             return False
-        elif self.web_display_parse_errors == 'None' and (self.web_display_execution_errors == ':Container Parameters (metaparameters):' or self.web_display_execution_errors == ':Container Parameters (metaparameters schema):' or self.web_display_execution_errors == ':Container Parameters (learned parameters):'):
+        elif self.web_display_parse_errors == 'None':
+            exec_error_split = self.web_display_execution_errors.split(':')
+            exec_error_split = list(filter(None, exec_error_split))
+            for error_msg in exec_error_split:
+                if 'Container Parameters' not in error_msg or 'Schema Header' not in error_msg:
+                    return True
             return False
         else:
             return True
