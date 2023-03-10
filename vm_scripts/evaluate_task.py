@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import os
 import random
 import shutil
@@ -11,6 +12,23 @@ import time
 from spython.main import Client
 
 from abc import ABC, abstractmethod
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance.
+    """
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+    def flush(self):
+        pass
+
 
 def rsync_dirpath(source_dirpath: str, dest_dirpath: str, rsync_args: list):
     params = ['rsync']
@@ -47,6 +65,7 @@ class EvaluateTask(ABC):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
+
         self.models_dirpath = models_dirpath
         self.submission_filepath = submission_filepath
         self.home_dirpath = home_dirpath
@@ -63,7 +82,8 @@ class EvaluateTask(ABC):
         if not os.path.exists(self.result_dirpath):
             os.makedirs(self.result_dirpath, exist_ok=True)
 
-        self.container_name = os.path.splitext(self.submission_filepath)[0]
+        self.container_name = os.path.basename(self.submission_filepath)
+        self.container_name = os.path.splitext(self.container_name)[0]
 
         if self.metaparameters_filepath is None:
             self.metaparameters_filepath = '/metaparameters.json'
@@ -82,12 +102,18 @@ class EvaluateTask(ABC):
         if self.result_prefix_filename is None:
             self.result_prefix_filename = ''
 
-        handler = FileHandler(os.path.join(self.result_dirpath, '{}.out'.format(self.container_name)))
-
+        # std:out from the Client.run(container_instance, container_args, return_result=True)
+        # will be directed to this log file
+        log_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
         logging.basicConfig(level=logging.INFO,
-                            format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
-                            handlers=[handler])
-        logging.getLogger().addHandler(logging.StreamHandler())
+                            format="%(asctime)s %(message)s",
+                            filename=log_filepath)
+        # capture container stdout and stderror
+        logger = logging.getLogger()
+        # THIS CANNOT CO-EXIST WITH A logging.StreamHandler() AS IT WILL CAUSE AN INFINITE LOGGING LOOP
+        sys.stdout = StreamToLogger(logger, logging.INFO)
+        sys.stderr = StreamToLogger(logger, logging.ERROR)
+
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
@@ -99,15 +125,16 @@ class EvaluateTask(ABC):
         if not os.path.exists(container_scratch_dirpath):
             os.makedirs(container_scratch_dirpath)
 
-        model_files = os.listdir(self.models_dirpath)
+        model_files = [fn for fn in os.listdir(self.models_dirpath) if fn.startswith('id-')]
         random.shuffle(model_files)
 
         options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
+        logging.info("Starting container instance.")
         container_instance = Client.instance(self.submission_filepath, options=options)
-        for model_dirname in model_files:
-            if not model_dirname.startswith('id'):
-                continue
-
+        logging.info("Container started.")
+        for model_idx in range(len(model_files)):
+            model_dirname = model_files[model_idx]
+        
             # Clean up scratch and active dir prior to running
             clean_dirpath_contents(container_scratch_dirpath)
             clean_dirpath_contents(active_dirpath)
@@ -125,21 +152,14 @@ class EvaluateTask(ABC):
             if os.path.exists(reduced_config_filepath):
                 shutil.copy(reduced_config_filepath, os.path.join(active_dirpath, 'config.json'))
 
-            logging.info('Starting execution of {}'.format(model_dirname))
+            logging.info('Starting execution of {} ({}/{})'.format(model_dirname, model_idx, len(model_files)))
 
             active_result_filepath = os.path.join(active_dirpath, 'result.txt')
-            container_output_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
 
             container_start_time = time.time()
             container_args = self.get_execute_task_args(active_dirpath, container_scratch_dirpath, active_result_filepath)
 
             result = Client.run(container_instance, container_args, return_result=True)
-
-            if 'message' in result:
-                with open(container_output_filepath, 'w') as f:
-                    f.write(str(result['message']))
-            else:
-                logging.error('Failed to obtain result from singularity execution: {}'.format(result))
 
             return_code = -1
             if 'return_code' in result:
@@ -160,7 +180,9 @@ class EvaluateTask(ABC):
             if os.path.exists(active_result_filepath):
                 shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
 
+        logging.info("All model executions complete, stopping continer.")
         container_instance.stop()
+        logging.info("Container stopped.")
 
     @abstractmethod
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
@@ -187,9 +209,19 @@ class EvaluateImageTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath)
@@ -224,9 +256,19 @@ class EvaluateNLPTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
 
         parser = argparse.ArgumentParser(description='Parser for NLP')
         parser.add_argument('--tokenizer-dirpath', type=str, help='The directory path to tokenizers', required=True)
@@ -282,9 +324,19 @@ class EvaluateRLTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
     # TODO: Implement
 
 
@@ -302,9 +354,19 @@ class EvaluateCyberTask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        super().__init__(models_dirpath, submission_filepath, home_dirpath, result_dirpath, scratch_dirpath,
-                         training_dataset_dirpath, metaparameters_filepath, rsync_excludes, learned_parameters_dirpath,
-                         source_dataset_dirpath, result_prefix_filename, subset_model_ids)
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
 
         parser = argparse.ArgumentParser(description='Parser for Cyber')
         parser.add_argument('--scale-params-filepath', type=str, help='The filepath to the scale parameters file', required=True)
@@ -364,9 +426,17 @@ if __name__ == '__main__':
 
     task_type = args.task_type
 
-    evaluate_task_instance = VALID_TASK_TYPES[task_type](args.models_dirpath, args.submission_filepath, args.home_dirpath,
-                         args.result_dirpath, args.scratch_dirpath, args.training_dataset_dirpath, args.metaparameter_filepath,
-                         args.rsync_excludes, args.learned_parameters_dirpath, args.source_dataset_dirpath,
-                         args.result_prefix_filename, args.subset_model_ids)
+    evaluate_task_instance = VALID_TASK_TYPES[task_type](models_dirpath=args.models_dirpath,
+                                                         submission_filepath=args.submission_filepath,
+                                                         home_dirpath=args.home_dirpath,
+                                                         result_dirpath=args.result_dirpath,
+                                                         scratch_dirpath=args.scratch_dirpath,
+                                                         training_dataset_dirpath=args.training_dataset_dirpath,
+                                                         metaparameters_filepath=args.metaparameter_filepath,
+                                                         rsync_excludes=args.rsync_excludes,
+                                                         learned_parameters_dirpath=args.learned_parameters_dirpath,
+                                                         source_dataset_dirpath=args.source_dataset_dirpath,
+                                                         result_prefix_filename=args.result_prefix_filename,
+                                                         subset_model_ids=args.subset_model_ids)
 
     evaluate_task_instance.process_models()
