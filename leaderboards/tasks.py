@@ -61,7 +61,7 @@ def rsync_file_to_vm(host, source_filepath, remote_path, source_params = [], rem
     if host == Task.LOCAL_VM_IP:
         params.extend([source_filepath, remote_path])
     else:
-        params.extend([source_filepath, 'trojai@' + host + ':\"' + remote_path + '\"'])
+        params.extend([source_filepath, 'trojai@' + host + ':' + remote_path])
     params.extend(remote_params)
 
     test = ' '.join(params)
@@ -80,9 +80,9 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     params.extend(source_params)
 
     if host == Task.LOCAL_VM_IP:
-        params.extend([source_dirpath, '\"' + remote_dirpath + '\"'])
+        params.extend([source_dirpath, '' + remote_dirpath + ''])
     else:
-        params.extend([source_dirpath, 'trojai@' + host + ':\"' + remote_dirpath + '\"'])
+        params.extend([source_dirpath, 'trojai@' + host + ':' + remote_dirpath + ''])
     params.extend(remote_params)
 
     test = ' '.join(params)
@@ -271,7 +271,7 @@ class Task(object):
         return errors
 
     def copy_in_env(self, vm_ip, vm_name, trojai_config: TrojaiConfig, custom_remote_home: str=None, custom_remote_scratch: str=None):
-        logging.info('Copying in env')
+        logging.info("Copying miniconda3 env into VM.")
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -282,6 +282,7 @@ class Task(object):
             remote_scratch = custom_remote_scratch
 
         errors = ''
+        
         sc = rsync_dir_to_vm(vm_ip, trojai_config.local_trojai_conda_env, remote_home)
         errors += check_subprocess_error(sc, ':Copy in:', '{} failed to copy in conda env {}'.format(vm_name, trojai_config.local_trojai_conda_env))
 

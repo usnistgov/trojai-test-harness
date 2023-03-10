@@ -219,6 +219,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
     main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email,
