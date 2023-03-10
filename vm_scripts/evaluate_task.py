@@ -106,7 +106,7 @@ class EvaluateTask(ABC):
         # will be directed to this log file
         log_filepath = os.path.join(self.result_dirpath, '{}.out'.format(self.container_name))
         logging.basicConfig(level=logging.INFO,
-                            format="%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s",
+                            format="%(asctime)s %(message)s",
                             filename=log_filepath)
         # capture container stdout and stderror
         logger = logging.getLogger()
