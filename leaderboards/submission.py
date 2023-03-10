@@ -601,9 +601,9 @@ class Submission(object):
             '-J', self.active_slurm_job_name, 
             '--parsable', '-o', slurm_output_filepath]
             container_launch_params = [slurm_script_filepath,
-                                       "--team-name", "'{}'".format(actor.name),
-                                       "--team-email", "'{}'".format(actor.email),
-                                       "--submission-filepath", "'{}'".format(submission_filepath),
+                                       "--team-name", "{}".format(actor.name),
+                                       "--team-email", "{}".format(actor.email),
+                                       "--submission-filepath", "{}".format(submission_filepath),
                                        "--result-dirpath", self.execution_results_dirpath,
                                        "--trojai-config-filepath", trojai_config_filepath,
                                        "--leaderboard-name", self.leaderboard_name,
@@ -612,8 +612,8 @@ class Submission(object):
                                        "--python-exec", python_executable,
                                        "--task-executor-filepath", task_executor_script_filepath,
                                        "--is-local",
-                                       "--custom-home", "'{}'".format(custom_home_dirpath),
-                                       "--custom-scratch", "'{}'".format(custom_scratch_dirpath)]
+                                       "--custom-home", "{}".format(custom_home_dirpath),
+                                       "--custom-scratch", "{}".format(custom_scratch_dirpath)]
         else:
             sbatch_control_params = ['sbatch', 
             '--partition', control_slurm_queue, 
@@ -630,9 +630,9 @@ class Submission(object):
             '--exclusive', '-J', self.active_slurm_job_name, 
             '--parsable', '-o', slurm_output_filepath]
             container_launch_params = [slurm_script_filepath,
-                                       "--team-name", "'{}'".format(actor.name),
-                                       "--team-email", "'{}'".format(actor.email),
-                                       "--submission-filepath", "'{}'".format(submission_filepath),
+                                       "--team-name", "{}".format(actor.name),
+                                       "--team-email", "{}".format(actor.email),
+                                       "--submission-filepath", "{}".format(submission_filepath),
                                        "--result-dirpath", self.execution_results_dirpath,
                                        "--trojai-config-filepath", trojai_config_filepath,
                                        "--leaderboard-name", self.leaderboard_name,
