@@ -115,10 +115,13 @@ class Submission(object):
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
             return False
 
-    def has_errors(self):
+    def has_errors(self, actor: Actor):
         if self.web_display_parse_errors == 'None' and self.web_display_execution_errors == 'None':
             return False
         elif self.web_display_parse_errors == 'None':
+            if actor.type == 'performer':
+                return True
+
             exec_error_split = self.web_display_execution_errors.split(':')
             exec_error_split = list(filter(None, exec_error_split))
             for error_msg in exec_error_split:
@@ -165,7 +168,7 @@ class Submission(object):
                 if os.path.exists(submission_filepath):
                     os.remove(submission_filepath)
             else:
-                if self.has_errors():
+                if self.has_errors(actor):
                     logging.info('Submission contains errors, so will not auto execute other data splits')
                 else:
                     auto_execute_split_names = leaderboard.get_auto_execute_split_names(self.data_split_name)
@@ -407,7 +410,8 @@ class Submission(object):
 
                     # Check for early abort to reset actor time window
                     if 'Container Parameters' in self.web_display_execution_errors or 'Schema Header' in self.web_display_execution_errors:
-                        actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
+                        if actor.type == 'performer':
+                            actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
         finally:
             if print_details:
                 pass
