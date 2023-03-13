@@ -122,7 +122,7 @@ class Submission(object):
             if actor.type == 'performer':
                 return True
 
-            exec_error_split = self.web_display_execution_errors.split(':')
+            exec_error_split = self.web_display_execution_errors.strip().split(':')
             exec_error_split = list(filter(None, exec_error_split))
             for error_msg in exec_error_split:
                 if 'Container Parameters' not in error_msg or 'Schema Header' not in error_msg:
