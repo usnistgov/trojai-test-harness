@@ -542,7 +542,8 @@ class Submission(object):
         num_missing_predictions = np.count_nonzero(np.isnan(predictions))
         num_total_predictions = predictions.size
 
-        if print_details:
+        if num_missing_predictions > 0 and print_details:
+            self.web_display_parse_errors += ":Missing Results:"
             logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
 
         if update_nan_with_default:
