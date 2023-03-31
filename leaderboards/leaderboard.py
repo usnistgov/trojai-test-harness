@@ -44,6 +44,7 @@ class Leaderboard(object):
     }
 
     DATASET_DESCRIPTIONS = {
+        'train': 'train: The train dataset that is distributed with each round.',
         'test': 'test: The test dataset that is sequestered/hidden, used for evaluation. Submissions here should be fully realized with complete schema and parameters.',
         'sts': 'sts: The sts dataset uses a subset of the train dataset, useful for debugging container submission.',
         'dev': 'dev: The dev dataset uses the test dataset, and should be used for in-development solutions. Schemas must be valid, but do not need to be complete. Results do not count towards the program.',
