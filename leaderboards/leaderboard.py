@@ -43,6 +43,13 @@ class Leaderboard(object):
         'ROC_AUC': ROC_AUC
     }
 
+    DATASET_DESCRIPTIONS = {
+        'test': 'test: The test dataset that is sequestered/hidden, used for evaluation. Submissions here should be fully realized with complete schema and parameters.',
+        'sts': 'sts: The sts dataset uses a subset of the train dataset, useful for debugging container submission.',
+        'dev': 'dev: The dev dataset uses the test dataset, and should be used for in-development solutions. Schemas must be valid, but do not need to be complete. Results do not count towards the program.',
+        'holdout': 'holdout: The holdout dataset that is sequestered/hidden, used for holdout evaluation.'
+    }
+
     VALID_SUMMARY_METRIC_NAMES = {
         'SummaryAverageCEOverTime': SummaryAverageCEOverTime
     }
@@ -375,6 +382,13 @@ class Leaderboard(object):
         a = Airium()
         with a.div(klass='tab-pane fade {}'.format(active_show), id='{}'.format(self.name), role='tabpanel', **{'aria-labelledby' : 'tab-{}'.format(self.name)}):
             a('{{% include {}/about-{}.html %}}'.format(self.name, self.name))
+
+            with a.div(klass='card-body card-body-cascade'):
+                with a.p(klass='card-text text-left'):
+                    for data_split in html_data_split_names:
+                        if data_split in Leaderboard.DATASET_DESCRIPTIONS:
+                            a('{}<br>'.format(Leaderboard.DATASET_DESCRIPTIONS[data_split]))
+
             with a.ul(klass='nav nav-pills', id='{}-tabs'.format(self.name), role='tablist'):
                 with a.li(klass='nav-item'):
                     for data_split in html_data_split_names:
