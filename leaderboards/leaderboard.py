@@ -386,7 +386,7 @@ class Leaderboard(object):
             with a.div(klass='card-body card-body-cascade'):
                 with a.p(klass='card-text text-left'):
                     for data_split in html_data_split_names:
-                        if data_split in Leaderboard.DATASET_DESCRIPTIONS:
+                        if data_split in Leaderboard.DATASET_DESCRIPTIONS.keys():
                             a('{}<br>'.format(Leaderboard.DATASET_DESCRIPTIONS[data_split]))
 
             with a.ul(klass='nav nav-pills', id='{}-tabs'.format(self.name), role='tablist'):
