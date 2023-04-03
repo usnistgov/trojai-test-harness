@@ -86,6 +86,8 @@ class Leaderboard(object):
         self.html_data_split_name_priorities = {}
         self.html_table_sort_options = {}
 
+        self.check_for_missing_metrics = True
+
         self.summary_metrics = []
 
         for metric in Leaderboard.DEFAULT_SUMMARY_METRICS:
@@ -147,6 +149,10 @@ class Leaderboard(object):
     def check_instance_data(self, trojai_config: TrojaiConfig):
         has_updated = False
         has_updated = has_updated or self.task.check_instance_params(trojai_config)
+
+        if not hasattr(self, 'check_for_missing_metrics'):
+            has_updated = True
+            self.check_for_missing_metrics = True
 
         if has_updated:
             self.save_json(trojai_config)
@@ -362,6 +368,9 @@ class Leaderboard(object):
 
         leaderboard_config = json_io.read(leaderboard_config_filepath)
         assert leaderboard_config.task_name in Leaderboard.VALID_TASK_NAMES
+
+        leaderboard_config.check_instance_data(trojai_config)
+
         return leaderboard_config
 
     def write_html_leaderboard(self, is_trojai_accepting_submissions: bool, html_output_dirpath: str, is_first: bool, is_archived: bool):

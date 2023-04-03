@@ -244,14 +244,16 @@ def main(trojai_config: TrojaiConfig) -> None:
     logging.info('Checking for new/missing metrics')
     # Check to see if we need to compute any new/missing metrics
     for leaderboard_name, leaderboard in active_leaderboards.items():
-        submission_manager = active_submission_managers[leaderboard.name]
-        submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
-        submission_manager.save_json(leaderboard)
+        if leaderboard.check_for_missing_metrics:
+            submission_manager = active_submission_managers[leaderboard.name]
+            submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
+            submission_manager.save_json(leaderboard)
 
     for leaderboard_name, leaderboard in archive_leaderboards.items():
-        submission_manager = archive_submission_managers[leaderboard.name]
-        submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
-        submission_manager.save_json(leaderboard)
+        if leaderboard.check_for_missing_metrics:
+            submission_manager = archive_submission_managers[leaderboard.name]
+            submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
+            submission_manager.save_json(leaderboard)
 
     # Apply summary updates
     cur_epoch = time_utils.get_current_epoch()
