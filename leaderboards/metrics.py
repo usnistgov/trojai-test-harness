@@ -60,16 +60,37 @@ class AverageCrossEntropy(Metric):
         return True
 
     @staticmethod
-    def compute_cross_entropy(a: np.ndarray, b: np.ndarray, epsilon: float = 1e-12) -> np.ndarray:
-        a = a.astype(np.float64)
-        b = b.astype(np.float64)
-        a = np.clip(a, epsilon, 1.0 - epsilon)
-        a = b * np.log(a)
-        b = (1 - b) * np.log(1 - a)
+    def compute_cross_entropy(pred: np.ndarray, tgt: np.ndarray, epsilon: float = 1e-12) -> np.ndarray:
+        pred = pred.astype(np.float64)
+        tgt = tgt.astype(np.float64)
+        print('pred: ')
+        print(pred)
+        print('tgt: ')
+        print(tgt)
+        pred = np.clip(pred, epsilon, 1.0 - epsilon)
+        print('pred: ')
+        print(pred)
+        a = tgt * np.log(pred)
+        print('a: ')
+        print(a)
+        b = (1 - tgt) * np.log(1 - pred)
+        print('b: ')
+        print(b)
         ce = -(a + b)
+        print('ce: ')
+        print(ce)
+
+        exit(1)
         return ce
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+        # predictions = predictions.astype(np.float64)
+        # targets = targets.astype(np.float64)
+        # predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
+        # a = targets * np.log(predictions)
+        # b = (1 - targets) * np.log(1 - predictions)
+        # ce = -(a + b)
+
         ce = self.compute_cross_entropy(predictions, targets, self.epsilon)
 
         return {'result': np.average(ce).item(), 'metadata': {'cross_entropy': ce}, 'files': None}
