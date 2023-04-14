@@ -40,7 +40,8 @@ class Leaderboard(object):
         'GroupedROC-AUC': Grouped_ROC_AUC,
         'CrossEntropyConfidenceInterval': CrossEntropyConfidenceInterval,
         'BrierScore': BrierScore,
-        'ROC_AUC': ROC_AUC
+        'ROC_AUC': ROC_AUC,
+        'DEX_Factor_csv': DEX_Factor_csv,
     }
 
     DATASET_DESCRIPTIONS = {

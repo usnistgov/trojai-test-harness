@@ -435,8 +435,8 @@ class ROC_AUC(Metric):
         return computed > baseline
 
 
-class Result_DEX_csv(Metric):
-    def __init__(self, write_html: bool = False, share_with_actor: bool = True, store_result_in_submission: bool = True, share_with_external: bool = False):
+class DEX_Factor_csv(Metric):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = True, store_result_in_submission: bool = False, share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
 
     def has_metadata(self):
