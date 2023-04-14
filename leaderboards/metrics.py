@@ -63,24 +63,10 @@ class AverageCrossEntropy(Metric):
     def compute_cross_entropy(pred: np.ndarray, tgt: np.ndarray, epsilon: float = 1e-12) -> np.ndarray:
         pred = pred.astype(np.float64)
         tgt = tgt.astype(np.float64)
-        print('pred: ')
-        print(pred)
-        print('tgt: ')
-        print(tgt)
         pred = np.clip(pred, epsilon, 1.0 - epsilon)
-        print('pred: ')
-        print(pred)
         a = tgt * np.log(pred)
-        print('a: ')
-        print(a)
         b = (1 - tgt) * np.log(1 - pred)
-        print('b: ')
-        print(b)
         ce = -(a + b)
-        print('ce: ')
-        print(ce)
-
-        exit(1)
         return ce
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
