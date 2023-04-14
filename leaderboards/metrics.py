@@ -436,24 +436,14 @@ class ROC_AUC(Metric):
 
 
 class Result_DEX_csv(Metric):
-    def __init__(self, write_html: bool = False, share_with_actor: bool = True, store_result_in_submission: bool = True, share_with_external: bool = False, columns_of_interest: list=None):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = True, store_result_in_submission: bool = True, share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
-        self.columns_of_interest = []
-        if columns_of_interest is not None:
-            self.columns_of_interest = columns_of_interest
-
-        if not isinstance(self.columns_of_interest, list):
-            raise RuntimeError('Columns of interest must be passed as a list')
 
     def has_metadata(self):
         return False
 
     def get_name(self):
-        if len(self.columns_of_interest) == 0:
-            interest_text = ''
-        else:
-            interest_text = '_'.join(self.columns_of_interest)
-        return 'DEX Factor csv-{}'.format(interest_text)
+        return 'DEX_Factor_csv'
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
         files = []
