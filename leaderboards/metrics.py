@@ -471,6 +471,11 @@ class DEX_Factor_csv(Metric):
             model_name = model_names[i]
             meta_df.loc[meta_df['model_name'] == model_name, 'cross_entropy'] = ce_vals[i]
 
+        cols = meta_df.columns
+        cols.remove('cross_entropy')
+        cols.insert(1, 'cross_entropy')
+        meta_df = meta_df[cols]
+
         filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Result_DEX_Metadata'))
 
         meta_df.to_csv(filepath, index=False)
