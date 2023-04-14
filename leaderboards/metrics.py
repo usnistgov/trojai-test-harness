@@ -467,11 +467,14 @@ class DEX_Factor_csv(Metric):
         print(targets)
 
         ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
+        print('ce_vals: ')
+        print(ce_vals)
+
         for i in range(len(model_names)):
             model_name = model_names[i]
             meta_df.loc[meta_df['model_name'] == model_name, 'cross_entropy'] = ce_vals[i]
 
-        cols = meta_df.columns
+        cols = list(meta_df.columns)
         cols.remove('cross_entropy')
         cols.insert(1, 'cross_entropy')
         meta_df = meta_df[cols]
