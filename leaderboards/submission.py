@@ -155,6 +155,7 @@ class Submission(object):
                 actor.update_job_status(self.leaderboard_name, self.data_split_name, slurm_status)
             else:
                 logging.warning("Incorrect format for status info: {}".format(info_split))
+
         elif len(stdoutSplitNL) == 2:
             logging.info('squeue does not have status for job name: {}'.format(self.active_slurm_job_name))
             # 1 entries means no state and job name was not found

@@ -211,7 +211,7 @@ class Leaderboard(object):
 
                     ground_truth_filepath = os.path.join(models_dir, model_name, Dataset.GROUND_TRUTH_NAME)
                     if not os.path.exists(ground_truth_filepath):
-                        print('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
+                        logging.warning('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
                         continue
 
                     with open(ground_truth_filepath, 'r') as f:
