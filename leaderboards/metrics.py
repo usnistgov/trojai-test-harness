@@ -454,7 +454,7 @@ class DEX_Factor_csv(Metric):
         # remove all non-level columns, except for a few specific ones
         to_drop = list(meta_df.columns)
         to_drop = [c for c in to_drop if not c.endswith('_level')]
-        to_drop = [c for c in to_drop if c is not 'model_name']
+        to_drop = [c for c in to_drop if c != 'model_name']
         meta_df = meta_df.drop(columns=to_drop)
         meta_df.reset_index(drop=True, inplace=True)
 
