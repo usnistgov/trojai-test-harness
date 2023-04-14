@@ -458,6 +458,14 @@ class DEX_Factor_csv(Metric):
         meta_df = meta_df.drop(columns=to_drop)
         meta_df.reset_index(drop=True, inplace=True)
 
+        print("**************************************")
+        fn = '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Result_DEX_Metadata')
+        print("rebuilding {}".format(fn))
+        print('predictions: ')
+        print(predictions)
+        print('targets: ')
+        print(targets)
+
         ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
         for i in range(len(model_names)):
             model_name = model_names[i]
