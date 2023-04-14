@@ -455,13 +455,17 @@ class DEX_Factor_csv(Metric):
         trigger_exec_cols = [c for c in trigger_exec_cols if c.endswith('trigger_executor')]
 
         trigger_exec_df = meta_df[trigger_exec_cols]
-        exec_vals = list(trigger_exec_df.unique())
+        trigger_exec_df = trigger_exec_df.fillna('nan', inplace=False)
+        exec_vals = trigger_exec_df[trigger_exec_cols].values
+        exec_vals = [item for sublist in exec_vals for item in sublist]
+        exec_vals = np.unique(exec_vals)
+
         exec_vals.sort()
         exec_rename_dict = dict()
         for i in range(len(exec_vals)):
-            exec_rename_dict[exec_vals[i]] = i
-        print("trigger executor rename:")
-        print(exec_rename_dict)
+            v = exec_vals[i]
+            if v != 'nan':
+                exec_rename_dict[v] = i
 
         # remove all non-level columns, except for a few specific ones
         to_drop = list(meta_df.columns)
@@ -473,12 +477,15 @@ class DEX_Factor_csv(Metric):
 
         ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
 
+        # for each model, drop in the CE value
+        # for each model, replace the trigger executor name with its number
         for i in range(len(model_names)):
             model_name = model_names[i]
             meta_df.loc[meta_df['model_name'] == model_name, 'cross_entropy'] = ce_vals[i]
             for t in trigger_exec_cols:
-                v = meta_df.loc[meta_df['model_name'] == model_name, t]
-                meta_df.loc[meta_df['model_name'] == model_name, t] = exec_rename_dict[v]
+                v = meta_df.loc[meta_df['model_name'] == model_name, t].item()
+                if str(v) != 'nan':
+                    meta_df.loc[meta_df['model_name'] == model_name, t] = exec_rename_dict[v]
 
         cols = list(meta_df.columns)
         cols.remove('cross_entropy')
