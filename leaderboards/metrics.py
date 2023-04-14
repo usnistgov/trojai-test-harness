@@ -70,13 +70,6 @@ class AverageCrossEntropy(Metric):
         return ce
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
-        # predictions = predictions.astype(np.float64)
-        # targets = targets.astype(np.float64)
-        # predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
-        # a = targets * np.log(predictions)
-        # b = (1 - targets) * np.log(1 - predictions)
-        # ce = -(a + b)
-
         ce = self.compute_cross_entropy(predictions, targets, self.epsilon)
 
         return {'result': np.average(ce).item(), 'metadata': {'cross_entropy': ce}, 'files': None}
@@ -465,17 +458,7 @@ class DEX_Factor_csv(Metric):
         meta_df = meta_df.drop(columns=to_drop)
         meta_df.reset_index(drop=True, inplace=True)
 
-        print("**************************************")
-        fn = '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Result_DEX_Metadata')
-        print("rebuilding {}".format(fn))
-        print('predictions: ')
-        print(predictions)
-        print('targets: ')
-        print(targets)
-
         ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
-        print('ce_vals: ')
-        print(ce_vals)
 
         for i in range(len(model_names)):
             model_name = model_names[i]
