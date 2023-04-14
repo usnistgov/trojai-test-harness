@@ -451,10 +451,23 @@ class DEX_Factor_csv(Metric):
         # get sub dataframe with just this data split
         meta_df = metadata_df[metadata_df['data_split'] == data_split_name]
 
+        trigger_exec_cols = list(meta_df.columns)
+        trigger_exec_cols = [c for c in trigger_exec_cols if c.endswith('trigger_executor')]
+
+        trigger_exec_df = meta_df[trigger_exec_cols]
+        exec_vals = list(trigger_exec_df.unique())
+        exec_vals.sort()
+        exec_rename_dict = dict()
+        for i in range(len(exec_vals)):
+            exec_rename_dict[exec_vals[i]] = i
+        print("trigger executor rename:")
+        print(exec_rename_dict)
+
         # remove all non-level columns, except for a few specific ones
         to_drop = list(meta_df.columns)
-        to_drop = [c for c in to_drop if not c.endswith('_level')]
+        to_drop = [c for c in to_drop if (not c.endswith('_level')) or (c.startswith('trigger_'))]
         to_drop = [c for c in to_drop if c != 'model_name']
+        to_drop = [c for c in to_drop if c not in trigger_exec_cols]
         meta_df = meta_df.drop(columns=to_drop)
         meta_df.reset_index(drop=True, inplace=True)
 
@@ -463,6 +476,9 @@ class DEX_Factor_csv(Metric):
         for i in range(len(model_names)):
             model_name = model_names[i]
             meta_df.loc[meta_df['model_name'] == model_name, 'cross_entropy'] = ce_vals[i]
+            for t in trigger_exec_cols:
+                v = meta_df.loc[meta_df['model_name'] == model_name, t]
+                meta_df.loc[meta_df['model_name'] == model_name, t] = exec_rename_dict[v]
 
         cols = list(meta_df.columns)
         cols.remove('cross_entropy')
