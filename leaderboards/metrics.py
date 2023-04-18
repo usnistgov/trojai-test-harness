@@ -489,7 +489,7 @@ class DEX_Factor_csv(Metric):
                     meta_df.loc[meta_df['model_name'] == model_name, t] = exec_rename_dict[v]
 
         cols = list(meta_df.columns)
-        cols.remove('cross_entropy')
+        cols.remove('accuracy')
         cols.insert(1, 'accuracy')
         meta_df = meta_df[cols]
 
