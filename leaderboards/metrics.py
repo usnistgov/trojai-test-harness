@@ -475,13 +475,14 @@ class DEX_Factor_csv(Metric):
         meta_df = meta_df.drop(columns=to_drop)
         meta_df.reset_index(drop=True, inplace=True)
 
-        ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
+        # ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
+        accuracy_vals = ((predictions > 0.5) == targets).astype(np.float)
 
         # for each model, drop in the CE value
         # for each model, replace the trigger executor name with its number
         for i in range(len(model_names)):
             model_name = model_names[i]
-            meta_df.loc[meta_df['model_name'] == model_name, 'cross_entropy'] = ce_vals[i]
+            meta_df.loc[meta_df['model_name'] == model_name, 'accuracy'] = accuracy_vals[i]
             for t in trigger_exec_cols:
                 v = meta_df.loc[meta_df['model_name'] == model_name, t].item()
                 if str(v) != 'nan':
@@ -489,7 +490,7 @@ class DEX_Factor_csv(Metric):
 
         cols = list(meta_df.columns)
         cols.remove('cross_entropy')
-        cols.insert(1, 'cross_entropy')
+        cols.insert(1, 'accuracy')
         meta_df = meta_df[cols]
 
         filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Result_DEX_Metadata'))
