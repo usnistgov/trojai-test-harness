@@ -335,7 +335,10 @@ class DriveIO(object):
         for permission in permissions:
             if permission['role'] != 'owner':
                 for retry_count in range(self.max_retry_count):
-                    sleep_time = random.random() * 2 ** retry_count
+                    if retry_count == 0:
+                        sleep_time = 0.1
+                    else:
+                        sleep_time = random.random() * 2 ** retry_count
                     time.sleep(sleep_time)
 
                     try:
