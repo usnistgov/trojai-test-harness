@@ -1119,17 +1119,17 @@ class SubmissionManager(object):
                         if 'team_name' in new_per_container_data:
                             new_per_container_data['team_name'].append(actor.name)
                         else:
-                            new_per_container_data['team_name'] = actor.name
+                            new_per_container_data['team_name'] = [actor.name]
 
                         if 'submission_timestamp' in new_per_container_data:
                             new_per_container_data['submission_timestamp'].append(time_str)
                         else:
-                            new_per_container_data['submission_timestamp'] = time_str
+                            new_per_container_data['submission_timestamp'] = [time_str]
 
                         if 'data_split' in new_per_container_data:
                             new_per_container_data['data_split'].append(data_split)
                         else:
-                            new_per_container_data['data_split'] = data_split
+                            new_per_container_data['data_split'] = [data_split]
 
                         for key, value in metrics.items():
                             data = [float(i) for i in value]
