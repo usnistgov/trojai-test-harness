@@ -1119,7 +1119,7 @@ class SubmissionManager(object):
                         if 'team_name' in new_per_container_data:
                             new_per_container_data['team_name'].append(actor.name)
                         else:
-                            new_data['team_name'] = actor.name
+                            new_per_container_data['team_name'] = actor.name
 
                         if 'submission_timestamp' in new_per_container_data:
                             new_per_container_data['submission_timestamp'].append(time_str)
