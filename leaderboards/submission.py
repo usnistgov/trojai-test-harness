@@ -1022,13 +1022,18 @@ class SubmissionManager(object):
             result_df = leaderboard.load_summary_results_csv_into_df()
         else:
             result_df = None
+        if os.path.exists(leaderboard.per_container_summary_results_csv_filepath) and not overwrite_csv:
+            per_container_result_df = leaderboard.load_per_container_summary_results_csv_into_df()
+        else:
+            per_container_result_df = None
 
         num_dfs_added = 0
 
         default_result = leaderboard.get_default_prediction_result()
         metadata_df = leaderboard.load_metadata_csv_into_df()
 
-        new_data = {}
+        new_data = dict()
+        new_per_container_data = dict()
 
         dictionary_time_start = time.time()
 
@@ -1109,6 +1114,32 @@ class SubmissionManager(object):
                                 else:
                                     new_data[key] = data
 
+
+
+                        if 'team_name' in new_per_container_data:
+                            new_per_container_data['team_name'].extend(actor.name)
+                        else:
+                            new_data['team_name'] = actor.name
+
+                        if 'submission_timestamp' in new_per_container_data:
+                            new_per_container_data['submission_timestamp'].extend(time_str)
+                        else:
+                            new_per_container_data['submission_timestamp'] = time_str
+
+                        if 'data_split' in new_per_container_data:
+                            new_per_container_data['data_split'].extend(data_split)
+                        else:
+                            new_per_container_data['data_split'] = data_split
+
+                        for key, value in metrics.items():
+                            data = [float(i) for i in value]
+                            if len(data) == len(model_names):
+                                avg_data = np.average(data).item()
+                                if key in new_data:
+                                    new_data[key].extend(avg_data)
+                                else:
+                                    new_data[key] = avg_data
+
                         num_dfs_added += 1
 
         dictionary_time_end = time.time()
@@ -1124,6 +1155,15 @@ class SubmissionManager(object):
                 result_df = pd.concat([result_df, new_result_df], ignore_index=True)
 
             result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
+
+            if per_container_result_df is None:
+                per_container_result_df = pd.DataFrame(new_per_container_data)
+            else:
+                new_result_df = pd.DataFrame(new_per_container_data)
+                per_container_result_df = pd.concat([per_container_result_df, new_result_df], ignore_index=True)
+
+            per_container_result_df.to_csv(leaderboard.per_container_summary_results_csv_filepath, index=False)
+
 
         df_time_end = time.time()
 

@@ -285,6 +285,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
             g_drive.upload(leaderboard.summary_metadata_csv_filepath, trojai_summary_folder_id)
             g_drive.upload(leaderboard.summary_results_csv_filepath, trojai_summary_folder_id)
+            g_drive.upload(leaderboard.per_container_summary_results_csv_filepath, trojai_summary_folder_id)
 
             metadata_df = leaderboard.load_metadata_csv_into_df()
             results_df = leaderboard.load_summary_results_csv_into_df()
@@ -326,6 +327,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
             g_drive.upload(leaderboard.summary_metadata_csv_filepath, trojai_summary_folder_id)
             g_drive.upload(leaderboard.summary_results_csv_filepath, trojai_summary_folder_id)
+            g_drive.upload(leaderboard.per_container_summary_results_csv_filepath, trojai_summary_folder_id)
 
             metadata_df = leaderboard.load_metadata_csv_into_df()
             results_df = leaderboard.load_summary_results_csv_into_df()

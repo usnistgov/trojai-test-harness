@@ -97,6 +97,7 @@ class Leaderboard(object):
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
+        self.per_container_summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_PER_CONTAINER_RESULTS.csv'.format(self.name))
 
         self.dataset_manager = DatasetManager()
 
@@ -166,6 +167,13 @@ class Leaderboard(object):
             return pd.read_csv(self.summary_results_csv_filepath)
         else:
             logging.warning('Unable to find summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.summary_results_csv_filepath))
+            return None
+
+    def load_per_container_summary_results_csv_into_df(self):
+        if os.path.exists(self.per_container_summary_results_csv_filepath):
+            return pd.read_csv(self.per_container_summary_results_csv_filepath)
+        else:
+            logging.warning('Unable to find per container summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.per_container_summary_results_csv_filepath))
             return None
 
     def load_metadata_csv_into_df(self):
