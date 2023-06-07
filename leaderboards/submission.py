@@ -1028,6 +1028,7 @@ class SubmissionManager(object):
             per_container_result_df = None
 
         num_dfs_added = 0
+        num_per_container_dfs_added = 0
 
         default_result = leaderboard.get_default_prediction_result()
         metadata_df = leaderboard.load_metadata_csv_into_df()
@@ -1042,7 +1043,7 @@ class SubmissionManager(object):
             for data_split in leaderboard.get_all_data_split_names():
                 leaderboard_metrics = leaderboard.get_submission_metrics(data_split)
 
-                metrics = {}
+                metrics = dict()
                 for submission in submissions:
                     if submission.active_slurm_job_name is not None:
                         continue
@@ -1051,7 +1052,11 @@ class SubmissionManager(object):
                         time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
 
                         # Check if the submission already exists in the result df
-                        if result_df is not None and not result_df[(result_df['team_name'] == actor.name) & (result_df['submission_timestamp'] == time_str) & (result_df['data_split'] == data_split)].empty:
+                        result_df_already_exists = result_df is not None and not result_df[(result_df['team_name'] == actor.name) & (result_df['submission_timestamp'] == time_str) & (result_df['data_split'] == data_split)].empty
+
+                        per_container_result_df_already_exists = per_container_result_df is not None and not per_container_result_df[(per_container_result_df['team_name'] == actor.name) & (per_container_result_df['submission_timestamp'] == time_str) & (per_container_result_df['data_split'] == data_split)].empty
+
+                        if result_df_already_exists and per_container_result_df_already_exists:
                             continue
 
                         raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
@@ -1076,77 +1081,81 @@ class SubmissionManager(object):
                                     else:
                                         raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
 
-                        if 'model_name' in new_data:
-                            new_data['model_name'].extend(model_names)
-                        else:
-                            new_data['model_name'] = model_names
+                        if not result_df_already_exists:
+                            if 'model_name' in new_data:
+                                new_data['model_name'].extend(model_names)
+                            else:
+                                new_data['model_name'] = model_names
 
-                        if 'team_name' in new_data:
-                            new_data['team_name'].extend([actor.name] * len(model_names))
-                        else:
-                            new_data['team_name'] = [actor.name] * len(model_names)
+                            if 'team_name' in new_data:
+                                new_data['team_name'].extend([actor.name] * len(model_names))
+                            else:
+                                new_data['team_name'] = [actor.name] * len(model_names)
 
-                        if 'submission_timestamp' in new_data:
-                            new_data['submission_timestamp'].extend([time_str] * len(model_names))
-                        else:
-                            new_data['submission_timestamp'] = [time_str] * len(model_names)
+                            if 'submission_timestamp' in new_data:
+                                new_data['submission_timestamp'].extend([time_str] * len(model_names))
+                            else:
+                                new_data['submission_timestamp'] = [time_str] * len(model_names)
 
-                        if 'data_split' in new_data:
-                            new_data['data_split'].extend([data_split] * len(model_names))
-                        else:
-                            new_data['data_split'] = [data_split] * len(model_names)
+                            if 'data_split' in new_data:
+                                new_data['data_split'].extend([data_split] * len(model_names))
+                            else:
+                                new_data['data_split'] = [data_split] * len(model_names)
 
-                        if 'prediction' in new_data:
-                            new_data['prediction'].extend([float(i) for i in raw_predictions_np])
-                        else:
-                            new_data['prediction'] = [float(i) for i in raw_predictions_np]
+                            if 'prediction' in new_data:
+                                new_data['prediction'].extend([float(i) for i in raw_predictions_np])
+                            else:
+                                new_data['prediction'] = [float(i) for i in raw_predictions_np]
 
-                        if 'ground_truth' in new_data:
-                            new_data['ground_truth'].extend([float(i) for i in raw_targets_np])
-                        else:
-                            new_data['ground_truth'] = [float(i) for i in raw_targets_np]
+                            if 'ground_truth' in new_data:
+                                new_data['ground_truth'].extend([float(i) for i in raw_targets_np])
+                            else:
+                                new_data['ground_truth'] = [float(i) for i in raw_targets_np]
 
-                        for key, value in metrics.items():
-                            data = [float(i) for i in value]
-                            if len(data) == len(model_names):
-                                if key in new_data:
-                                    new_data[key].extend(data)
-                                else:
-                                    new_data[key] = data
+                            for key, value in metrics.items():
+                                data = [float(i) for i in value]
+                                if len(data) == len(model_names):
+                                    if key in new_data:
+                                        new_data[key].extend(data)
+                                    else:
+                                        new_data[key] = data
+                            num_dfs_added += 1
 
 
+                        if not per_container_result_df_already_exists:
+                            if 'team_name' in new_per_container_data:
+                                new_per_container_data['team_name'].append(actor.name)
+                            else:
+                                new_per_container_data['team_name'] = [actor.name]
 
-                        if 'team_name' in new_per_container_data:
-                            new_per_container_data['team_name'].append(actor.name)
-                        else:
-                            new_per_container_data['team_name'] = [actor.name]
+                            if 'submission_timestamp' in new_per_container_data:
+                                new_per_container_data['submission_timestamp'].append(time_str)
+                            else:
+                                new_per_container_data['submission_timestamp'] = [time_str]
 
-                        if 'submission_timestamp' in new_per_container_data:
-                            new_per_container_data['submission_timestamp'].append(time_str)
-                        else:
-                            new_per_container_data['submission_timestamp'] = [time_str]
+                            if 'data_split' in new_per_container_data:
+                                new_per_container_data['data_split'].append(data_split)
+                            else:
+                                new_per_container_data['data_split'] = [data_split]
 
-                        if 'data_split' in new_per_container_data:
-                            new_per_container_data['data_split'].append(data_split)
-                        else:
-                            new_per_container_data['data_split'] = [data_split]
+                            for key, value in metrics.items():
+                                data = [float(i) for i in value]
+                                if len(data) == len(model_names):
+                                    avg_data = np.average(data).item()
+                                    if key in new_per_container_data:
+                                        new_per_container_data[key].append(avg_data)
+                                    else:
+                                        new_per_container_data[key] = [avg_data]
+                            num_per_container_dfs_added += 1
 
-                        for key, value in metrics.items():
-                            data = [float(i) for i in value]
-                            if len(data) == len(model_names):
-                                avg_data = np.average(data).item()
-                                if key in new_data:
-                                    new_data[key].append(avg_data)
-                                else:
-                                    new_data[key] = avg_data
-
-                        num_dfs_added += 1
+                        
 
         dictionary_time_end = time.time()
 
         logging.info('Total submissions added = {}, time to create dictionary: {}'.format(num_dfs_added, dictionary_time_end-dictionary_time_start))
 
         df_time_start = time.time()
+
         if num_dfs_added > 0:
             if result_df is None:
                 result_df = pd.DataFrame(new_data)
@@ -1156,6 +1165,7 @@ class SubmissionManager(object):
 
             result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
 
+        if num_per_container_dfs_added > 0:
             if per_container_result_df is None:
                 per_container_result_df = pd.DataFrame(new_per_container_data)
             else:
