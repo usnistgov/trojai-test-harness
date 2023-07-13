@@ -142,7 +142,7 @@ class Leaderboard(object):
                 else:
                     if self.dataset_manager.has_dataset(split_name):
                         self.html_table_sort_options[key] = {'column': self.get_evaluation_metric_name(split_name),
-                                                             'order': 'asc', 'split_name': split_name}
+                                                             'order': 'desc', 'split_name': split_name}
                     else:
                         self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'asc',
                                                              'split_name': split_name}
