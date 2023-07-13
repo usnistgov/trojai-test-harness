@@ -1,9 +1,9 @@
 # NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
 
-
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import copy
 import itertools
 import json
@@ -59,13 +59,18 @@ class AverageCrossEntropy(Metric):
     def has_metadata(self):
         return True
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
-        predictions = predictions.astype(np.float64)
-        targets = targets.astype(np.float64)
-        predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
-        a = targets * np.log(predictions)
-        b = (1 - targets) * np.log(1 - predictions)
+    @staticmethod
+    def compute_cross_entropy(pred: np.ndarray, tgt: np.ndarray, epsilon: float = 1e-12) -> np.ndarray:
+        pred = pred.astype(np.float64)
+        tgt = tgt.astype(np.float64)
+        pred = np.clip(pred, epsilon, 1.0 - epsilon)
+        a = tgt * np.log(pred)
+        b = (1 - tgt) * np.log(1 - pred)
         ce = -(a + b)
+        return ce
+
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+        ce = self.compute_cross_entropy(predictions, targets, self.epsilon)
 
         return {'result': np.average(ce).item(), 'metadata': {'cross_entropy': ce}, 'files': None}
 
@@ -304,15 +309,11 @@ class Grouped_ROC_AUC(Metric):
             auc_value = auc(FPR, TPR)
             result_data[key] = auc_value
 
+            confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Confusion_Matrix', key))
 
-            confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
-                                                                       data_split_name, 'Confusion_Matrix', key))
+            fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_matrix_filepath)
 
-            fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
-                                            confusion_matrix_filepath)
-
-            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
-                                                                       data_split_name, 'ROC', key))
+            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'ROC', key))
 
             roc_auc = auc(FPR, TPR)
 
@@ -335,7 +336,6 @@ class Grouped_ROC_AUC(Metric):
 
             files.append(confusion_matrix_filepath)
             files.append(roc_filepath)
-
 
         filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
@@ -433,3 +433,70 @@ class ROC_AUC(Metric):
 
     def compare(self, computed, baseline):
         return computed > baseline
+
+
+class DEX_Factor_csv(Metric):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = True, store_result_in_submission: bool = False, share_with_external: bool = False):
+        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+
+    def has_metadata(self):
+        return False
+
+    def get_name(self):
+        return 'DEX_Factor_csv'
+
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+        files = []
+
+        # get sub dataframe with just this data split
+        meta_df = metadata_df[metadata_df['data_split'] == data_split_name]
+
+        trigger_exec_cols = list(meta_df.columns)
+        trigger_exec_cols = [c for c in trigger_exec_cols if c.endswith('trigger_executor')]
+
+        trigger_exec_df = meta_df[trigger_exec_cols]
+        trigger_exec_df = trigger_exec_df.fillna('nan', inplace=False)
+        exec_vals = trigger_exec_df[trigger_exec_cols].values
+        exec_vals = [item for sublist in exec_vals for item in sublist]
+        exec_vals = np.unique(exec_vals)
+
+        exec_vals.sort()
+        exec_rename_dict = dict()
+        for i in range(len(exec_vals)):
+            v = exec_vals[i]
+            if v != 'nan':
+                exec_rename_dict[v] = i
+
+        # remove all non-level columns, except for a few specific ones
+        to_drop = list(meta_df.columns)
+        to_drop = [c for c in to_drop if (not c.endswith('_level')) or (c.startswith('trigger_'))]
+        to_drop = [c for c in to_drop if c != 'model_name']
+        to_drop = [c for c in to_drop if c not in trigger_exec_cols]
+        meta_df = meta_df.drop(columns=to_drop)
+        meta_df.reset_index(drop=True, inplace=True)
+
+        # ce_vals = AverageCrossEntropy.compute_cross_entropy(predictions, targets)
+        accuracy_vals = ((predictions > 0.5) == targets).astype(np.float)
+
+        # for each model, drop in the CE value
+        # for each model, replace the trigger executor name with its number
+        for i in range(len(model_names)):
+            model_name = model_names[i]
+            meta_df.loc[meta_df['model_name'] == model_name, 'accuracy'] = accuracy_vals[i]
+            for t in trigger_exec_cols:
+                v = meta_df.loc[meta_df['model_name'] == model_name, t].item()
+                if str(v) != 'nan':
+                    meta_df.loc[meta_df['model_name'] == model_name, t] = exec_rename_dict[v]
+
+        cols = list(meta_df.columns)
+        cols.remove('accuracy')
+        cols.insert(1, 'accuracy')
+        meta_df = meta_df[cols]
+
+        filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Result_DEX_Metadata'))
+
+        meta_df.to_csv(filepath, index=False)
+
+        files.append(filepath)
+
+        return {'result': None, 'metadata': None, 'files': files}

@@ -11,13 +11,9 @@
 teamName=TestTeam
 email=
 poc=
-round=8
+type=public
 
 # add to the STS
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round$round/config-sts.json --log-file=/mnt/trojainas/round$round/sts/actor-manager.log
-
-# add to the ES
-PYTHONPATH=/home/trojai/trojai-test-harness /home/trojai/test-env/bin/python3 -u /home/trojai/trojai-test-harness/actor_executor/actor_controller.py --add-actor="$teamName,$email,$poc" --config-file=/mnt/trojainas/round$round/config-es.json --log-file=/mnt/trojainas/round$round/es/actor-manager.log
-
+PYTHONPATH=/mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai-test-harness /home/trojai/trojai-test-harness-env/bin/python3 -u /mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai-test-harness/leaderboards/actor.py add-actor --trojai-config-filepath=/mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai_config.json --name=${teamName} --email=${email} --poc-email=${poc} --type=${type}
 
 

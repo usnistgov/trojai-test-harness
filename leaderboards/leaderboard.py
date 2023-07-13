@@ -40,7 +40,8 @@ class Leaderboard(object):
         'GroupedROC-AUC': Grouped_ROC_AUC,
         'CrossEntropyConfidenceInterval': CrossEntropyConfidenceInterval,
         'BrierScore': BrierScore,
-        'ROC_AUC': ROC_AUC
+        'ROC_AUC': ROC_AUC,
+        'DEX_Factor_csv': DEX_Factor_csv,
     }
 
     DATASET_DESCRIPTIONS = {
@@ -96,6 +97,7 @@ class Leaderboard(object):
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
+        self.per_container_summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_PER_CONTAINER_RESULTS.csv'.format(self.name))
 
         self.dataset_manager = DatasetManager()
 
@@ -167,6 +169,13 @@ class Leaderboard(object):
             logging.warning('Unable to find summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.summary_results_csv_filepath))
             return None
 
+    def load_per_container_summary_results_csv_into_df(self):
+        if os.path.exists(self.per_container_summary_results_csv_filepath):
+            return pd.read_csv(self.per_container_summary_results_csv_filepath)
+        else:
+            logging.warning('Unable to find per container summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.per_container_summary_results_csv_filepath))
+            return None
+
     def load_metadata_csv_into_df(self):
         if not os.path.exists(self.summary_metadata_csv_filepath):
             logging.warning('Unable to find summary metadata_csv at location: {}, generating CSV now.'.format(self.summary_metadata_csv_filepath))
@@ -211,7 +220,7 @@ class Leaderboard(object):
 
                     ground_truth_filepath = os.path.join(models_dir, model_name, Dataset.GROUND_TRUTH_NAME)
                     if not os.path.exists(ground_truth_filepath):
-                        print('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
+                        logging.warning('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
                         continue
 
                     with open(ground_truth_filepath, 'r') as f:
