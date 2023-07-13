@@ -49,7 +49,7 @@ class Dataset(object):
             metric_inst = metric()
             self.submission_metrics[metric_inst.get_name()] = metric_inst
 
-        self.evaluation_metric_name = 'Cross Entropy'
+        self.evaluation_metric_name = 'ROC-AUC'
 
         num_models = self.get_num_models()
 
