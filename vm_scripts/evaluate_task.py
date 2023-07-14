@@ -343,8 +343,8 @@ class EvaluateRLTask(EvaluateTask):
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
                          subset_model_ids=subset_model_ids)
-        
-    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=False):
+
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
 
     def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
