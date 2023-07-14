@@ -184,8 +184,15 @@ class EvaluateTask(ABC):
         logging.info("Container stopped.")
 
     @abstractmethod
-    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
-        options = ['--contain', '--bind', active_dirpath, '--bind', scratch_dirpath, '--bind', '{}:{}:ro'.format(self.training_dataset_dirpath, self.training_dataset_dirpath), '--nv']
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        gpu_option = ''
+        if uses_gpu:
+            gpu_option = '--nv'
+
+        options = ['--contain', '--bind', active_dirpath, '--bind', scratch_dirpath, '--bind', '{}:{}:ro'.format(self.training_dataset_dirpath, self.training_dataset_dirpath)]
+
+        options.append(gpu_option)
+
         if self.source_dataset_dirpath is not None:
             options.extend(['--bind', '{}:{}:ro'.format(self.source_dataset_dirpath, self.source_dataset_dirpath)])
         return options
@@ -222,8 +229,8 @@ class EvaluateImageTask(EvaluateTask):
                          result_prefix_filename=result_prefix_filename,
                          subset_model_ids=subset_model_ids)
 
-    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
-        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath)
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
 
     def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
         args = ['--model_filepath', os.path.join(active_dirpath, 'model.pt'),
@@ -276,8 +283,8 @@ class EvaluateNLPTask(EvaluateTask):
 
         self.tokenizer_dirpath = args.tokenizer_dirpath
 
-    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
-        options = super().get_singularity_instance_options(active_dirpath, scratch_dirpath)
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        options = super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
         options.extend(['--bind', '{}:{}:ro'.format(self.tokenizer_dirpath, self.tokenizer_dirpath)])
         return options
 
@@ -337,7 +344,8 @@ class EvaluateRLTask(EvaluateTask):
                          result_prefix_filename=result_prefix_filename,
                          subset_model_ids=subset_model_ids)
     # TODO: Implement
-
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=False):
+        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
 
 class EvaluateCyberTask(EvaluateTask):
 
@@ -375,8 +383,8 @@ class EvaluateCyberTask(EvaluateTask):
         self.scale_params_filepath = args.scale_params_filepath
         self.scale_params_filename = os.path.basename(self.scale_params_filepath)
 
-    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath):
-        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath)
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
 
     def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
         active_scale_params_filepath = os.path.join(active_dirpath, self.scale_params_filename)
