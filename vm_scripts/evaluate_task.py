@@ -343,9 +343,24 @@ class EvaluateRLTask(EvaluateTask):
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
                          subset_model_ids=subset_model_ids)
-    # TODO: Implement
+        
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=False):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
+
+    def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
+        args = ['--model_filepath', os.path.join(active_dirpath, 'model.pt'),
+                '--result_filepath', active_result_filepath,
+                '--scratch_dirpath', container_scratch_dirpath,
+                '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
+                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
+                '--metaparameters_filepath', self.metaparameters_filepath,
+                '--schema_filepath', self.metaparameters_schema_filepath,
+                '--learned_parameters_dirpath', self.learned_parameters_dirpath]
+
+        if self.source_dataset_dirpath is not None:
+            args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
+
+        return args
 
 class EvaluateCyberTask(EvaluateTask):
 
