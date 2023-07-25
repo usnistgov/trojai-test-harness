@@ -257,36 +257,46 @@ class Submission(object):
         return results
 
     def dump_summary_schema_csv(self, trojai_config: TrojaiConfig, actor_name: str,  leaderboard: Leaderboard):
+        expected_schema_keys = {
+            "team_name", "data_split", "submission_filepath", "submission_timestamp", "execution_timestamp",
+        }
         summary_schema_csv_filepath = leaderboard.get_summary_schema_csv_filepath(trojai_config)
-
-        default_schema_keys = ['$schema', 'title', 'technique', 'technique_description', 'technique_changes', 'commit_id', 'repo_name', 'required', 'additionalProperties', 'type', 'properties']
 
         submission_filepath = self.get_submission_filepath()
         if not os.path.exists(submission_filepath):
-            logging.info('The submission no longer exists {}'.format(submission_filepath))
+            logging.info("The submission no longer exists %s", submission_filepath)
             return
 
         schema_dict = jsonschema_checker.collect_json_metaparams_schema(submission_filepath)
 
-        new_csv = False
+        if schema_dict is None:
+            logging.warning("Cannot recover metadata schema from sumbission %s", submission_filepath)
+            return
+
+        # Get existing schema dict columns and add extra ones to conform to the expected DataFrame format.
+        schema_dict_columns = list(schema_dict.keys())
+        schema_dict["team_name"] = actor_name
+        schema_dict["data_split"] = self.data_split_name
+        schema_dict["submission_filepath"] = submission_filepath
+        schema_dict["submission_timestamp"] = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+        schema_dict["execution_timestamp"] = time_utils.convert_epoch_to_psudo_iso(self.execution_epoch)
+
+        if len(set(expected_schema_keys).difference(schema_dict.keys())) != 0:
+            logging.warning("Schema for submission %s does not contain the required keys.", submission_filepath)
+            return
+
+        schema_dict_df = pd.DataFrame().from_records([schema_dict])
+
         if not os.path.exists(summary_schema_csv_filepath):
-            new_csv = True
+            summary_schema_df = pd.DataFrame(
+                columns=["team_name", "data_split"] + schema_dict_columns + [
+                    "submission_filepath", "submission_timestamp", "execution_timestamp"
+                ]
+            )
+        else:
+            summary_schema_df = pd.read_csv(summary_schema_csv_filepath)
 
-        with open(summary_schema_csv_filepath, 'a') as f:
-            if new_csv:
-                f.write('team_name,data_split,{},submission_filepath'.format(','.join(default_schema_keys)))
-
-            schema_output = '{},{},'.format(actor_name, self.data_split_name)
-
-            for schema_key in default_schema_keys:
-                if schema_dict is None or schema_key not in schema_dict:
-                    schema_output += 'None,'
-                else:
-                    schema_output += '{},'.format(schema_dict[schema_key])
-
-            schema_output += '{}\n'.format(submission_filepath)
-
-            f.write(schema_output)
+        pd.concat([summary_schema_df, schema_dict_df]).to_csv(summary_schema_csv_filepath, index=False)
 
     def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True) -> None:
         logging.info("Checking results for {}".format(actor.name))
