@@ -37,6 +37,7 @@ class Submission(object):
         self.g_file = g_file
         self.actor_uuid = actor.uuid
         self.leaderboard_name = leaderboard.name
+        self.leaderboard_revision = leaderboard.revision
         self.data_split_name = data_split_name
         self.slurm_queue_name = slurm_queue_name
         if self.slurm_queue_name is None:
@@ -721,6 +722,11 @@ class Submission(object):
             a.td(_t=rounded_execution_time)
             a.td(_t=submission_timestr)
             a.td(_t=file_timestr)
+
+            if not hasattr(self, 'leaderboard_revision'):
+                self.leaderboard_revision = leaderboard.revision
+
+            a.td(_t=self.leaderboard_revision)
             a.td(_t=self.web_display_parse_errors)
             a.td(_t=self.web_display_execution_errors)
 
@@ -941,6 +947,7 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Runtime (s)')
                             a.th(klass='th-sm', _t='Submission Timestamp')
                             a.th(klass='th-sm', _t='File Timestamp')
+                            a.th(klass='th-sm', _t='Leaderboard Revision')
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
@@ -1003,6 +1010,7 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Runtime (s)')
                             a.th(klass='th-sm', _t='Submission Timestamp')
                             a.th(klass='th-sm', _t='File Timestamp')
+                            a.th(klass='th-sm', _t='Leaderboard Revision')
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():

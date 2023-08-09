@@ -73,6 +73,7 @@ class Leaderboard(object):
 
         self.name = name
         self.task_name = task_name
+        self.revision = 1
 
         if self.task_name not in Leaderboard.VALID_TASK_NAMES:
             raise RuntimeError('Invalid task name: {}'.format(self.task_name))
@@ -155,6 +156,10 @@ class Leaderboard(object):
         if not hasattr(self, 'check_for_missing_metrics'):
             has_updated = True
             self.check_for_missing_metrics = True
+
+        if not hasattr(self, 'revision'):
+            has_updated = True
+            self.revision = 1
 
         if has_updated:
             self.save_json(trojai_config)
