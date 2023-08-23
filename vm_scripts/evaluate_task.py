@@ -297,7 +297,7 @@ class EvaluateNLPTask(EvaluateTask):
             if 'model_architecture' in config_dict:
                 model_architecture = config_dict['model_architecture']
 
-        tokenizer_filepath = os.path.join(self.tokenizer_dirpath, '{}.pt'.format(model_architecture))
+        tokenizer_filepath = os.path.join(self.tokenizer_dirpath, '{}.pt'.format(model_architecture.replace('/','-')))
 
         args = ['--model_filepath', os.path.join(active_dirpath, 'model.pt'),
                 '--result_filepath', active_result_filepath,
