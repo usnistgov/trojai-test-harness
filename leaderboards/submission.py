@@ -719,8 +719,8 @@ class Submission(object):
             if rounded_execution_time is not None:
                 rounded_execution_time = round(rounded_execution_time, 2)
 
-            if math.isnan(float(rounded_execution_time)):
-                rounded_execution_time = ''
+            if rounded_execution_time is None or math.isnan(float(rounded_execution_time)):
+                rounded_execution_time = None
 
             a.td(_t=rounded_execution_time)
             a.td(_t=submission_timestr)
