@@ -729,7 +729,7 @@ class Submission(object):
             if not hasattr(self, 'leaderboard_revision'):
                 self.leaderboard_revision = leaderboard.revision
 
-            a.td(_t=self.leaderboard_revision)
+            a.td(_t='Rev{}'.format(self.leaderboard_revision))
             a.td(_t=self.web_display_parse_errors)
             a.td(_t=self.web_display_execution_errors)
 
