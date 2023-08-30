@@ -712,7 +712,7 @@ class Submission(object):
                     metric_value = self.metric_results[metric_name]
 
                     if metric_value is None or math.isnan(float(metric_value)):
-                        metric_value = None
+                        metric_value = ''
 
                     if isinstance(metric_value, float):
                         a.td(_t=str(round(metric_value, metric.html_decimal_places)))
