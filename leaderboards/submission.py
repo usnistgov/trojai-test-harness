@@ -710,6 +710,10 @@ class Submission(object):
             for metric_name, metric in submission_metrics.items():
                 if metric.write_html:
                     metric_value = self.metric_results[metric_name]
+
+                    if metric_value is None or math.isnan(float(metric_value)):
+                        metric_value = None
+
                     if isinstance(metric_value, float):
                         a.td(_t=str(round(metric_value, metric.html_decimal_places)))
                     else:
