@@ -114,7 +114,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             continue
 
         if len(g_file_list) == 0:
-            logging.info('Actor {} does not have a submission from email {} for leaderboard {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
+            #logging.info('Actor {} does not have a submission from email {} for leaderboard {} and data split {}.'.format(actor.name, actor.email, leaderboard_name, data_split_name))
             actor.update_file_status(leaderboard_name, data_split_name, 'None')
             actor.update_job_status(leaderboard_name, data_split_name, 'None')
 
