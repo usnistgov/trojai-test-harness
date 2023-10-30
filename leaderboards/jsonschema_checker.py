@@ -271,7 +271,12 @@ def collect_json_metaparams_schema(s_path) :
     client.load(s_path)
 
     output = client.execute(['cat', '/metaparameters_schema.json'])
-    if not isinstance(output, str):
+
+    output_str = output
+    if isinstance(output, list) and len(output) > 0:
+        output_str = output[0]
+
+    if not isinstance(output_str, str):
         print('Failed to load metaparameters_schema.json, output: {}'.format(output))
         return None
 
@@ -279,7 +284,11 @@ def collect_json_metaparams_schema(s_path) :
         print('Error, unable to find metaparameters_schema')
         return None
 
-    return json.loads(output)
+    if '$schema' not in output_str:
+        print('Failed to find $schema in {}'.format(output_str))
+        return None
+
+    return json.loads(output_str)
 
 def is_schema_configuration_valid(json_schema, config):
     global num_issues
@@ -352,6 +361,8 @@ if __name__ == "__main__":
     container_filepath = args.container_filepath
     jsonschema_filepath = args.jsonschema_filepath
     config_filepath = args.config_filepath
+
+    contents = collect_json_metaparams_schema(container_filepath)
 
     json_schema = None
     json_original_config = None
