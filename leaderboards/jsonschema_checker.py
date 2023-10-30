@@ -257,7 +257,11 @@ def collect_json_metaparams(s_path):
     client.load(s_path)
     output = client.execute(['cat', '/metaparameters.json'])
 
-    if not isinstance(output, str):
+    output_str = output
+    if isinstance(output, list) and len(output) > 0:
+        output_str = output[0]
+
+    if not isinstance(output_str, str):
         print('Failed to load metaparameters_schema.json, output: {}'.format(output))
         return None
 
@@ -265,7 +269,7 @@ def collect_json_metaparams(s_path):
         print('Error, unable to find metaparameters')
         return None
 
-    return json.loads(output)
+    return json.loads(output_str)
 
 def collect_json_metaparams_schema(s_path) :
     client.load(s_path)
