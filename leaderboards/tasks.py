@@ -79,6 +79,7 @@ def rsync_dir_to_vm(host, source_dirpath, remote_dirpath, source_params = [], re
     params.extend(source_params)
 
     if host == Task.LOCAL_VM_IP:
+        import shlex
         params.extend([shlex.quote(source_dirpath), shlex.quote(remote_dirpath)])
     else:
         params.extend([source_dirpath, 'trojai@' + host + ':' + remote_dirpath])
@@ -560,36 +561,10 @@ class ImageTask(Task):
 
 class CyberTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
-        self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
-        super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
+       super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
 
     def get_task_type(self):
         return 'cyber'
-
-    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
-        if vm_ip == Task.LOCAL_VM_IP:
-            remote_scale_params_filepath = self.scale_params_filepath
-        else:
-            scale_params_dirname = os.path.basename(self.scale_params_filepath)
-            remote_scale_params_filepath = os.path.join(self.remote_dataset_dirpath, scale_params_dirname)
-        return ['--scale-params-filepath', remote_scale_params_filepath]
-
-    def verify_dataset(self, leaderboard_name, dataset: Dataset):
-        if not os.path.exists(self.scale_params_filepath):
-            logging.error('Failed to verify dataset {} for leaderboards: {}; scale_params_filepath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.scale_params_filepath))
-            return False
-
-        return super().verify_dataset(leaderboard_name, dataset)
-
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
-        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
-
-        # Copy in scale params
-        sc = rsync_file_to_vm(vm_ip, self.scale_params_filepath, self.remote_dataset_dirpath)
-        errors += check_subprocess_error(sc, ':Copy in:', '{} scale_params_filepath copy in may have failed'.format(vm_name), send_mail=True, subject='{} scale_params_filepath copy failed'.format(vm_name))
-
-        return errors
-
 
 class ReinforcementLearningTask(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
@@ -671,10 +646,41 @@ class NaturalLanguageProcessingQuestionAnswering(NaturalLanguageProcessingTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name)
 
-
-class CyberPdfMalware(CyberTask):
+class CyberApkMalware(CyberTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name)
+
+class CyberPdfMalware(Task):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
+        super().__init__(trojai_config, leaderboard_name, 'cyber_pdf')
+
+    def get_task_type(self):
+        return 'cyber_pdf'
+
+    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
+        if vm_ip == Task.LOCAL_VM_IP:
+            remote_scale_params_filepath = self.scale_params_filepath
+        else:
+            scale_params_dirname = os.path.basename(self.scale_params_filepath)
+            remote_scale_params_filepath = os.path.join(self.remote_dataset_dirpath, scale_params_dirname)
+        return ['--scale-params-filepath', remote_scale_params_filepath]
+
+    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+        if not os.path.exists(self.scale_params_filepath):
+            logging.error('Failed to verify dataset {} for leaderboards: {}; scale_params_filepath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.scale_params_filepath))
+            return False
+
+        return super().verify_dataset(leaderboard_name, dataset)
+
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
+
+        # Copy in scale params
+        sc = rsync_file_to_vm(vm_ip, self.scale_params_filepath, self.remote_dataset_dirpath)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} scale_params_filepath copy in may have failed'.format(vm_name), send_mail=True, subject='{} scale_params_filepath copy failed'.format(vm_name))
+
+        return errors
 
 
 class ReinforcementLearningLavaWorld(ReinforcementLearningTask):

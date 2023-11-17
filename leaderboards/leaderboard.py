@@ -31,6 +31,7 @@ class Leaderboard(object):
                         'nlp_sentiment': NaturalLanguageProcessingSentiment,
                         'nlp_ner': NaturalLanguageProcessingNamedEntityRecognition,
                         'nlp_qa': NaturalLanguageProcessingQuestionAnswering,
+                        "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld}
 
