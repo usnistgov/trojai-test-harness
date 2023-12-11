@@ -391,26 +391,6 @@ class ROC_AUC(Metric):
             else:
                 FPR.append(np.nan)
 
-            from sklearn.metrics import confusion_matrix
-            tn, fp, fn, tp = confusion_matrix(targets, detections).ravel()
-            tpr = tp / (tp + fn)
-            fpr = fp / (fp + tn)
-            tpr2 = tp / nb_condition_positive
-            fpr2 = fp / nb_condition_negative
-
-            if (tp + fn) != nb_condition_positive:
-                raise RuntimeError("invalid")
-            if (fp + tn) != nb_condition_negative:
-                raise RuntimeError("invalid")
-            if tpr != tpr2:
-                raise RuntimeError("invalid")
-            if fpr != fpr2:
-                raise RuntimeError("invalid")
-            if tpr != TPR[-1]:
-                raise RuntimeError("invalid")
-            if fpr != FPR[-1]:
-                raise RuntimeError("invalid")
-
         TP_counts = np.asarray(TP_counts).reshape(-1)
         FP_counts = np.asarray(FP_counts).reshape(-1)
         FN_counts = np.asarray(FN_counts).reshape(-1)
