@@ -1,6 +1,7 @@
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.metrics import *
 import os
+import copy
 
 class Dataset(object):
     ALL_METRICS = [AverageCrossEntropy, CrossEntropyConfidenceInterval, BrierScore, ROC_AUC]
