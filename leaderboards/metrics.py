@@ -4,13 +4,12 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
-import copy
-import itertools
 import json
 
 import numpy as np
-from sklearn.metrics import auc
+import sklearn.metrics
 import pandas as pd
+import logging
 
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
@@ -306,8 +305,14 @@ class Grouped_ROC_AUC(Metric):
             FPR = np.asarray(FPR).reshape(-1)
             thresholds = np.asarray(thresholds).reshape(-1)
 
-            auc_value = auc(FPR, TPR)
-            result_data[key] = auc_value
+            # roc_auc = auc(FPR, TPR)
+
+            try:
+                roc_auc = sklearn.metrics.roc_auc_score(targets, predictions)
+            except ValueError as e:
+                logging.warning(e)
+                roc_auc = np.nan
+            result_data[key] = roc_auc
 
             confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Confusion_Matrix', key))
 
@@ -315,27 +320,29 @@ class Grouped_ROC_AUC(Metric):
 
             roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'ROC', key))
 
-            roc_auc = auc(FPR, TPR)
+            try:
+                fpr, tpr, thres = sklearn.metrics.roc_curve(targets, predictions)
+                plt.clf()
+                fig = plt.figure(dpi=300)
+                lw = 2
+                # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
+                plt.plot(fpr, tpr, 'b-', marker='o', markersize=4, linewidth=2)
+                plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
+                plt.xlabel('False Positive Rate (FPR)')
+                plt.ylabel('True Positive Rate (TPR)')
+                plt.title('Receiver Operating Characteristic (ROC) for {} and {}'.format(actor_name, key))
+                plt.legend([legend_str], loc='lower right')
+                plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
+                plt.close(fig)
+                plt.clf()
 
-            plt.clf()
-            fig = plt.figure(dpi=300)
-            lw = 2
-            # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
-            plt.plot(FPR, TPR, 'b-', marker='o', markersize=4, linewidth=2)
-            plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-            plt.xlim([0.0, 1.0])
-            plt.ylim([0.0, 1.05])
-            legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
-            plt.xlabel('False Positive Rate (FPR)')
-            plt.ylabel('True Positive Rate (TPR)')
-            plt.title('Receiver Operating Characteristic (ROC) for {} and {}'.format(actor_name, key))
-            plt.legend([legend_str], loc='lower right')
-            plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
-            plt.close(fig)
-            plt.clf()
-
-            files.append(confusion_matrix_filepath)
-            files.append(roc_filepath)
+                files.append(confusion_matrix_filepath)
+                files.append(roc_filepath)
+            except Exception as e:
+                logging.warning(e)
 
         filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
 
@@ -410,26 +417,37 @@ class ROC_AUC(Metric):
         roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
                                                                    data_split_name, 'ROC'))
 
-        roc_auc = auc(FPR, TPR)
 
-        plt.clf()
-        fig = plt.figure(dpi=300)
-        lw = 2
-        # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
-        plt.plot(FPR, TPR, 'b-', marker='o', markersize=4, linewidth=2)
-        plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
-        plt.xlabel('False Positive Rate (FPR)')
-        plt.ylabel('True Positive Rate (TPR)')
-        plt.title('Receiver Operating Characteristic (ROC) for {}'.format(actor_name))
-        plt.legend([legend_str], loc='lower right')
-        plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        plt.clf()
+        #roc_auc = auc(FPR, TPR)
+        try:
+            roc_auc = sklearn.metrics.roc_auc_score(targets, predictions)
+        except ValueError as e:
+            logging.warning(e)
+            roc_auc = np.nan
 
-        return {'result': float(auc(FPR, TPR)), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}
+
+        try:
+            fpr, tpr, thres = sklearn.metrics.roc_curve(targets, predictions)
+            plt.clf()
+            fig = plt.figure(dpi=300)
+            lw = 2
+            # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve')
+            plt.plot(fpr, tpr, 'b-', marker='o', markersize=4, linewidth=2)
+            plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            legend_str = 'ROC AUC = {:02g}'.format(roc_auc)
+            plt.xlabel('False Positive Rate (FPR)')
+            plt.ylabel('True Positive Rate (TPR)')
+            plt.title('Receiver Operating Characteristic (ROC) for {}'.format(actor_name))
+            plt.legend([legend_str], loc='lower right')
+            plt.savefig(roc_filepath, bbox_inches='tight', dpi=300)
+            plt.close(fig)
+            plt.clf()
+        except Exception as e:
+            logging.warning(e)
+
+        return {'result': float(roc_auc), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}
 
     def compare(self, computed, baseline):
         return computed > baseline
