@@ -461,6 +461,8 @@ class Leaderboard(object):
 
 def init_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    if args.required_files is not None:
+        trojai_config.required_files = args.required_files.split(',')
 
     leaderboard = Leaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
     leaderboard.save_json(trojai_config)
@@ -585,6 +587,7 @@ if __name__ == "__main__":
     init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     init_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
+    init_parser.add_argument('--required-files', type=str, default=None, help='The set of required files, defaults to the defaults set if not used. Tis is a csv list like " --required-files=model.pt,test.sh,img.png"')
     init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits: {}, if they fail task checks then will not be added. Need to call add-dataset when they are ready.'.format(Leaderboard.DEFAULT_DATASET_SPLIT_NAMES), action='store_true')
     init_parser.set_defaults(func=init_leaderboard)
 

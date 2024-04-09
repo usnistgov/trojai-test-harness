@@ -6,7 +6,8 @@ from evaluate_task import *
 VALID_SUBMISSION_TYPES = {'rl': EvaluateRLTask,
                           'nlp': EvaluateNLPTask,
                           'image': EvaluateImageTask,
-                          'cyber': EvaluateCyberTask}
+                          'cyber': EvaluateCyberTask,
+                          'clm': EvaluateClmTask}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Entry point to execute containers')

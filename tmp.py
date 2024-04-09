@@ -67,40 +67,73 @@ from leaderboards import metrics
 # print('done')
 
 
-import os
-from leaderboards.actor import Actor, ActorManager
-from leaderboards.submission import Submission, SubmissionManager
-from leaderboards.leaderboard import Leaderboard, TrojaiConfig
-import shutil
+# import os
+# from leaderboards.actor import Actor, ActorManager
+# from leaderboards.submission import Submission, SubmissionManager
+# from leaderboards.leaderboard import Leaderboard, TrojaiConfig
+# import shutil
+#
+# trojai_config_filepath = '/home/mmajurski/Downloads/trojai-leaderboard/trojai_config.json'
+# # trojai_config_filepath = '/mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai_config.json'
+# leaderboard_name = 'cyber-network-c2-mar2024'
+#
+# trojai_config = TrojaiConfig.load_json(trojai_config_filepath)
+# actor_manager = ActorManager.load_json(trojai_config)
+#
+# leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+#
+# submission_manager = SubmissionManager.load_json(leaderboard)
+#
+# for actor in actor_manager.get_actors():
+#     submissions = submission_manager.get_submissions_by_actor(actor)
+#     for sub in submissions:
+#
+#         new_sub = None
+#         if sub.data_split_name == 'sts':
+#             # remove the submission folder, as we are not preserving it
+#             if os.path.exists(sub.actor_submission_dirpath):
+#                 shutil.rmtree(sub.actor_submission_dirpath)
+#             else:
+#                 print("missing sts submission: {}".format(sub.actor_submission_dirpath))
+#         else:
+#             if leaderboard_name in sub.g_file.name:
+#                 print(actor.name)
+#                 print(sub.submission_epoch)
+#                 sub.g_file.name = sub.g_file.name.replace('cyber-network-c2-mar2024', 'cyber-network-c2-feb2024')
+#
+# submission_manager.save_json(leaderboard)
+# print('done')
 
-trojai_config_filepath = '/home/mmajurski/Downloads/trojai-leaderboard/trojai_config.json'
-# trojai_config_filepath = '/mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai_config.json'
-leaderboard_name = 'cyber-network-c2-mar2024'
 
-trojai_config = TrojaiConfig.load_json(trojai_config_filepath)
-actor_manager = ActorManager.load_json(trojai_config)
+# import os
+# ifp = '/home/mmajurski/usnistgov/trojai-round-generation-private/llm-finetune-feb2024/train-dataset/models'
+# fns = [fn for fn in os.listdir(ifp) if fn.startswith('id-')]
+# fns.sort()
+#
+# for fn in fns:
+#     a = os.path.join(ifp, fn, 'clean-example-data.json')
+#     b = os.path.join(ifp, fn, 'clean-example-data', 'samples.json')
+#     os.makedirs(os.path.join(ifp, fn, 'clean-example-data'), exist_ok=True)
+#
+#     if os.path.exists(a):
+#         os.rename(a, b)
+#
+#     a = os.path.join(ifp, fn, 'poisoned-example-data.json')
+#     b = os.path.join(ifp, fn, 'poisoned-example-data', 'samples.json')
+#     os.makedirs(os.path.join(ifp, fn, 'poisoned-example-data'), exist_ok=True)
+#
+#     if os.path.exists(a):
+#         os.rename(a, b)
 
-leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
 
-submission_manager = SubmissionManager.load_json(leaderboard)
+if __name__ == "__main__":
+    import argparse
 
-for actor in actor_manager.get_actors():
-    submissions = submission_manager.get_submissions_by_actor(actor)
-    for sub in submissions:
+    parser = argparse.ArgumentParser(description='Runs leaderboards commands')
+    parser.add_argument('--required-files', type=str, default=None, help='The set of required files, defaults to the defaults set if not used')
 
-        new_sub = None
-        if sub.data_split_name == 'sts':
-            # remove the submission folder, as we are not preserving it
-            if os.path.exists(sub.actor_submission_dirpath):
-                shutil.rmtree(sub.actor_submission_dirpath)
-            else:
-                print("missing sts submission: {}".format(sub.actor_submission_dirpath))
-        else:
-            if leaderboard_name in sub.g_file.name:
-                print(actor.name)
-                print(sub.submission_epoch)
-                sub.g_file.name = sub.g_file.name.replace('cyber-network-c2-mar2024', 'cyber-network-c2-feb2024')
+    args = parser.parse_args()
 
-submission_manager.save_json(leaderboard)
-print('done')
-
+    if args.required_files is not None:
+        args.required_files = args.required_files.split(',')
+    print(args)
