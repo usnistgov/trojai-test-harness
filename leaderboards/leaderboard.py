@@ -34,7 +34,8 @@ class Leaderboard(object):
                         "cyber": CyberTask,
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
-                        "rl_lavaworld": ReinforcementLearningLavaWorld}
+                        "rl_lavaworld": ReinforcementLearningLavaWorld,
+                        'causal_language': CausalLanguageModeling}
 
     VALID_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,
