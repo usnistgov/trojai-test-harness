@@ -463,8 +463,8 @@ def init_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     if args.required_files is not None:
         req_files = args.required_files.split(',')
-        logging.warning("Over-riding default required files list {} with {}".format(trojai_config.required_files, req_files))
-        trojai_config.required_files = req_files
+        logging.warning("Over-riding default required files list {} with {}".format(trojai_config.default_required_files, req_files))
+        trojai_config.default_required_files = req_files
 
     leaderboard = Leaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
     leaderboard.save_json(trojai_config)
