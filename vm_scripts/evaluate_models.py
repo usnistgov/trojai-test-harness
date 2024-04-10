@@ -7,6 +7,7 @@ VALID_SUBMISSION_TYPES = {'rl': EvaluateRLTask,
                           'nlp': EvaluateNLPTask,
                           'image': EvaluateImageTask,
                           'cyber': EvaluateCyberTask,
+                          'cyber_pdf': EvaluateCyberPDFTask,
                           'clm': EvaluateClmTask}
 
 if __name__ == '__main__':

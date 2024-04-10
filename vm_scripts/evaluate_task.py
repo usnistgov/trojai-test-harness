@@ -521,7 +521,8 @@ if __name__ == '__main__':
                               'nlp': EvaluateNLPTask,
                               'image': EvaluateImageTask,
                               'cyber': EvaluateCyberTask,
-                              'cyber_pdf': EvaluateCyberPDFTask}
+                              'cyber_pdf': EvaluateCyberPDFTask,
+                              'clm': EvaluateClmTask}
 
     parser = argparse.ArgumentParser(description='Entry point to execute containers')
 
