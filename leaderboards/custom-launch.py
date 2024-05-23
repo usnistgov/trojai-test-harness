@@ -18,13 +18,17 @@ from leaderboards.submission import Submission, SubmissionManager
 from leaderboards.actor import ActorManager
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.metrics import Metric
+from leaderboards.drive_io import DriveIO
 
 
 def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container_data_split_name: str,
          execution_leaderboard_name: str,  execution_data_split_name: str, execution_submission_filepath: str,
          metric_name: str, target_metric_value: float, custom_home:str, custom_scratch:str, python_env_filepath:str, skip_existing_submissions: bool=False, execution_submission_exists_okay=False,
          team_names: list = [], provenance_name: str='custom-launch', slurm_queue_name='heimdall',
-         custom_slurm_options: list=[]) -> None:
+         custom_slurm_options: list=[], execute_local:bool = False) -> None:
+    
+    # g_drive = DriveIO(trojai_config.token_pickle_filepath)
+
     actor_manager = ActorManager.load_json(trojai_config)
     container_leaderboard = Leaderboard.load_json(trojai_config, container_leaderboard_name)
     container_submission_manager = SubmissionManager.load_json(container_leaderboard)
@@ -55,7 +59,8 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
     valid_submissions = []
 
     for actor in search_actors:
-        submissions = container_submission_manager.gather_submissions(container_leaderboard, container_data_split_name, metric_name, target_metric_value, actor)
+        # submissions = container_submission_manager.gather_submissions(container_leaderboard, container_data_split_name, metric_name, target_metric_value, actor, g_drive)
+        submissions = container_submission_manager.get_submissions_by_actor(actor)
         valid_submissions.extend(submissions)
 
     existing_submission_manager = SubmissionManager.load_json(execution_leaderboard)
@@ -64,31 +69,38 @@ def main(trojai_config: TrojaiConfig, container_leaderboard_name: str, container
 
     # Launch submissions
     for submission in valid_submissions:
+        # actor = actor_manager.get_from_uuid(submission.actor_uuid)
+        # new_submission = Submission(submission.g_file, actor, execution_leaderboard, execution_data_split_name, provenance_name, submission.submission_epoch, slurm_queue_name, container_leaderboard)
+
+        # if skip_existing_submissions:
+        #     actor_existing_submissions = existing_submission_manager.get_submissions_by_actor(actor)
+        #     found_existing = False
+        #     for submission in actor_existing_submissions:
+        #         if submission.actor_submission_dirpath == new_submission.actor_submission_dirpath and submission.actor_results_dirpath == new_submission.actor_results_dirpath:
+        #             # Check for results
+        #             if new_submission.execution_results_dirpath is not None:
+        #                 logging.info('Found matching submission for: {}, skip existing submissions is enabled'.format(actor.name))
+        #                 found_existing = True
+        #                 break
+
+        #     if found_existing:
+        #         continue
+
         actor = actor_manager.get_from_uuid(submission.actor_uuid)
-        new_submission = Submission(submission.g_file, actor, execution_leaderboard, execution_data_split_name, provenance_name, submission.submission_epoch, slurm_queue_name, container_leaderboard)
-
-        if skip_existing_submissions:
-            actor_existing_submissions = existing_submission_manager.get_submissions_by_actor(actor)
-            found_existing = False
-            for submission in actor_existing_submissions:
-                if submission.actor_submission_dirpath == new_submission.actor_submission_dirpath and submission.actor_results_dirpath == new_submission.actor_results_dirpath:
-                    # Check for results
-                    if new_submission.execution_results_dirpath is not None:
-                        logging.info('Found matching submission for: {}, skip existing submissions is enabled'.format(actor.name))
-                        found_existing = True
-                        break
-
-            if found_existing:
-                continue
-
 
         time.sleep(1)
         exec_epoch = time_utils.get_current_epoch()
-        new_submission.execute(actor, trojai_config, exec_epoch, execute_local=True, custom_home_dirpath=custom_home, custom_scratch_dirpath=custom_scratch, custom_slurm_options=custom_slurm_options, custom_python_env_filepath=python_env_filepath)
-        execution_submission_manager.add_submission(actor, new_submission)
+        if execute_local:
+            print("executing local")
+            new_submission.execute(actor, trojai_config, exec_epoch, execute_local=True, custom_home_dirpath=custom_home, custom_scratch_dirpath=custom_scratch, custom_slurm_options=custom_slurm_options, custom_python_env_filepath=python_env_filepath)
+        else:
+            print("executing on test server")
+            #new_submission.execute(actor, trojai_config, exec_epoch, execute_local=False, custom_home_dirpath=None, custom_scratch_dirpath=None, custom_slurm_options=custom_slurm_options, custom_python_env_filepath=python_env_filepath)
+            submission.execute(actor, trojai_config, exec_epoch, execute_local=False, custom_home_dirpath=None, custom_scratch_dirpath=None, custom_slurm_options=custom_slurm_options, custom_python_env_filepath=python_env_filepath)
+        #execution_submission_manager.add_submission(actor, new_submission)
 
 
-    execution_submission_manager.save_json_custom(custom_submission_manager_filepath)
+    container_submission_manager.save_json_custom(custom_submission_manager_filepath)
 
 
 if __name__ == "__main__":
@@ -111,9 +123,10 @@ if __name__ == "__main__":
     parser.add_argument('--metric-name', type=str, help='The name of the metric to use, as seen on the leaderboard', default='Cross Entropy')
     parser.add_argument('--target-metric-value', type=float, help='The target value that containers must meet to execute', default='0.5')
 
-    parser.add_argument('--custom-home', type=str, help='The directory to use when executing singularity containers', required=True)
-    parser.add_argument('--custom-scratch', type=str, help='The scratch directory to use when executing singularity containers', required=True)
+    parser.add_argument('--custom-home', type=str, help='The directory to use when executing singularity containers')
+    parser.add_argument('--custom-scratch', type=str, help='The scratch directory to use when executing singularity containers')
     parser.add_argument('--skip-existing', action='store_true', help='Whether to skip any existing submissions to avoid added compute')
+    parser.add_argument('--execute-local', action='store_true', help='Whether to run the execute locally, or use the test server')
 
     parser.add_argument('--execution-submission-exists-okay', action='store_true', help='Indicates that it is okay if the output submission file exists, which will load prior submissions and add to them.')
 
@@ -137,6 +150,6 @@ if __name__ == "__main__":
     main(trojai_config, args.container_leaderboard_name, args.container_data_split_name,
          args.execution_leaderboard_name, args.execution_data_split_name, args.execution_submission_filepath,
          args.metric_name, args.target_metric_value, args.custom_home, args.custom_scratch, args.python_filepath, args.skip_existing,
-         args.execution_submission_exists_okay, args.team_names, args.provenance_name, args.slurm_partition_name, args.custom_slurm_options)
+         args.execution_submission_exists_okay, args.team_names, args.provenance_name, args.slurm_partition_name, args.custom_slurm_options, args.execute_local)
 
 

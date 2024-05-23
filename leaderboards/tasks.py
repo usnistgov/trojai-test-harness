@@ -703,6 +703,14 @@ class NaturalLanguageProcessingSummary(NaturalLanguageProcessingTask):
         super().__init__(trojai_config, leaderboard_name)
 
 
+class CausalLanguageModeling(Task):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name, 'clm')
+
+    def get_task_type(self):
+        return 'clm'
+
+
 class NaturalLanguageProcessingSentiment(NaturalLanguageProcessingTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name)

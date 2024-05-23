@@ -1,10 +1,11 @@
 # NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
-import collections
-import copy
+
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
+import collections
+import copy
 import datetime
 import os
 import pandas as pd
@@ -36,7 +37,8 @@ class Leaderboard(object):
                         "cyber": CyberTask,
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
-                        "rl_lavaworld": ReinforcementLearningLavaWorld}
+                        "rl_lavaworld": ReinforcementLearningLavaWorld,
+                        'causal_language': CausalLanguageModeling}
 
     ALL_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,
@@ -361,7 +363,7 @@ class Leaderboard(object):
 
     def generate_metadata_csv(self, overwrite_csv: bool = True):
         pass
-    
+
     def get_default_result_columns(self):
         return ['submission_timestamp', 'actor_name', 'actor_UUID', 'data_split']
 
@@ -730,6 +732,10 @@ class TrojAILeaderboard(Leaderboard):
 
 def init_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    if args.required_files is not None:
+        req_files = args.required_files.split(',')
+        logging.warning("Over-riding default required files list {} with {}".format(trojai_config.default_required_files, req_files))
+        trojai_config.default_required_files = req_files
 
     # TODO: Update to indicate what type of leaderboard
     leaderboard_type = args.leaderboard_type
@@ -856,8 +862,9 @@ if __name__ == "__main__":
     init_parser.add_argument('--leaderboard_type', type=str, choices=Leaderboard.LEADERBOARD_TYPES, help='Declares the type of leaderboard to generate')
     init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     init_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
-    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.ALL_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
-    init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits for the leaderboard, if they fail task checks then will not be added. Need to call add-dataset when they are ready.', action='store_true')
+    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
+    init_parser.add_argument('--required-files', type=str, default=None, help='The set of required files, defaults to the defaults set if not used. Tis is a csv list like " --required-files=model.pt,test.sh,img.png"')
+    init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits: {}, if they fail task checks then will not be added. Need to call add-dataset when they are ready.'.format(Leaderboard.DEFAULT_DATASET_SPLIT_NAMES), action='store_true')
     init_parser.set_defaults(func=init_leaderboard)
 
     add_dataset_parser = subparser.add_parser('add-dataset', help='Adds a dataset into a leaderboard')
