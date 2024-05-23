@@ -38,17 +38,20 @@ class Actor(object):
 
         if reset:
             for leaderboard_name in trojai_config.active_leaderboard_names:
-                for dataset_split_name in Leaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+                leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
+                for dataset_split_name in leaderboard.get_submission_data_split_names():
                     self.reset_leaderboard_submission(leaderboard_name, dataset_split_name)
 
         self.highlight_old_submissions = False
         self.disabled = False
 
+    # Updates the job status for the actor, only updating the job status for the check values
+    # if check value is none, then it will update all job statuses to the value
     def update_all_job_status(self, value, check_value=None):
-        for key, value in self.job_statuses.items():
+        for key, old_value in self.job_statuses.items():
             if check_value is None:
                 self.job_statuses[key] = value
-            elif check_value == value:
+            elif check_value == old_value:
                 self.job_statuses[key] = value
 
     def has_job_status(self, check_value):
@@ -194,13 +197,13 @@ class ActorManager(object):
     def get_actors(self) -> ValuesView:
         return self.actors.values()
 
-    def add_actor(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, type: str) -> None:
+    def add_actor(self, trojai_config: TrojaiConfig, email: str, name: str, poc_email: str, actor_type: str) -> None:
         for actor in self.actors.values():
             if email == actor.email:
                 raise RuntimeError("Actor already exists in ActorManager: {}".format(email))
             if name == actor.name:
                 raise RuntimeError("Actor Name already exists in ActorManager: {}".format(name))
-        created_actor = Actor(trojai_config, email, name, poc_email, type)
+        created_actor = Actor(trojai_config, email, name, poc_email, actor_type)
         self.actors[str(created_actor.uuid)] = created_actor
         print('Created: {}'.format(created_actor))
 
@@ -210,7 +213,6 @@ class ActorManager(object):
         print('Removed {} from actor manager'.format(email))
 
     def get(self, email) -> Actor:
-
         actors = []
         for actor in self.actors.values():
             if actor.email == email:
@@ -263,7 +265,9 @@ class ActorManager(object):
     @staticmethod
     def load_json(trojai_config: TrojaiConfig) -> 'ActorManager':
         # make sure the file exists
-        ActorManager.init_file(trojai_config)
+        if not os.path.exists(trojai_config.actors_filepath):
+            ActorManager.init_file(trojai_config)
+
         return json_io.read(trojai_config.actors_filepath)
 
     def write_jobs_table(self, output_dirpath, leaderboard_name, leaderboard_highlight_old_submissions, dataset_split_name, execute_window, cur_epoch, job_color_key):
@@ -293,12 +297,6 @@ class ActorManager(object):
             f.write(str(a))
 
         return jobs_filepath
-    #
-    # def get_jobs_table(self, leaderboard_name, dataset_split_name, execute_window, cur_epoch: int):
-    #     jobs_table = list()
-    #     for actor in self.actors.values():
-    #         jobs_table.append(actor.get_jobs_table_entry(leaderboard_name, dataset_split_name, execute_window, cur_epoch))
-    #     return jobs_table
 
     def convert_to_csv(self, output_file):
         write_header = True
@@ -401,13 +399,6 @@ def apply_fix_actor_manager(args):
 
     actor_manager.save_json(trojai_config)
 
-
-
-# def test_actor_manager_to_html(args):
-#     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
-#     actor_manager = ActorManager.load_json(trojai_config)
-#     actor_manager.write_jobs_table(args.leaderboard_name, args.data_split_name, 0, 0)
-
 if __name__ == "__main__":
     import argparse
 
@@ -450,13 +441,8 @@ if __name__ == "__main__":
     fix_actor_manager.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     fix_actor_manager.set_defaults(func=apply_fix_actor_manager)
 
-    # html_parser = subparser.add_parser('html')
-    # html_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    # html_parser.add_argument('--leaderboards-name', type=str, help='The leaderboards name', required=True)
-    # html_parser.add_argument('--data-split-name', type=str, help='The leaderboards data split name', required=True)
-    # html_parser.set_defaults(func=test_actor_manager_to_html)
-
     # TODO: Add update function to safely update various attributes of an actor
+    # TODO: Add ability to rename the name of an actor
 
     args = parser.parse_args()
 

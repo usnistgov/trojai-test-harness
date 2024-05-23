@@ -33,15 +33,15 @@ def get_leaderboard_javascript_content(leaderboard: Leaderboard):
             if key in html_sort_options:
                 column_name = html_sort_options[key]['column']
                 order = html_sort_options[key]['order']
-                split_name = html_sort_options[key]['split_name']
+                # split_name = html_sort_options[key]['split_name']
             else:
                 if table_name == 'jobs':
                     column_name = 'Submission Timestamp'
                     order = 'desc'
                 else:
-                    column_name = 'Cross Entropy'
+                    column_name = leaderboard.evaluation_metric_name
                     order = 'asc'
-                split_name = data_split_name
+                # split_name = data_split_name
 
             content += """if ($('#{}').find("th:contains('{}')").length > 0)\n{{""".format(key, column_name)
             content += """  sort_col = $('#{}').find("th:contains('{}')")[0].cellIndex;\n""".format(key, column_name)
@@ -90,6 +90,8 @@ def write_html_leaderboard_pages(trojai_config: TrojaiConfig, html_output_dirpat
                                                       leaderboard.highlight_old_submissions, data_split_name,
                                                       execute_window, cur_epoch, trojai_config.job_color_key)
             written_files.append(filepath)
+
+        # TODO: Update this to write using the results manager instead of submission manager
         filepath = submission_manager.write_score_table(html_output_dirpath, leaderboard, actor_manager, data_split_name, g_drive)
         written_files.append(filepath)
         filepath = submission_manager.write_score_table_unique(html_output_dirpath, leaderboard, actor_manager, data_split_name, g_drive)

@@ -21,9 +21,10 @@ from leaderboards import metadata_utils
 
 
 
-class Metric(object):
 
-    def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool, share_with_external: bool):
+class Metric(object):
+    def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool,
+                 share_with_external: bool):
         self.write_html = write_html
         self.share_with_actor = share_with_actor
         self.store_result_in_submission = store_result_in_submission
@@ -31,24 +32,38 @@ class Metric(object):
         self.html_priority = 0
         self.html_decimal_places = 5
 
+
     def has_metadata(self):
         raise NotImplementedError()
 
+
     def get_name(self):
         raise NotImplementedError()
+
+
+    def compare(self, computed, baseline):
+        raise NotImplementedError()
+
+
+class TrojAIMetric(Metric):
+
+    def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool,
+                 share_with_external: bool):
+        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
 
     # Returns a dictionary with the following:
     # 'result': None or value
     # 'metadata': None or dict
     # 'files': None or list of files saved
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         raise NotImplementedError()
 
-    def compare(self, computed, baseline):
-        raise NotImplementedError()
 
-class AverageCrossEntropy(Metric):
-    def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True, share_with_external: bool = False, epsilon:float = 1e-12):
+class AverageCrossEntropy(TrojAIMetric):
+    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result_in_submission: bool = True,
+                 share_with_external: bool = False, epsilon: float = 1e-12):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
         self.epsilon = epsilon
 
@@ -68,7 +83,9 @@ class AverageCrossEntropy(Metric):
         ce = -(a + b)
         return ce
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         ce = self.compute_cross_entropy(predictions, targets, self.epsilon)
 
         return {'result': np.average(ce).item(), 'metadata': {'cross_entropy': ce}, 'files': None}
@@ -76,8 +93,11 @@ class AverageCrossEntropy(Metric):
     def compare(self, computed, baseline):
         return computed < baseline
 
-class GroupedCrossEntropyViolin(Metric):
-    def __init__(self, write_html:bool = False, share_with_actor:bool = False, store_result_in_submission:bool = False, share_with_external: bool = True, epsilon:float = 1e-12, columns_of_interest: list=None):
+
+class GroupedCrossEntropyViolin(TrojAIMetric):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = False,
+                 store_result_in_submission: bool = False, share_with_external: bool = True, epsilon: float = 1e-12,
+                 columns_of_interest: list = None):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
         if columns_of_interest is None:
             self.columns_of_interest = ['all']
@@ -95,7 +115,9 @@ class GroupedCrossEntropyViolin(Metric):
     def get_name(self):
         return 'Grouped Cross Entropy Violin {}'.format('_'.join(self.columns_of_interest))
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         metadata = {}
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
@@ -145,19 +167,21 @@ class GroupedCrossEntropyViolin(Metric):
             star_char += 1
             pass
 
-        #axes.set_xticklabels(character_labels, rotation=15, ha='right')
+        # axes.set_xticklabels(character_labels, rotation=15, ha='right')
         axes.set_xticklabels(character_labels, ha='right')
         axes.set_ylabel('Cross Entropy')
 
-
         x_legend = '\n'.join(f'{n} - {name}' for n, name in zip(character_labels, names))
 
-        at1 = AnchoredText(x_legend, loc='right', frameon=True, bbox_to_anchor=(0., 0.5), bbox_transform=axes.figure.transFigure)
+        at1 = AnchoredText(x_legend, loc='right', frameon=True, bbox_to_anchor=(0., 0.5),
+                           bbox_transform=axes.figure.transFigure)
         fig.add_artist(at1)
 
         # t = axes.text(.7, .2, x_legend, transform=axes.figure.transFigure)
         # fig.subplots_adjust(right=.85)
-        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
+        filepath = os.path.join(output_dirpath,
+                                '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(),
+                                                            leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight', dpi=300)
 
@@ -167,17 +191,19 @@ class GroupedCrossEntropyViolin(Metric):
         return {'result': None, 'metadata': None, 'files': [filepath]}
 
 
-class CrossEntropyConfidenceInterval(Metric):
+class CrossEntropyConfidenceInterval(TrojAIMetric):
     VALID_LEVELS = [90, 95, 98, 99]
 
     def __init__(self, write_html: bool = True, share_with_actor: bool = False,
-                 store_result_in_submission: bool = True, share_with_external: bool = False, level: int = 95, epsilon: float = 1e-12):
+                 store_result_in_submission: bool = True, share_with_external: bool = False, level: int = 95,
+                 epsilon: float = 1e-12):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
         self.level = level
         self.epsilon = epsilon
 
         if self.level not in CrossEntropyConfidenceInterval.VALID_LEVELS:
-            raise RuntimeError('Level: {}, must be in {}'.format(self.level, CrossEntropyConfidenceInterval.VALID_LEVELS))
+            raise RuntimeError(
+                'Level: {}, must be in {}'.format(self.level, CrossEntropyConfidenceInterval.VALID_LEVELS))
 
     def get_name(self):
         return 'CE {}% CI'.format(self.level)
@@ -185,7 +211,9 @@ class CrossEntropyConfidenceInterval(Metric):
     def has_metadata(self):
         return False
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
         predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
@@ -204,11 +232,14 @@ class CrossEntropyConfidenceInterval(Metric):
         elif self.level == 99:
             ci = standard_error * 2.58
         else:
-            raise RuntimeError('Unsupported confidence interval level: {}. Must be in [90, 95, 98, 99]'.format(self.level))
+            raise RuntimeError(
+                'Unsupported confidence interval level: {}. Must be in [90, 95, 98, 99]'.format(self.level))
         return {'result': float(ci), 'metadata': None, 'files': None}
 
+
 class BrierScore(Metric):
-    def __init__(self, write_html:bool = True, share_with_actor:bool = False, store_result_in_submission:bool = True, share_with_external: bool = False):
+    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result_in_submission: bool = True,
+                 share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
 
     def get_name(self):
@@ -217,7 +248,9 @@ class BrierScore(Metric):
     def has_metadata(self):
         return False
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
 
@@ -227,8 +260,11 @@ class BrierScore(Metric):
     def compare(self, computed, baseline):
         return computed > baseline
 
-class Grouped_ROC_AUC(Metric):
-    def __init__(self, write_html: bool = False, share_with_actor: bool = False, store_result_in_submission: bool = True, share_with_external: bool = True, columns_of_interest: list=None):
+
+class Grouped_ROC_AUC(TrojAIMetric):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = False,
+                 store_result_in_submission: bool = True, share_with_external: bool = True,
+                 columns_of_interest: list = None):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
         self.columns_of_interest = []
         if columns_of_interest is not None:
@@ -247,7 +283,9 @@ class Grouped_ROC_AUC(Metric):
             interest_text = '_'.join(self.columns_of_interest)
         return 'Grouped ROC-AUC-{}'.format(interest_text)
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         result_data = {}
         files = []
 
@@ -314,11 +352,17 @@ class Grouped_ROC_AUC(Metric):
                 roc_auc = np.nan
             result_data[key] = roc_auc
 
-            confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Confusion_Matrix', key))
+            confusion_matrix_filepath = os.path.join(output_dirpath,
+                                                     '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str,
+                                                                                    leaderboard_name, data_split_name,
+                                                                                    'Confusion_Matrix', key))
 
-            fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds, confusion_matrix_filepath)
+            fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
+                                            confusion_matrix_filepath)
 
-            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'ROC', key))
+            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str,
+                                                                                       leaderboard_name,
+                                                                                       data_split_name, 'ROC', key))
 
             try:
                 fpr, tpr, thres = sklearn.metrics.roc_curve(targets, predictions)
@@ -344,19 +388,21 @@ class Grouped_ROC_AUC(Metric):
             except Exception as e:
                 logging.warning(e)
 
-        filepath = os.path.join(output_dirpath, '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(), leaderboard_name, data_split_name))
+        filepath = os.path.join(output_dirpath,
+                                '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(),
+                                                             leaderboard_name, data_split_name))
 
         with open(filepath, 'w') as fp:
-            json.dump(result_data, fp,  indent=2)
+            json.dump(result_data, fp, indent=2)
 
         files.append(filepath)
 
         return {'result': None, 'metadata': None, 'files': files}
 
 
-
-class ROC_AUC(Metric):
-    def __init__(self, write_html:bool = True, share_with_actor:bool = True, store_result_in_submission:bool = True, share_with_external: bool = False):
+class ROC_AUC(TrojAIMetric):
+    def __init__(self, write_html: bool = True, share_with_actor: bool = True, store_result_in_submission: bool = True,
+                 share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
 
     def get_name(self):
@@ -365,7 +411,9 @@ class ROC_AUC(Metric):
     def has_metadata(self):
         return True
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         TP_counts = list()
         TN_counts = list()
         FP_counts = list()
@@ -408,23 +456,24 @@ class ROC_AUC(Metric):
         FPR = np.asarray(FPR).reshape(-1)
         thresholds = np.asarray(thresholds).reshape(-1)
 
-        confusion_matrix_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
-                                                                   data_split_name, 'Confusion_Matrix'))
+        confusion_matrix_filepath = os.path.join(output_dirpath,
+                                                 '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str,
+                                                                             leaderboard_name,
+                                                                             data_split_name, 'Confusion_Matrix'))
 
         fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
                                         confusion_matrix_filepath)
 
-        roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
-                                                                   data_split_name, 'ROC'))
+        roc_filepath = os.path.join(output_dirpath,
+                                    '{}_{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                                data_split_name, 'ROC'))
 
-
-        #roc_auc = auc(FPR, TPR)
+        # roc_auc = auc(FPR, TPR)
         try:
             roc_auc = sklearn.metrics.roc_auc_score(targets, predictions)
         except ValueError as e:
             logging.warning(e)
             roc_auc = np.nan
-
 
         try:
             fpr, tpr, thres = sklearn.metrics.roc_curve(targets, predictions)
@@ -447,14 +496,16 @@ class ROC_AUC(Metric):
         except Exception as e:
             logging.warning(e)
 
-        return {'result': float(roc_auc), 'metadata': {'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}
+        return {'result': float(roc_auc), 'metadata': {'tpr': TPR, 'fpr': FPR},
+                'files': [confusion_matrix_filepath, roc_filepath]}
 
     def compare(self, computed, baseline):
         return computed > baseline
 
 
-class DEX_Factor_csv(Metric):
-    def __init__(self, write_html: bool = False, share_with_actor: bool = True, store_result_in_submission: bool = False, share_with_external: bool = False):
+class DEX_Factor_csv(TrojAIMetric):
+    def __init__(self, write_html: bool = False, share_with_actor: bool = True,
+                 store_result_in_submission: bool = False, share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
 
     def has_metadata(self):
@@ -463,7 +514,9 @@ class DEX_Factor_csv(Metric):
     def get_name(self):
         return 'DEX_Factor_csv'
 
-    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame, actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str, output_dirpath: str):
+    def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath: str):
         files = []
 
         # get sub dataframe with just this data split
@@ -511,10 +564,37 @@ class DEX_Factor_csv(Metric):
         cols.insert(1, 'accuracy')
         meta_df = meta_df[cols]
 
-        filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name, data_split_name, 'Result_DEX_Metadata'))
+        filepath = os.path.join(output_dirpath,
+                                '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                            data_split_name, 'Result_DEX_Metadata'))
 
         meta_df.to_csv(filepath, index=False)
 
         files.append(filepath)
 
         return {'result': None, 'metadata': None, 'files': files}
+
+class MetricsProcessor(object):
+    def __init__(self):
+        pass
+
+    def add_metric(self, metric: Metric):
+        pass
+    def process_metrics(self):
+        pass
+
+
+class TrojAIMetricsProcessor(MetricsProcessor):
+    def __init__(self):
+        pass
+
+    def process_metrics(self):
+        pass
+
+
+class MitigationMetricsProcessor(MetricsProcessor):
+    def __init__(self):
+        pass
+
+    def process_metrics(self):
+        pass

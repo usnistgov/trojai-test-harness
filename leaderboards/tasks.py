@@ -119,6 +119,61 @@ def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
 
 
 class Task(object):
+
+    # TODO: Determine optimal init
+    def __init__(self):
+        pass
+
+    def get_task_type(self):
+        raise NotImplementedError()
+
+    def check_instance_params(self, trojai_config: TrojaiConfig):
+        raise NotImplementedError()
+
+    def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
+        raise NotImplementedError()
+
+    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+        raise NotImplementedError()
+
+    def run_basic_checks(self, vm_ip, vm_name):
+        raise NotImplementedError()
+
+    def run_submission_checks(self, submission_filepath):
+        raise NotImplementedError()
+
+    def run_submission_schema_header_checks(self, submission_filepath):
+        raise NotImplementedError()
+
+    def copy_in_env(self, vm_ip, vm_name, trojai_config: TrojaiConfig, custom_remote_home: str=None, custom_remote_scratch: str=None):
+        raise NotImplementedError()
+
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+        raise NotImplementedError()
+
+    def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
+        raise NotImplementedError()
+
+    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
+        raise NotImplementedError()
+
+    def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
+        raise NotImplementedError()
+
+    def copy_out_results(self, vm_ip, vm_name, result_dirpath, custom_remote_home: str=None, custom_remote_scratch: str=None):
+        raise NotImplementedError()
+
+    def package_results(self, result_dirpath: str, info_dict: dict):
+        raise NotImplementedError()
+
+    def cleanup_vm(self, vm_ip, vm_name, custom_remote_home: str=None, custom_remote_scratch: str=None):
+        raise NotImplementedError()
+
+    def load_ground_truth(self, dataset: Dataset) -> typing.OrderedDict[str, float]:
+        raise NotImplementedError()
+
+
+class TrojAITask(Task):
     LOCAL_VM_IP = 'local'
     VALID_TECHNIQUE_TYPES = ['Weight Analysis', 'Trigger Inversion', 'Attribution Analysis', 'Jacobian Inspection', 'Other']
 
@@ -284,7 +339,7 @@ class Task(object):
             remote_scratch = custom_remote_scratch
 
         errors = ''
-        
+
         sc = rsync_dir_to_vm(vm_ip, trojai_config.local_trojai_conda_env, remote_home)
         errors += check_subprocess_error(sc, ':Copy in:', '{} failed to copy in conda env {}'.format(vm_name, trojai_config.local_trojai_conda_env))
 
@@ -550,8 +605,24 @@ class Task(object):
 
         return ground_truth_dict
 
+class MitigationTask(TrojAITask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        super().__init__(trojai_config, leaderboard_name, 'mitigation', task_script_filepath)
 
-class ImageTask(Task):
+    def get_task_type(self):
+        return 'mitigation'
+
+    def run_submission_checks(self, submission_filepath):
+        errors = ''
+        return errors
+
+    def run_submission_schema_header_checks(self, submission_filepath):
+        errors = ''
+        return errors
+
+
+
+class ImageTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'image', task_script_filepath)
 
@@ -559,21 +630,21 @@ class ImageTask(Task):
         return 'image'
 
 
-class CyberTask(Task):
+class CyberTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
        super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
 
     def get_task_type(self):
         return 'cyber'
 
-class ReinforcementLearningTask(Task):
+class ReinforcementLearningTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'rl', task_script_filepath)
 
     def get_task_type(self):
         return 'rl'
 
-class NaturalLanguageProcessingTask(Task):
+class NaturalLanguageProcessingTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
         super().__init__(trojai_config, leaderboard_name, 'nlp', task_script_filepath)
@@ -650,7 +721,7 @@ class CyberApkMalware(CyberTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name)
 
-class CyberPdfMalware(Task):
+class CyberPdfMalware(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
         super().__init__(trojai_config, leaderboard_name, 'cyber_pdf')

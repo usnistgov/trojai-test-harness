@@ -17,6 +17,7 @@ class TrojaiConfig(object):
         self.datasets_dirpath = os.path.join(self.trojai_dirpath, 'datasets')
         self.results_dirpath = os.path.join(self.trojai_dirpath, 'results')
         self.leaderboard_configs_dirpath = os.path.join(self.trojai_dirpath, 'leaderboard-configs')
+        self.leaderboard_results_dirpath = os.path.join(self.trojai_dirpath, 'leaderboard-results')
         self.actors_filepath = os.path.join(self.trojai_dirpath, 'actors.json')
         self.log_filepath = os.path.join(self.trojai_dirpath, 'trojai.log')
         file_dirpath = os.path.dirname(os.path.realpath(__file__))
@@ -25,8 +26,8 @@ class TrojaiConfig(object):
         self.python_env = '/home/trojai/trojai-env/bin/python3'
         self.evaluate_python_env = '/home/trojai/miniconda3/envs/trojai_evaluate/bin/python'
         self.local_trojai_conda_env = '/home/trojai/miniconda3'
-        self.default_excluded_files = ["detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "ground_truth.csv", "log.txt", "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv", "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
-        self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
+        # self.default_excluded_files = ["detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "ground_truth.csv", "log.txt", "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv", "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
+        # self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
         self.leaderboard_csvs_dirpath = os.path.join(self.datasets_dirpath, 'leaderboard_summary_csvs')
         self.vm_cpu_cores_per_partition = {'es': 10, 'sts': 10}
         self.job_color_key = {604800: 'text-sucess font-weight-bold',

@@ -26,7 +26,8 @@ setup(
     'sklearn',
     'airium',
     'pandas',
-    'matplotlib'
+    'matplotlib',
+    'msgpack'
     ],
     description='Trojai Test Harness'
 )

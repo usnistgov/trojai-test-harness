@@ -20,6 +20,7 @@ from leaderboards.submission import Submission, SubmissionManager
 from leaderboards import time_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.html_output import update_html_pages
+from leaderboards.results_manager import ResultsManager
 
 import warnings
 
@@ -55,7 +56,6 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
             valid_submissions[key] = []
 
     # Find valid files for submission
-    # TODO: Can we improve the general file status error? Currently it captures multiple error scenarios: filename split valid, correct leaderboards, if an actor can submit
     for g_file in actor_file_list:
         filename = g_file.name
         filename_split = filename.split('_')
@@ -90,7 +90,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
 
         key = '{}_{}'.format(leaderboard_name, data_split_name)
         if key not in valid_submissions.keys():
-            logging.info('Unknown leaderboard key when adding valid submissions: {}'.format(key))
+            logging.info('Unknown leaderboard key when checking valid submissions: {}'.format(key))
             continue
 
         valid_submissions[key].append(g_file)
@@ -133,10 +133,9 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
 
             check_epoch = time_utils.get_current_epoch()
 
-            if not actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_submission_window_time(data_split_name), check_epoch) and int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
-                logging.info('Team {} timeout window has not elapsed. check_epoch: {}, last_submission_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, check_epoch, actor.get_last_submission_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
-                actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
-            else:
+            # Check to see if the actor's time window has elapsed
+            if actor.can_submit_time_window(leaderboard_name, data_split_name, leaderboard.get_submission_window_time(data_split_name), check_epoch):
+                # Check if this is a new file, if it is then we can execute the submission
                 if int(g_file.modified_epoch) != int(actor.get_last_file_epoch(leaderboard_name, data_split_name)):
                     if not submission_manager.has_submission_file_id(actor, g_file.modified_epoch):
                         logging.info('Submission timestamp is different .... EXECUTING; new file name: {}, new file epoch: {}, last file epoch: {}'.format(g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
@@ -152,8 +151,11 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
                 else:
                     logging.info('Submission found is the same as the last execution run for team {}; new file name: {}, new file epoch: {}, last file epoch: {}'.format(actor.name, g_file.name, g_file.modified_epoch, actor.get_last_file_epoch(leaderboard_name, data_split_name)))
                     actor.update_job_status(leaderboard_name, data_split_name, 'None')
+            else:
+                logging.info('Team {} timeout window has not elapsed. check_epoch: {}, last_submission_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, check_epoch, actor.get_last_submission_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
+                actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
 
-def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard], active_submission_managers: Dict[str, SubmissionManager]) -> None:
+def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard], active_submission_managers: Dict[str, SubmissionManager], result_manager: ResultsManager) -> None:
 
     for leaderboard_name, submission_manager in active_submission_managers.items():
         actor_submission_list = submission_manager.get_submissions_by_actor(actor)
@@ -164,10 +166,12 @@ def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, ac
                 logging.info('Found live submission "{}" from "{}"'.format(submission.g_file.name, actor.name))
 
                 if leaderboard_name not in active_leaderboards:
-                    logging.warning('Leaderboard: {}, not found for submission: {}'.format(leaderboard_name, submission))
+                    logging.warning('Leaderboard: {}, not found in active leaderboards for submission: {}'.format(leaderboard_name, submission))
                     continue
 
                 leaderboard = active_leaderboards[submission.leaderboard_name]
+
+                # TODO: Update as check will be responsible for running metrics when the submission is done
                 submission.check(trojai_config, g_drive, actor, leaderboard, submission_manager, trojai_config.log_file_byte_limit)
 
     # look for any new submissions
@@ -181,6 +185,8 @@ def main(trojai_config: TrojaiConfig) -> None:
     actor_manager = ActorManager.load_json(trojai_config)
     logging.debug('Loaded actor_manager from filepath: {}'.format(trojai_config.actors_filepath))
     logging.debug(actor_manager)
+
+    result_manager = ResultsManager()
 
     # load the active leaderboards
     active_leaderboards = {}
@@ -199,6 +205,11 @@ def main(trojai_config: TrojaiConfig) -> None:
         active_leaderboards[leaderboard_name] = leaderboard
         submission_manager = SubmissionManager.load_json(leaderboard)
         active_submission_managers[leaderboard_name] = submission_manager
+
+        # Load all results for active leaderboards
+        for data_split_name in leaderboard.get_submission_data_split_names():
+            result_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
+
         logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
         logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))
         logging.debug(leaderboard)
@@ -208,8 +219,14 @@ def main(trojai_config: TrojaiConfig) -> None:
         leaderboard = Leaderboard.load_json(trojai_config, leaderboard_name)
         if leaderboard is None:
             continue
+
         archive_leaderboards[leaderboard_name] = leaderboard
         archive_submission_managers[leaderboard_name] = SubmissionManager.load_json(leaderboard)
+
+        # Load all results for archive leaderboards
+        for data_split_name in leaderboard.get_submission_data_split_names():
+            result_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
+
         logging.info('Archived Leaderboard {} loaded'.format(leaderboard_name))
 
     logging.info('Actor Manger has {} actors.'.format(len(actor_manager.get_keys())))
@@ -221,7 +238,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             logging.info('**************************************************')
             logging.info('Processing {}:'.format(actor.name))
             logging.info('**************************************************')
-            process_team(trojai_config, g_drive, actor, active_leaderboards, active_submission_managers)
+            process_team(trojai_config, g_drive, actor, active_leaderboards, active_submission_managers, result_manager)
         except:
             msg = 'Exception processing actor "{}" loop:\n{}'.format(actor.name, traceback.format_exc())
             logging.error(msg)
@@ -242,6 +259,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         submission_manager.save_json(leaderboard)
 
     logging.info('Checking for new/missing metrics')
+    # TODO: This should be updated to operate using the leaderboard's new metric functionality
     # Check to see if we need to compute any new/missing metrics
     for leaderboard_name, leaderboard in active_leaderboards.items():
         if leaderboard.check_for_missing_metrics:
@@ -251,6 +269,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         else:
             logging.info('Skipping check new/missing for {}'.format(leaderboard_name))
 
+    # TODO: This should be updated to operate using the leaderboard's new metric functionality
     for leaderboard_name, leaderboard in archive_leaderboards.items():
         if leaderboard.check_for_missing_metrics:
             submission_manager = archive_submission_managers[leaderboard.name]
@@ -259,6 +278,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         else:
             logging.info('Skipping check new/missing for {}'.format(leaderboard_name))
 
+    # TODO: Revisit this block of code to streamline it
     # Apply summary updates
     cur_epoch = time_utils.get_current_epoch()
     summary_html_plots = []
@@ -281,6 +301,8 @@ def main(trojai_config: TrojaiConfig) -> None:
             submission_manager = active_submission_managers[leaderboard_name]
 
             leaderboard.generate_metadata_csv(overwrite_csv=True)
+
+            # TODO: This could be replaced with new results dataframe
             submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
 
             g_drive.upload(leaderboard.summary_metadata_csv_filepath, trojai_summary_folder_id)
@@ -319,6 +341,7 @@ def main(trojai_config: TrojaiConfig) -> None:
                         summary_html_plots.extend(output_files)
 
         # Run global metric updates for archive leaderboards if they don't exist
+        # TODO: Revisit this code to streamline it
         for leaderboard_name, leaderboard in archive_leaderboards.items():
             submission_manager = archive_submission_managers[leaderboard.name]
 
@@ -374,6 +397,8 @@ def main(trojai_config: TrojaiConfig) -> None:
     for leaderboard_name, submission_manager in archive_submission_managers.items():
         leaderboard = archive_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard)
+
+    result_manager.save_all()
 
     logging.info('Finished Check and Launch Actors, total g_drive API requests: {}'.format(g_drive.request_count))
 

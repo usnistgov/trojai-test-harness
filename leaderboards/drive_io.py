@@ -405,3 +405,18 @@ class DriveIO(object):
 
     def create_actor_root_folder(self, actor_name):
         return self.create_folder('trojai_results_{}'.format(actor_name))
+
+
+    def get_submission_actor_and_external_folder_ids(self, actor_name: str, leaderboard_name: str, data_split_name: str):
+        try:
+            root_trojai_folder_id = self.create_summary_root_folder()
+            root_actor_folder_id = self.create_actor_root_folder(actor_name)
+            root_external_folder_id = self.create_folder('{}'.format(actor_name), parent_id=root_trojai_folder_id)
+            actor_submission_folder_id = self.create_folder('{}_{}'.format(leaderboard_name, data_split_name), parent_id=root_actor_folder_id)
+            external_actor_submission_folder_id = self.create_folder('{}_{}'.format(leaderboard_name, data_split_name), parent_id=root_external_folder_id)
+        except:
+            logging.error('Failed to create google drive actor directories')
+            actor_submission_folder_id = None
+            external_actor_submission_folder_id = None
+
+        return actor_submission_folder_id, external_actor_submission_folder_id

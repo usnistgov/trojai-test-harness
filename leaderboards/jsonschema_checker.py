@@ -363,6 +363,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     container_filepath = args.container_filepath
+
+
+
     jsonschema_filepath = args.jsonschema_filepath
     config_filepath = args.config_filepath
 

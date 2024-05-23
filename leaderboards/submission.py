@@ -218,7 +218,7 @@ class Submission(object):
         return leaderboard.load_ground_truth(self.data_split_name)
 
     def load_results(self, ground_truth_dict: typing.OrderedDict[str, float], print_details=True) -> typing.OrderedDict[str, float]:
-
+        # TODO: We need to rework loading the results to be more general purpose, something to do with metrics ...
         # Dictionary storing results -- key = model name, value = prediction
         results = collections.OrderedDict()
 
@@ -289,58 +289,158 @@ class Submission(object):
 
             f.write(schema_output)
 
-    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True) -> None:
-        logging.info("Checking results for {}".format(actor.name))
+    def process_completed_submission(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True):
+        logging.info('Processing completed submission for {}'.format(actor.name))
 
+        ##################################################
+        # initialize error strings to empty
+        ##################################################
+        self.web_display_parse_errors = ""
+        self.web_display_execution_errors = ""
+
+        ##################################################
+        # Fetch (or create) team directory on google drive
+        ##################################################
+        actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor.name, leaderboard.name, self.data_split_name)
+
+        ##################################################
+        # Dumps submissions metadata file into CSV format
+        ##################################################
         if output_metaparams_csv:
             self.dump_summary_schema_csv(trojai_config, actor.name, leaderboard)
 
         info_filepath = os.path.join(self.execution_results_dirpath, Leaderboard.INFO_FILENAME)
         slurm_log_filepath = os.path.join(self.execution_results_dirpath, self.slurm_output_filename)
 
-        # container_output_filename = self.g_file.name + '.out'
+        ##################################################
+        # Renames container output file to associate with actor and submission epoch
+        ##################################################
         container_output_filename = os.path.splitext(self.g_file.name)[0] + '.out'
         container_output_filepath = os.path.join(self.execution_results_dirpath, container_output_filename)
-
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
         updated_container_output_filename = '{}_{}.{}'.format(actor.name, epoch_str, container_output_filename + '.txt')
         updated_container_output_filepath = os.path.join(self.execution_results_dirpath, updated_container_output_filename)
+
         if os.path.exists(container_output_filepath):
             os.rename(container_output_filepath, updated_container_output_filepath)
         else:
             logging.warning("Missing output log file: {}".format(container_output_filepath))
 
-        # if print_details:
-        #     # truncate log file to N bytes
-        #     fs_utils.truncate_log_file(slurm_log_filepath, log_file_byte_limit)
+        ##################################################
+        # Check if file stored when submission was first sent is different from shared file
+        # This could represent a change in the processed file during slurm queuing time, so we check what the submission
+        # Acutally used compared to what was submitted
+        ##################################################
+        logging.info(
+            'Checking metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
+        orig_g_file = self.g_file
+        submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, actor.name + ".metadata.json")
+        if os.path.exists(submission_metadata_filepath):
+            try:
+                self.g_file = GoogleDriveFile.load_json(submission_metadata_filepath)
+                if update_actor:
+                    actor.update_last_file_epoch(leaderboard.name, self.data_split_name, self.g_file.modified_epoch)
 
-            # start logging to the submission log, in addition to server log
-            # cur_logging_level = logging.getLogger().getEffectiveLevel()
-            # set all individual logging handlers to this level
-            # for handler in logging.getLogger().handlers:
-            #     handler.setLevel(cur_logging_level)
-            # this allows us to set the logger itself to debug without modifying the individual handlers
-            # logging.getLogger().setLevel(logging.DEBUG)  # this enables the higher level debug to show up for the handler we are about to add
+                if orig_g_file.id != self.g_file.id:
+                    logging.info('Originally Submitted File: "{}, id: {}"'.format(orig_g_file.name, orig_g_file.id))
+                    logging.info('Updated Submission with Executed File: "{}"'.format(self.g_file))
+                else:
+                    logging.info('Drive file did not change between original submission and execution.')
+            except:
+                msg = 'Failed to deserialize file: "{}".\n{}'.format(submission_metadata_filepath,
+                                                                     traceback.format_exc())
+                logging.error(msg)
+                self.web_display_parse_errors += ":Executed File Update:"
+        else:
+            msg = 'Executed submission file: "{}" could not be found.\n{}'.format(submission_metadata_filepath,
+                                                                                  traceback.format_exc())
+            logging.error(msg)
+            self.web_display_parse_errors += ":Executed File Update:"
 
-            # submission_log_handler = logging.FileHandler(slurm_log_filepath)
-            # submission_log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5.5s] [%(filename)s:%(lineno)d] %(message)s"))
-            # submission_log_handler.setLevel(logging.DEBUG)
-            # logging.getLogger().addHandler(submission_log_handler)
+        ##################################################
+        # load the runtime info from the task and process metadata about execution
+        ##################################################
+        if not os.path.exists(info_filepath):
+            logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
+            self.web_display_parse_errors += ":Info File Missing:"
+        else:
+            info_dict = json_io.read(info_filepath)
+            if 'execution_runtime' not in info_dict.keys():
+                logging.error("Missing 'execution_runtime' key in info file dictionary")
+                self.execution_runtime = np.nan
+            else:
+                self.execution_runtime = info_dict['execution_runtime']
 
-        # Create team directory on google drive
+            if 'model_execution_runtimes' not in info_dict.keys():
+                self.model_execution_runtimes = dict()
+            else:
+                self.model_execution_runtimes = info_dict['model_execution_runtimes']
+
+            if 'errors' not in info_dict.keys():
+                logging.error("Missing 'errors' key in info file dictionary")
+            else:
+                self.web_display_execution_errors = info_dict['errors']
+
+                # Check for early abort to reset actor time window
+                if 'Container Parameters' in self.web_display_execution_errors or 'Schema Header' in self.web_display_execution_errors:
+                    if actor.type == 'performer':
+                        actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
+
+        ##################################################
+        # upload log file to drive
+        ##################################################
         try:
-            root_trojai_folder_id = g_drive.create_summary_root_folder()
-            root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
-            root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
-            actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_actor_folder_id)
-            external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, self.data_split_name), parent_id=root_external_folder_id)
+            if actor_submission_folder_id is not None and os.path.exists(slurm_log_filepath):
+                g_drive.upload(slurm_log_filepath, folder_id=actor_submission_folder_id)
+            else:
+                logging.error('Failed to find slurm output log file: {}'.format(slurm_log_filepath))
+                self.web_display_parse_errors += ":Log File Missing:"
         except:
-            logging.error('Failed to create google drive actor directories')
-            root_actor_folder_id = None
-            root_trojai_folder_id = None
-            root_external_folder_id = None
-            actor_submission_folder_id = None
-            external_actor_submission_folder_id = None
+            logging.error('Unable to upload slurm output log file: {}'.format(slurm_log_filepath))
+            if ":File Upload:" not in self.web_display_parse_errors:
+                self.web_display_parse_errors += ":File Upload:"
+
+        ##################################################
+        # upload container output for sts split only
+        ##################################################
+        try:
+            if self.data_split_name == 'sts' or self.data_split_name == 'train':
+                if actor_submission_folder_id is not None and os.path.exists(updated_container_output_filepath):
+                    g_drive.upload(updated_container_output_filepath, folder_id=actor_submission_folder_id)
+                else:
+                    logging.error(
+                        'Failed to find container output file: {}'.format(updated_container_output_filepath))
+                    self.web_display_parse_errors += ':Container File Missing:'
+
+        except:
+            logging.error('Unable to upload container output file: {}'.format(updated_container_output_filepath))
+            self.web_display_parse_errors += ':File Upload(container output):'
+
+        ##################################################
+        # if no errors have been recorded, convert empty string to human readable "None"
+        ##################################################
+        if len(self.web_display_parse_errors.strip()) == 0:
+            self.web_display_parse_errors = "None"
+        if len(self.web_display_execution_errors.strip()) == 0:
+            self.web_display_execution_errors = "None"
+
+        ##################################################
+        # Finished processing, reset actor status and mark no active slurm job for submission
+        ##################################################
+        self.active_slurm_job_name = None
+
+        if update_actor:
+            actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
+
+        logging.info('After process_results')
+
+    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True) -> None:
+        logging.info("Processing results for {}".format(actor.name))
+
+        ##################################################
+        # Fetch (or create) team directory on google drive
+        ##################################################
+        actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor.name, leaderboard.name, self.data_split_name)
 
         try:
             # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
@@ -348,34 +448,15 @@ class Submission(object):
             logging.info('Processing {}: Results'.format(actor.name))
             logging.info('**************************************************')
 
-            # initialize error strings to empty
-            self.web_display_parse_errors = ""
-            self.web_display_execution_errors = ""
 
-            # Get the actual file that was downloaded for the submission
-            logging.info('Loading metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
-            orig_g_file = self.g_file
-            submission_metadata_filepath = os.path.join(self.actor_submission_dirpath, actor.name + ".metadata.json")
-            if os.path.exists(submission_metadata_filepath):
-                try:
-                    self.g_file = GoogleDriveFile.load_json(submission_metadata_filepath)
-                    if update_actor:
-                        actor.update_last_file_epoch(leaderboard.name, self.data_split_name, self.g_file.modified_epoch)
 
-                    if orig_g_file.id != self.g_file.id:
-                        logging.info('Originally Submitted File: "{}, id: {}"'.format(orig_g_file.name, orig_g_file.id))
-                        logging.info('Updated Submission with Executed File: "{}"'.format(self.g_file))
-                    else:
-                        logging.info('Drive file did not change between original submission and execution.')
-                except:
-                    msg = 'Failed to deserialize file: "{}".\n{}'.format(submission_metadata_filepath, traceback.format_exc())
-                    logging.error(msg)
-                    self.web_display_parse_errors += ":Executed File Update:"
-            else:
-                msg = 'Executed submission file: "{}" could not be found.\n{}'.format(submission_metadata_filepath, traceback.format_exc())
-                logging.error(msg)
-                self.web_display_parse_errors += ":Executed File Update:"
 
+
+            # TODO: Use new abstraction for metric calculation. This should be all inclusive with metrics as well
+            # things we need to be able to do:
+            # 1. Load data required to compute metric
+            # 2. Apply metric on the loaded data
+            # 3.
             predictions, targets, models = self.get_predictions_targets_models(leaderboard, print_details=print_details)
             metadata_df = leaderboard.load_metadata_csv_into_df()
 
@@ -388,32 +469,32 @@ class Submission(object):
             for metric_name, metric in submission_metrics.items():
                 self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
 
-            # load the runtime info from the vm-executor
-            if not os.path.exists(info_filepath):
-                logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
-                self.web_display_parse_errors += ":Info File Missing:"
-            else:
-                info_dict = json_io.read(info_filepath)
-                if 'execution_runtime' not in info_dict.keys():
-                    logging.error("Missing 'execution_runtime' key in info file dictionary")
-                    self.execution_runtime = np.nan
-                else:
-                    self.execution_runtime = info_dict['execution_runtime']
-
-                if 'model_execution_runtimes' not in info_dict.keys():
-                    self.model_execution_runtimes = dict()
-                else:
-                    self.model_execution_runtimes = info_dict['model_execution_runtimes']
-
-                if 'errors' not in info_dict.keys():
-                    logging.error("Missing 'errors' key in info file dictionary")
-                else:
-                    self.web_display_execution_errors = info_dict['errors']
-
-                    # Check for early abort to reset actor time window
-                    if 'Container Parameters' in self.web_display_execution_errors or 'Schema Header' in self.web_display_execution_errors:
-                        if actor.type == 'performer':
-                            actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
+            # # load the runtime info from the vm-executor
+            # if not os.path.exists(info_filepath):
+            #     logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
+            #     self.web_display_parse_errors += ":Info File Missing:"
+            # else:
+            #     info_dict = json_io.read(info_filepath)
+            #     if 'execution_runtime' not in info_dict.keys():
+            #         logging.error("Missing 'execution_runtime' key in info file dictionary")
+            #         self.execution_runtime = np.nan
+            #     else:
+            #         self.execution_runtime = info_dict['execution_runtime']
+            #
+            #     if 'model_execution_runtimes' not in info_dict.keys():
+            #         self.model_execution_runtimes = dict()
+            #     else:
+            #         self.model_execution_runtimes = info_dict['model_execution_runtimes']
+            #
+            #     if 'errors' not in info_dict.keys():
+            #         logging.error("Missing 'errors' key in info file dictionary")
+            #     else:
+            #         self.web_display_execution_errors = info_dict['errors']
+            #
+            #         # Check for early abort to reset actor time window
+            #         if 'Container Parameters' in self.web_display_execution_errors or 'Schema Header' in self.web_display_execution_errors:
+            #             if actor.type == 'performer':
+            #                 actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
         finally:
             if print_details:
                 pass
@@ -423,63 +504,31 @@ class Submission(object):
                 # set the global logging handlers back to its original level
                 # logging.getLogger().setLevel(cur_logging_level)
 
-        # upload log file to drive
-        try:
-            if actor_submission_folder_id is not None and os.path.exists(slurm_log_filepath):
-                g_drive.upload(slurm_log_filepath, folder_id=actor_submission_folder_id)
-            else:
-                logging.error('Failed to find slurm output log file: {}'.format(slurm_log_filepath))
-                self.web_display_parse_errors += ":Log File Missing:"
-        except:
-            logging.error('Unable to upload slurm output log file: {}'.format(slurm_log_filepath))
-            if ":File Upload:" not in self.web_display_parse_errors:
-                self.web_display_parse_errors += ":File Upload:"
 
-        # upload container output for sts split only
-        try:
-            if self.data_split_name == 'sts' or self.data_split_name == 'train':
-                if actor_submission_folder_id is not None and os.path.exists(updated_container_output_filepath):
-                    g_drive.upload(updated_container_output_filepath, folder_id=actor_submission_folder_id)
-                else:
-                    logging.error('Failed to find container output file: {}'.format(updated_container_output_filepath))
-                    self.web_display_parse_errors += ':Container File Missing:'
-
-        except:
-            logging.error('Unable to upload container output file: {}'.format(updated_container_output_filepath))
-            self.web_display_parse_errors += ':File Upload(container output):'
-
-        # if no errors have been recorded, convert empty string to human readable "None"
-        if len(self.web_display_parse_errors.strip()) == 0:
-            self.web_display_parse_errors = "None"
-        if len(self.web_display_execution_errors.strip()) == 0:
-            self.web_display_execution_errors = "None"
-
-        logging.info('After process_results')
-        self.active_slurm_job_name = None
-
+        # TODO: Move this to another location
         # Share actor and external folders
-        try:
-            if root_actor_folder_id is not None:
-                g_drive.remove_all_sharing_permissions(root_actor_folder_id)
-                g_drive.share(root_actor_folder_id, actor.email)
-        except:
-            logging.error('Unable to share actor folder with {}'.format(actor.email))
+        # try:
+        #     if root_actor_folder_id is not None:
+        #         g_drive.remove_all_sharing_permissions(root_actor_folder_id)
+        #         g_drive.share(root_actor_folder_id, actor.email)
+        # except:
+        #     logging.error('Unable to share actor folder with {}'.format(actor.email))
+        #
+        # try:
+        #     if root_trojai_folder_id is not None:
+        #         g_drive.remove_all_sharing_permissions(root_trojai_folder_id)
+        #         for email in trojai_config.summary_metric_email_addresses:
+        #             g_drive.share(root_trojai_folder_id, email)
+        # except:
+        #     logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.summary_metric_email_addresses))
 
-        try:
-            if root_trojai_folder_id is not None:
-                g_drive.remove_all_sharing_permissions(root_trojai_folder_id)
-                for email in trojai_config.summary_metric_email_addresses:
-                    g_drive.share(root_trojai_folder_id, email)
-        except:
-            logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.summary_metric_email_addresses))
 
-        if update_actor:
-            actor.update_job_status(leaderboard.name, self.data_split_name, 'None')
 
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
 
     def compute_metric(self, actor_name, metric, predictions, targets, models, metadata_df, g_drive, actor_folder_id, external_folder_id, store_results=True):
+        # TODO: This functionality will be replaced with a new abstraction
         metric_output_dirpath = os.path.join(self.execution_results_dirpath)
         epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
@@ -508,6 +557,7 @@ class Submission(object):
         return metric_output
 
     def get_predictions_targets_models(self, leaderboard: Leaderboard, print_details: bool = False, update_nan_with_default: bool = True):
+        # TODO: This will be replaced with new abstraction
         try:
             ground_truth_dict = self.load_ground_truth(leaderboard)
         except:

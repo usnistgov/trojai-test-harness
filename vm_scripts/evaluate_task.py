@@ -52,6 +52,24 @@ def clean_dirpath_contents(dirpath: str):
 
 class EvaluateTask(ABC):
 
+    def __init__(self):
+        pass
+
+    def process_models(self):
+        raise NotImplementedError('Must override execute_task')
+
+
+    @abstractmethod
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        raise NotImplementedError('Must override execute_task')
+
+
+    @abstractmethod
+    def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
+        raise NotImplementedError('Must override execute_task')
+
+class EvaluateTrojAITask(EvaluateTask):
+
     def __init__(self, models_dirpath: str,
                  submission_filepath: str,
                  home_dirpath: str,
@@ -113,6 +131,18 @@ class EvaluateTask(ABC):
         sys.stdout = StreamToLogger(logger, logging.INFO)
         sys.stderr = StreamToLogger(logger, logging.ERROR)
 
+    def execute_container(self, container_instance, active_dirpath, container_scratch_dirpath, model_dirname):
+        active_result_filepath = os.path.join(active_dirpath, 'result.txt')
+
+        container_args = self.get_execute_task_args(active_dirpath, container_scratch_dirpath, active_result_filepath)
+
+        result = Client.run(container_instance, container_args, return_result=True)
+
+        # copy results back to real output filename
+        if os.path.exists(active_result_filepath):
+            shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+
+        return result
 
     def process_models(self):
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
@@ -133,7 +163,7 @@ class EvaluateTask(ABC):
         logging.info("Container started.")
         for model_idx in range(len(model_files)):
             model_dirname = model_files[model_idx]
-        
+
             # Clean up scratch and active dir prior to running
             clean_dirpath_contents(container_scratch_dirpath)
             clean_dirpath_contents(active_dirpath)
@@ -153,12 +183,9 @@ class EvaluateTask(ABC):
 
             logging.info('Starting execution of {} ({}/{})'.format(model_dirname, model_idx, len(model_files)))
 
-            active_result_filepath = os.path.join(active_dirpath, 'result.txt')
-
             container_start_time = time.time()
-            container_args = self.get_execute_task_args(active_dirpath, container_scratch_dirpath, active_result_filepath)
 
-            result = Client.run(container_instance, container_args, return_result=True)
+            result = self.execute_container(container_instance, active_dirpath, container_scratch_dirpath, model_dirname)
 
             return_code = -1
             if 'return_code' in result:
@@ -175,9 +202,7 @@ class EvaluateTask(ABC):
 
             logging.info('Finished executing {}, returned status code: {}'.format(model_dirname, return_code))
 
-            # copy results back to real output filename
-            if os.path.exists(active_result_filepath):
-                shutil.copy(active_result_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+
 
         logging.info("All model executions complete, stopping continer.")
         container_instance.stop()
@@ -202,7 +227,8 @@ class EvaluateTask(ABC):
         raise NotImplementedError('Must override execute_task')
 
 
-class EvaluateImageTask(EvaluateTask):
+
+class EvaluateImageTask(EvaluateTrojAITask):
     def __init__(self, models_dirpath: str,
                  submission_filepath: str,
                  home_dirpath: str,
@@ -248,7 +274,7 @@ class EvaluateImageTask(EvaluateTask):
         return args
 
 
-class EvaluateNLPTask(EvaluateTask):
+class EvaluateNLPTask(EvaluateTrojAITask):
 
     def __init__(self, models_dirpath: str,
                  submission_filepath: str,
@@ -316,7 +342,7 @@ class EvaluateNLPTask(EvaluateTask):
 
 
 
-class EvaluateRLTask(EvaluateTask):
+class EvaluateRLTask(EvaluateTrojAITask):
 
     def __init__(self, models_dirpath: str,
                  submission_filepath: str,
@@ -362,7 +388,7 @@ class EvaluateRLTask(EvaluateTask):
 
         return args
 
-class EvaluateCyberTask(EvaluateTask):
+class EvaluateCyberTask(EvaluateTrojAITask):
     def __init__(self, models_dirpath: str,
                  submission_filepath: str,
                  home_dirpath: str,
@@ -409,7 +435,7 @@ class EvaluateCyberTask(EvaluateTask):
 
         return args
 
-class EvaluateCyberPDFTask(EvaluateTask):
+class EvaluateCyberPDFTask(EvaluateTrojAITask):
 
     def __init__(self, models_dirpath: str,
                  submission_filepath: str,
@@ -444,6 +470,120 @@ class EvaluateCyberPDFTask(EvaluateTask):
 
         self.scale_params_filepath = args.scale_params_filepath
         self.scale_params_filename = os.path.basename(self.scale_params_filepath)
+
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
+
+    def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
+        active_scale_params_filepath = os.path.join(active_dirpath, self.scale_params_filename)
+        shutil.copy(self.scale_params_filepath, active_scale_params_filepath)
+
+
+
+        args = ['--model_filepath', os.path.join(active_dirpath, 'model.pt'),
+                '--result_filepath', active_result_filepath,
+                '--scratch_dirpath', container_scratch_dirpath,
+                '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
+                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
+                '--metaparameters_filepath', self.metaparameters_filepath,
+                '--schema_filepath', self.metaparameters_schema_filepath,
+                '--learned_parameters_dirpath', self.learned_parameters_dirpath,
+                '--scale_parameters_filepath', active_scale_params_filepath]
+
+        if self.source_dataset_dirpath is not None:
+            args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
+
+        return args
+
+class EvaluateMitigationTask(EvaluateTrojAITask):
+    def __init__(self, models_dirpath: str,
+                 submission_filepath: str,
+                 home_dirpath: str,
+                 result_dirpath: str,
+                 scratch_dirpath: str,
+                 training_dataset_dirpath: str,
+                 metaparameters_filepath: str,
+                 rsync_excludes: list,
+                 learned_parameters_dirpath: str,
+                 source_dataset_dirpath: str,
+                 result_prefix_filename: str,
+                 subset_model_ids: list):
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids)
+
+        # parser = argparse.ArgumentParser(description='Parser for Cyber')
+        # parser.add_argument('--scale-params-filepath', type=str, help='The filepath to the scale parameters file', required=True)
+        #
+        # args, extras = parser.parse_known_args()
+        #
+        # self.scale_params_filepath = args.scale_params_filepath
+        # self.scale_params_filename = os.path.basename(self.scale_params_filepath)
+
+    def execute_container(self, container_instance, active_dirpath, container_scratch_dirpath, model_dirname):
+
+        # Setup mitigation Arguments
+        model_filepath = os.path.join(active_dirpath, 'model.pt')
+        output_dirpath = os.path.join(active_dirpath, 'output')
+        output_model_name = 'mitigated.pt'
+
+        if not os.path.exists(output_dirpath):
+            os.makedirs(output_dirpath)
+
+        mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
+
+        mitigate_args = ['--mitigate',
+                         '--metaparameters', self.metaparameters_filepath,
+                         '--model_filepath', model_filepath,
+                         '--dataset', mitigate_dataset_dirpath,
+                         '--scratch_dirpath', container_scratch_dirpath,
+                         '--output_dirpath', output_dirpath,
+                         '--model_output', output_model_name]
+
+        # Execute mitigate
+        # TODO: How to handle result from mitigate (check for 0 status?)
+        result = Client.run(container_instance, mitigate_args, return_result=True)
+
+        # Setup test arguments
+        mitigated_model_filepath = os.path.join(output_dirpath, output_model_name)
+
+        # TODO: What to do if no mitigated model exists
+        if not os.path.exists(mitigated_model_filepath):
+            logging.error('Failed to find mitigated model, mitigate step may have errors.')
+        else:
+            mitigated_model_filepath = model_filepath
+
+        test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
+
+
+        test_args = ['--test',
+                     '--metaparameters', self.metaparameters_filepath,
+                     '--model_filepath', mitigated_model_filepath,
+                     '--dataset', test_dataset_dirpath,
+                     '--scratch_dirpath', container_scratch_dirpath,
+                     '--output_dirpath', output_dirpath,
+                     ]
+
+        result = Client.run(container_instance, test_args, return_result=True)
+
+        # TODO: The results filepath should probably be passed in as a parameter.
+        output_results_filepath = os.path.join(output_dirpath, 'results.pkl')
+
+        # copy results back to real output filename
+        if os.path.exists(output_results_filepath):
+            shutil.copy(output_results_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+
+        return result
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
