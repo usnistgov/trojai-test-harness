@@ -30,7 +30,7 @@ class TrojaiConfig(object):
         # self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
         self.leaderboard_csvs_dirpath = os.path.join(self.datasets_dirpath, 'leaderboard_summary_csvs')
         self.vm_cpu_cores_per_partition = {'es': 10, 'sts': 10}
-        self.job_color_key = {604800: 'text-sucess font-weight-bold',
+        self.job_color_key = {604800: 'text-success font-weight-bold',
                               1209600: 'text-warning font-weight-bold',
                               float('inf'): 'text-danger font-weight-bold'}
 

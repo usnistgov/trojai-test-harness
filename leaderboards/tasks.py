@@ -178,6 +178,8 @@ class TrojAITask(Task):
     VALID_TECHNIQUE_TYPES = ['Weight Analysis', 'Trigger Inversion', 'Attribution Analysis', 'Jacobian Inspection', 'Other']
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_type: str, evaluate_model_python_filepath: str = None,  remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
+        super().__init__()
+
         self.task_type = task_type
 
         self.default_prediction_result = 0.5
@@ -255,6 +257,7 @@ class TrojAITask(Task):
         errors = ''
         logging.info('Checking for parameters in container')
 
+        # TODO: This might require modification for mitigation
         metaparameters_filepath = '/metaparameters.json'
         metaparameters_schema_filepath = '/metaparameters_schema.json'
         learned_parameters_dirpath = '/learned_parameters'
@@ -270,6 +273,7 @@ class TrojAITask(Task):
 
         logging.info('Running checks on jsonschema')
 
+        # TODO: We will need to see how mitigation plays out for this
         if not jsonschema_checker.is_container_configuration_valid(submission_filepath):
             logging.error('Jsonschema contained errors.')
             errors += ':Container Parameters (jsonschema checker):'
@@ -279,6 +283,7 @@ class TrojAITask(Task):
     def run_submission_schema_header_checks(self, submission_filepath):
         errors = ''
 
+        # TODO: This might not be necessary for mitigation
         schema_dict = jsonschema_checker.collect_json_metaparams_schema(submission_filepath)
 
         default_title = 'Trojan Detection Container (trojai-example) - The template detector to be used within the TrojAI competition.'
@@ -369,9 +374,6 @@ class TrojAITask(Task):
         sc = rsync_file_to_vm(vm_ip, self.evaluate_model_python_filepath, remote_home, source_params=permissions_params)
         errors += check_subprocess_error(sc, ':Copy in:', '{} evaluate python model script copy in may have failed'.format(vm_name), send_mail=True, subject='{} evaluate model script copy failed'.format(vm_name))
 
-        # Copy in conda env
-
-
         # copy in submission filepath
         sc = rsync_file_to_vm(vm_ip, submission_filepath, remote_scratch)
         errors += check_subprocess_error(sc, ':Copy in:', '{} submission copy in may have failed'.format(vm_name), send_mail=True, subject='{} submission copy failed'.format(vm_name))
@@ -409,6 +411,7 @@ class TrojAITask(Task):
 
         return errors
 
+    # TODO: It may be necessary to specify the python_execution_env_filepath related to the task, rather than the current use from the trojai config
     def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
@@ -435,13 +438,6 @@ class TrojAITask(Task):
         params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_result_dirpath))
 
         logging.info('Launching with params {}'.format(' '.join(params)))
-
-        # child = subprocess.Popen(params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        # child = subprocess.Popen(params)
-        # with child.stdout:
-        #     for line in iter(child.stdout.readline, b''):
-        #         logging.info('Execution: {}'.format(line.decode()))
-        # execute_status = child.wait()
 
         rc = subprocess.run(params)
         execute_status = rc.returncode
@@ -535,6 +531,7 @@ class TrojAITask(Task):
         errors += check_subprocess_error(sc, ':Copy Out:', 'Copy out results may have failed for VM {}'.format(vm_name))
         return errors
 
+    # TODO: This might have to be customized
     def package_results(self, result_dirpath: str, info_dict: dict):
         model_prediction_dict = {}
         for model_prediction_file_name in os.listdir(result_dirpath):
@@ -571,39 +568,6 @@ class TrojAITask(Task):
         sc = cleanup_scratch(vm_ip, remote_scratch)
         errors += check_subprocess_error(sc, ':Cleanup:', '{} cleanup failed with status code {}'.format(vm_name, sc))
         return errors
-
-    def load_ground_truth(self, dataset: Dataset) -> typing.OrderedDict[str, float]:
-        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
-        ground_truth_dict = collections.OrderedDict()
-
-        models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
-
-        if os.path.exists(models_dirpath):
-            for model_dir in os.listdir(models_dirpath):
-
-                if not model_dir.startswith('id-'):
-                    continue
-
-                model_dirpath = os.path.join(models_dirpath, model_dir)
-
-                if not os.path.isdir(model_dirpath):
-                    continue
-
-                ground_truth_file = os.path.join(model_dirpath, Dataset.GROUND_TRUTH_NAME)
-
-                if not os.path.exists(ground_truth_file):
-                    continue
-
-                with open(ground_truth_file) as truth_file:
-                    file_contents = truth_file.readline().strip()
-                    ground_truth = float(file_contents)
-                    ground_truth_dict[str(model_dir)] = ground_truth
-
-        if len(ground_truth_dict) == 0:
-            raise RuntimeError(
-                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(models_dirpath))
-
-        return ground_truth_dict
 
 class MitigationTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):

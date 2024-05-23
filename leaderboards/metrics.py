@@ -17,7 +17,7 @@ from matplotlib.offsetbox import AnchoredText
 import os
 
 from leaderboards import fs_utils
-from leaderboards import metadata_utils
+from leaderboards import trojai_metadata_utils
 
 
 
@@ -127,7 +127,7 @@ class GroupedCrossEntropyViolin(TrojAIMetric):
         ce = -(a + b)
 
         # Identify models based on columns of interest
-        model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest, is_sorted=True)
+        model_lists = trojai_metadata_utils.build_model_lists(metadata_df, self.columns_of_interest, is_sorted=True)
 
         datasets = []
         names = []
@@ -289,7 +289,7 @@ class Grouped_ROC_AUC(TrojAIMetric):
         result_data = {}
         files = []
 
-        model_lists = metadata_utils.build_model_lists(metadata_df, self.columns_of_interest)
+        model_lists = trojai_metadata_utils.build_model_lists(metadata_df, self.columns_of_interest)
         thresholds = np.arange(0.0, 1.01, 0.01)
 
         for key, model_ids in model_lists.items():
@@ -573,28 +573,3 @@ class DEX_Factor_csv(TrojAIMetric):
         files.append(filepath)
 
         return {'result': None, 'metadata': None, 'files': files}
-
-class MetricsProcessor(object):
-    def __init__(self):
-        pass
-
-    def add_metric(self, metric: Metric):
-        pass
-    def process_metrics(self):
-        pass
-
-
-class TrojAIMetricsProcessor(MetricsProcessor):
-    def __init__(self):
-        pass
-
-    def process_metrics(self):
-        pass
-
-
-class MitigationMetricsProcessor(MetricsProcessor):
-    def __init__(self):
-        pass
-
-    def process_metrics(self):
-        pass

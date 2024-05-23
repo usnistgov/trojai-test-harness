@@ -61,7 +61,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
         custom_evaluate_python_env_filepath = trojai_config.evaluate_python_env
     task = leaderboard.task
     dataset = leaderboard.get_dataset(data_split_name)
-    train_dataset = leaderboard.get_dataset(Leaderboard.TRAIN_DATASET_NAME)
+    train_dataset = leaderboard.get_dataset(leaderboard.get_training_dataset_name())
 
     # Step 1) Download the submission (if it does not exist)
     if not os.path.exists(submission_filepath):

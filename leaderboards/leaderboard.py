@@ -159,8 +159,7 @@ class Leaderboard(object):
         return self.dataset_manager.has_dataset(data_split_name)
 
     def load_ground_truth(self, data_split_name) -> typing.OrderedDict[str, float]:
-        dataset = self.dataset_manager.get(data_split_name)
-        return self.task.load_ground_truth(dataset)
+        raise NotImplementedError()
 
     def get_result_dirpath(self, data_split_name):
         dataset = self.dataset_manager.get(data_split_name)
@@ -376,6 +375,9 @@ class Leaderboard(object):
     def get_valid_summary_metric(self, metric_name):
         raise NotImplementedError()
 
+    def get_training_dataset_name(self):
+        raise NotImplementedError()
+
     def load_result(self, result_filepath):
         if os.path.exists(result_filepath):
             try:
@@ -502,6 +504,47 @@ class TrojAILeaderboard(Leaderboard):
         column_names.extend(['model_names', 'raw_results', 'ground_truth'])
         column_names.extend(self.submission_metrics.keys())
         return column_names
+
+    def get_training_dataset_name(self):
+        raise TrojAILeaderboard.TRAIN_DATASET_NAME
+
+
+    def load_ground_truth(self, data_split_name: str) -> typing.OrderedDict[str, float]:
+        dataset = self.dataset_manager.get(data_split_name)
+
+        # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
+        ground_truth_dict = collections.OrderedDict()
+
+        models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
+
+        if os.path.exists(models_dirpath):
+            for model_dir in os.listdir(models_dirpath):
+
+                if not model_dir.startswith('id-'):
+                    continue
+
+                model_dirpath = os.path.join(models_dirpath, model_dir)
+
+                if not os.path.isdir(model_dirpath):
+                    continue
+
+                ground_truth_file = os.path.join(model_dirpath, Dataset.GROUND_TRUTH_NAME)
+
+                if not os.path.exists(ground_truth_file):
+                    continue
+
+                with open(ground_truth_file) as truth_file:
+                    file_contents = truth_file.readline().strip()
+                    ground_truth = float(file_contents)
+                    ground_truth_dict[str(model_dir)] = ground_truth
+
+        if len(ground_truth_dict) == 0:
+            raise RuntimeError(
+                'ground_truth_dict length was zero. No ground truth found in "{}"'.format(models_dirpath))
+
+        return ground_truth_dict
+
+
     def process_metrics(self, g_drive: DriveIO, result_manager: ResultsManager, data_split_name: str,
                         execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str):
         # Initialize error strings to return
