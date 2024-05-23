@@ -1161,6 +1161,12 @@ class SubmissionManager(object):
                                         new_per_container_data[key].append(avg_data)
                                     else:
                                         new_per_container_data[key] = [avg_data]
+                                if len(data) == 1:
+                                    avg_data = data[0]
+                                    if key in new_per_container_data:
+                                        new_per_container_data[key].append(avg_data)
+                                    else:
+                                        new_per_container_data[key] = [avg_data]
                             num_per_container_dfs_added += 1
 
                         
