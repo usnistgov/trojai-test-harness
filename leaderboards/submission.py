@@ -1075,6 +1075,7 @@ class SubmissionManager(object):
                             continue
 
                         raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
+
                         predictions_np = np.copy(raw_predictions_np)
                         predictions_np[np.isnan(predictions_np)] = default_result
 
@@ -1129,6 +1130,9 @@ class SubmissionManager(object):
 
                             for key, value in metrics.items():
                                 data = [float(i) for i in value]
+                                if key == 'roc_auc' and len(model_names) == 1:
+                                    # skip roc auc metrics here whenever the model count is 1, as roc_auc is a summary metric which only every has a single value
+                                    continue
                                 if len(data) == len(model_names):
                                     if key in new_data:
                                         new_data[key].extend(data)
@@ -1155,21 +1159,20 @@ class SubmissionManager(object):
 
                             for key, value in metrics.items():
                                 data = [float(i) for i in value]
-                                if len(data) == len(model_names):
-                                    avg_data = np.average(data).item()
-                                    if key in new_per_container_data:
-                                        new_per_container_data[key].append(avg_data)
-                                    else:
-                                        new_per_container_data[key] = [avg_data]
                                 if len(data) == 1:
                                     avg_data = data[0]
                                     if key in new_per_container_data:
                                         new_per_container_data[key].append(avg_data)
                                     else:
                                         new_per_container_data[key] = [avg_data]
+                                elif len(data) == len(model_names):
+                                    avg_data = np.average(data).item()
+                                    if key in new_per_container_data:
+                                        new_per_container_data[key].append(avg_data)
+                                    else:
+                                        new_per_container_data[key] = [avg_data]
+                                
                             num_per_container_dfs_added += 1
-
-                        
 
         dictionary_time_end = time.time()
 

@@ -447,7 +447,8 @@ class ROC_AUC(Metric):
         except Exception as e:
             logging.warning(e)
 
-        return {'result': float(roc_auc), 'metadata': {'roc_auc': [float(roc_auc)], 'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}
+        # return {'result': float(roc_auc), 'metadata': {'roc_auc': [float(roc_auc)], 'tpr': TPR, 'fpr': FPR}, 'files': [confusion_matrix_filepath, roc_filepath]}
+        return {'result': float(roc_auc), 'metadata': {'roc_auc': [float(roc_auc)]}, 'files': [confusion_matrix_filepath, roc_filepath]}
 
     def compare(self, computed, baseline):
         return computed > baseline
