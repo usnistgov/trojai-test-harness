@@ -862,9 +862,9 @@ if __name__ == "__main__":
     init_parser.add_argument('--leaderboard_type', type=str, choices=Leaderboard.LEADERBOARD_TYPES, help='Declares the type of leaderboard to generate')
     init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     init_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
-    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.VALID_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
+    init_parser.add_argument('--task-name', type=str, choices=Leaderboard.ALL_TASK_NAMES, help='The name of the task for this leaderboards', required=True)
     init_parser.add_argument('--required-files', type=str, default=None, help='The set of required files, defaults to the defaults set if not used. Tis is a csv list like " --required-files=model.pt,test.sh,img.png"')
-    init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits: {}, if they fail task checks then will not be added. Need to call add-dataset when they are ready.'.format(Leaderboard.DEFAULT_DATASET_SPLIT_NAMES), action='store_true')
+    init_parser.add_argument('--add-default-datasplit', help='Will attempt to add the default data splits, if they fail task checks then will not be added. Need to call add-dataset when they are ready.', action='store_true')
     init_parser.set_defaults(func=init_leaderboard)
 
     add_dataset_parser = subparser.add_parser('add-dataset', help='Adds a dataset into a leaderboard')
