@@ -5,32 +5,29 @@ import math
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 import os
 import time
-import typing
 import pandas as pd
 import fcntl
 
-import collections
 
 import numpy as np
 import subprocess
 import logging
 import traceback
-from typing import List
+from typing import List, Dict
 
 from airium import Airium
 
 from leaderboards.drive_io import DriveIO
-from leaderboards.mail_io import TrojaiMail
 from leaderboards.google_drive_file import GoogleDriveFile
 from leaderboards.actor import Actor, ActorManager
 from leaderboards import json_io
 from leaderboards import slurm
 from leaderboards import time_utils
-from leaderboards import fs_utils
 from leaderboards.leaderboard import Leaderboard
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards import hash_utils
 from leaderboards import jsonschema_checker
+from leaderboards.results_manager import ResultsManager
 
 class Submission(object):
     def __init__(self, g_file: GoogleDriveFile, actor: Actor, leaderboard: Leaderboard, data_split_name: str, provenance: str='performer', submission_epoch: int=None, slurm_queue_name: str=None, submission_leaderboard: Leaderboard = None):
@@ -43,8 +40,6 @@ class Submission(object):
         if self.slurm_queue_name is None:
             self.slurm_queue_name = leaderboard.get_slurm_queue_name(self.data_split_name)
         self.slurm_nice = leaderboard.get_slurm_nice(self.data_split_name)
-        self.metric_results = {}
-        self.saved_metric_results = {}
         self.execution_runtime = None
         self.model_execution_runtimes = None
         self.submission_epoch = submission_epoch
@@ -54,10 +49,10 @@ class Submission(object):
         self.execution_epoch = None
         self.active_slurm_job_name = None
         self.slurm_output_filename = None
-        self.confusion_output_filename = None
         self.web_display_parse_errors = "None"
         self.web_display_execution_errors = "None"
         self.provenance = provenance
+        self.processed_metric_names = []
 
         submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
@@ -132,7 +127,7 @@ class Submission(object):
         else:
             return True
 
-    def check(self, trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
+    def check(self, trojai_config: TrojaiConfig, results_manager: ResultsManager, g_drive: DriveIO, actor: Actor, leaderboard: Leaderboard, submission_manager: 'SubmissionManager', log_file_byte_limit: int) -> None:
 
         if self.active_slurm_job_name is None:
             logging.info('Submission "{}_{}" by team "{}" is not active.'.format(self.leaderboard_name, self.data_split_name, actor.name))
@@ -146,6 +141,7 @@ class Submission(object):
         logging.info('squeue results: {}'.format(stdoutSplitNL))
 
         # Check if we got a valid response from squeue
+        # Check slurm output if job is in queue
         if len(stdoutSplitNL) == 3:
             # found single job with that name, and it has state
             info = stdoutSplitNL[1]
@@ -157,11 +153,12 @@ class Submission(object):
             else:
                 logging.warning("Incorrect format for status info: {}".format(info_split))
 
+        # Job did not have status in queue
         elif len(stdoutSplitNL) == 2:
             logging.info('squeue does not have status for job name: {}'.format(self.active_slurm_job_name))
             # 1 entries means no state and job name was not found
             # if the job was not found, and this was a previously active submission, the results are ready for processing
-            self.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit)
+            self.process_completed_submission(trojai_config, results_manager, actor, leaderboard, g_drive, log_file_byte_limit)
 
             if leaderboard.is_auto_delete_submission(self.data_split_name):
                 # delete the container file to avoid filling up disk space
@@ -170,15 +167,19 @@ class Submission(object):
                 if os.path.exists(submission_filepath):
                     os.remove(submission_filepath)
             else:
+                # If the submission had errors, then we should not attempt to run the submission beyond what we have done
                 if self.has_errors(actor):
                     logging.info('Submission contains errors, so will not auto execute other data splits')
                 else:
+                    # If no errors then we see if this submission is supposed to run on any other data splits
                     auto_execute_split_names = leaderboard.get_auto_execute_split_names(self.data_split_name)
                     if len(auto_execute_split_names) > 0:
                         # Check to see if we need to launch for split name
                         current_hash = self.get_submission_hash()
                         actor_submissions = submission_manager.get_submissions_by_actor(actor)
 
+                        # Loop through the auto execute submissions and see if the submission for that data split exists and if the hash is the same
+                        # If they are the same, then we should not relaunch the submission
                         for auto_execute_split_name in auto_execute_split_names:
                             found_matching_submission = False
 
@@ -189,6 +190,7 @@ class Submission(object):
                                         found_matching_submission = True
                                         break
 
+                            # Skip submissions that we found have matching submissions (already ran)
                             if found_matching_submission:
                                 logging.info('Found a matching submission between {} and {}'.format(self.data_split_name, auto_execute_split_name))
                             else:
@@ -199,11 +201,12 @@ class Submission(object):
                                 time.sleep(1)
                                 exec_epoch = time_utils.get_current_epoch()
                                 new_submission.execute(actor, trojai_config, exec_epoch)
+        # Unknown format coming from slurm, attempt to process results for whatever is there
         else:
             logging.warning("Incorrect format for stdout from squeue: {}".format(stdoutSplitNL))
 
             # attempt to process the result
-            self.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit)
+            self.process_completed_submission(trojai_config, results_manager, actor, leaderboard, g_drive, log_file_byte_limit)
 
             if leaderboard.is_auto_delete_submission(self.data_split_name):
                 # delete the container file to avoid filling up disk space
@@ -213,49 +216,6 @@ class Submission(object):
                     os.remove(submission_filepath)
 
         logging.info("After Check submission: {}".format(self))
-
-    def load_ground_truth(self, leaderboard: Leaderboard) -> typing.OrderedDict[str, float]:
-        return leaderboard.load_ground_truth(self.data_split_name)
-
-    def load_results(self, ground_truth_dict: typing.OrderedDict[str, float], print_details=True) -> typing.OrderedDict[str, float]:
-        # TODO: We need to rework loading the results to be more general purpose, something to do with metrics ...
-        # Dictionary storing results -- key = model name, value = prediction
-        results = collections.OrderedDict()
-
-        # loop over each model file trojan prediction is being made for
-        if print_details:
-            logging.info('Loading results.')
-        for model_name in ground_truth_dict.keys():
-            result_filepath = os.path.join(self.execution_results_dirpath, model_name + ".txt")
-
-            # Check for result file, if its there we read it in
-            if os.path.exists(result_filepath):
-                try:
-                    with open(result_filepath) as file:
-                        file_contents = file.readline().strip()
-                        result = float(file_contents)
-                except:
-                    # if file parsing fails for any reason, the value is nan
-                    result = np.nan
-
-                # Check to ensure the result correctly parsed into a float
-                if np.isnan(result):
-                    if self.data_split_name == 'sts':
-                        logging.warning(
-                            'Failed to parse results for model: "{}" as a float. File contents: "{}" parsed into "{}".'.format(
-                                model_name, file_contents, result))
-                    if ":Result Parse:" not in self.web_display_parse_errors:
-                        self.web_display_parse_errors += ":Result Parse:"
-
-                    results[model_name] = np.nan
-                else:
-                    results[model_name] = result
-            else:  # If the result file does not exist, then we fill it in with the default answer
-                if print_details:
-                    logging.warning('Missing results for model "{}" at "{}".'.format(model_name, result_filepath))
-                results[model_name] = np.nan
-
-        return results
 
     def dump_summary_schema_csv(self, trojai_config: TrojaiConfig, actor_name: str,  leaderboard: Leaderboard):
         summary_schema_csv_filepath = leaderboard.get_summary_schema_csv_filepath(trojai_config)
@@ -289,7 +249,7 @@ class Submission(object):
 
             f.write(schema_output)
 
-    def process_completed_submission(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True):
+    def process_completed_submission(self, trojai_config: TrojaiConfig, results_manager: ResultsManager, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True):
         logging.info('Processing completed submission for {}'.format(actor.name))
 
         ##################################################
@@ -329,7 +289,7 @@ class Submission(object):
         ##################################################
         # Check if file stored when submission was first sent is different from shared file
         # This could represent a change in the processed file during slurm queuing time, so we check what the submission
-        # Acutally used compared to what was submitted
+        # Actually used compared to what was submitted
         ##################################################
         logging.info(
             'Checking metatdata from the file actually downloaded and evaluated, in case the file changed between the time the job was submitted and it was executed.')
@@ -387,6 +347,17 @@ class Submission(object):
                         actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
 
         ##################################################
+        # Process the metrics from the submission
+        ##################################################
+        error_dict, processed_metric_names = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, epoch_str, self.processed_metric_names)
+
+        self.processed_metric_names.extend(processed_metric_names)
+
+        if 'web_display_parse_errors' in error_dict:
+            self.web_display_parse_errors += error_dict['web_display_parse_errors']
+
+
+        ##################################################
         # upload log file to drive
         ##################################################
         try:
@@ -434,180 +405,19 @@ class Submission(object):
 
         logging.info('After process_results')
 
-    def process_results(self, trojai_config: TrojaiConfig, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO, log_file_byte_limit: int, update_actor: bool = True, print_details: bool = True, output_metaparams_csv: bool = True) -> None:
-        logging.info("Processing results for {}".format(actor.name))
-
-        ##################################################
-        # Fetch (or create) team directory on google drive
-        ##################################################
-        actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor.name, leaderboard.name, self.data_split_name)
-
-        try:
-            # try, finally block ensures that the duplication of the logging stream to the slurm log file (being sent back to the performers) is removed from the logger utility after the ground truth analysis completes
-            logging.info('**************************************************')
-            logging.info('Processing {}: Results'.format(actor.name))
-            logging.info('**************************************************')
-
-
-
-
-
-            # TODO: Use new abstraction for metric calculation. This should be all inclusive with metrics as well
-            # things we need to be able to do:
-            # 1. Load data required to compute metric
-            # 2. Apply metric on the loaded data
-            # 3.
-            predictions, targets, models = self.get_predictions_targets_models(leaderboard, print_details=print_details)
-            metadata_df = leaderboard.load_metadata_csv_into_df()
-
-            # Subset data
-            data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
-
-            submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
-
-            # Compute metrics
-            for metric_name, metric in submission_metrics.items():
-                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
-
-            # # load the runtime info from the vm-executor
-            # if not os.path.exists(info_filepath):
-            #     logging.error('Failed to find vm-executor info json dictionary file: {}'.format(info_filepath))
-            #     self.web_display_parse_errors += ":Info File Missing:"
-            # else:
-            #     info_dict = json_io.read(info_filepath)
-            #     if 'execution_runtime' not in info_dict.keys():
-            #         logging.error("Missing 'execution_runtime' key in info file dictionary")
-            #         self.execution_runtime = np.nan
-            #     else:
-            #         self.execution_runtime = info_dict['execution_runtime']
-            #
-            #     if 'model_execution_runtimes' not in info_dict.keys():
-            #         self.model_execution_runtimes = dict()
-            #     else:
-            #         self.model_execution_runtimes = info_dict['model_execution_runtimes']
-            #
-            #     if 'errors' not in info_dict.keys():
-            #         logging.error("Missing 'errors' key in info file dictionary")
-            #     else:
-            #         self.web_display_execution_errors = info_dict['errors']
-            #
-            #         # Check for early abort to reset actor time window
-            #         if 'Container Parameters' in self.web_display_execution_errors or 'Schema Header' in self.web_display_execution_errors:
-            #             if actor.type == 'performer':
-            #                 actor.reset_leaderboard_time_window(leaderboard.name, self.data_split_name)
-        finally:
-            if print_details:
-                pass
-                # stop outputting logging to submission log file
-                # logging.getLogger().removeHandler(submission_log_handler)
-
-                # set the global logging handlers back to its original level
-                # logging.getLogger().setLevel(cur_logging_level)
-
-
-        # TODO: Move this to another location
-        # Share actor and external folders
-        # try:
-        #     if root_actor_folder_id is not None:
-        #         g_drive.remove_all_sharing_permissions(root_actor_folder_id)
-        #         g_drive.share(root_actor_folder_id, actor.email)
-        # except:
-        #     logging.error('Unable to share actor folder with {}'.format(actor.email))
-        #
-        # try:
-        #     if root_trojai_folder_id is not None:
-        #         g_drive.remove_all_sharing_permissions(root_trojai_folder_id)
-        #         for email in trojai_config.summary_metric_email_addresses:
-        #             g_drive.share(root_trojai_folder_id, email)
-        # except:
-        #     logging.error('Unable to share external folders with external emails: {}'.format(trojai_config.summary_metric_email_addresses))
-
-
-
     def get_execute_time_str(self):
         return '{}-execute'.format(time_utils.convert_epoch_to_psudo_iso(self.execution_epoch))
-
-    def compute_metric(self, actor_name, metric, predictions, targets, models, metadata_df, g_drive, actor_folder_id, external_folder_id, store_results=True):
-        # TODO: This functionality will be replaced with a new abstraction
-        metric_output_dirpath = os.path.join(self.execution_results_dirpath)
-        epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
-
-        metric_output = metric.compute(predictions, targets, models, metadata_df, actor_name, self.leaderboard_name, self.data_split_name, epoch_str, metric_output_dirpath)
-
-        if store_results:
-            if metric.store_result_in_submission:
-                self.metric_results[metric.get_name()] = metric_output['result']
-
-            files = metric_output['files']
-            if files is not None:
-                self.saved_metric_results[metric.get_name()] = files
-
-                # Convert to list if we only get a str
-                if isinstance(files, str):
-                    files = [files]
-
-                for file in files:
-                    if not os.path.exists(file):
-                        continue
-                    if metric.share_with_actor and actor_folder_id is not None:
-                        g_drive.upload(file, folder_id=actor_folder_id)
-                    if metric.share_with_external and external_folder_id is not None:
-                        g_drive.upload(file, folder_id=external_folder_id)
-
-        return metric_output
-
-    def get_predictions_targets_models(self, leaderboard: Leaderboard, print_details: bool = False, update_nan_with_default: bool = True):
-        # TODO: This will be replaced with new abstraction
-        try:
-            ground_truth_dict = self.load_ground_truth(leaderboard)
-        except:
-
-            msg = 'Unable to load ground truth results: "{}-{}".\n{}'.format(leaderboard.name, self.data_split_name,
-                                                                             traceback.format_exc())
-            logging.error(msg)
-            if print_details:
-                TrojaiMail().send(to='trojai@nist.gov', subject='Unable to Load Ground Truth', message=msg)
-            raise
-
-        # load the results from disk
-        results = self.load_results(ground_truth_dict, print_details)
-
-        default_result = leaderboard.get_default_prediction_result()
-        if print_details:
-            logging.info('Computing cross entropy between predictions and ground truth.')
-            if self.data_split_name == 'sts':
-                logging.info('Predictions (nan will be replaced with "{}"): "{}"'.format(default_result, results))
-
-        model_names = list(ground_truth_dict.keys())
-        model_names.sort()
-        predictions = np.zeros(len(model_names))
-        targets = np.zeros(len(model_names))
-
-        for i in range(len(model_names)):
-            predictions[i] = results[model_names[i]]
-            targets[i] = ground_truth_dict[model_names[i]]
-
-        if not np.any(np.isfinite(predictions)) and print_details:
-            logging.warning('Found no parse-able results from container execution.')
-            self.web_display_parse_errors += ":No Results:"
-
-        num_missing_predictions = np.count_nonzero(np.isnan(predictions))
-        num_total_predictions = predictions.size
-
-        if num_missing_predictions > 0 and print_details:
-            self.web_display_parse_errors += ":Missing Results:"
-            logging.info('Missing results for {}/{} models'.format(num_missing_predictions, num_total_predictions))
-
-        if update_nan_with_default:
-            predictions[np.isnan(predictions)] = default_result
-
-        return predictions, targets, model_names
 
     def get_submission_filepath(self):
         return os.path.join(self.actor_submission_dirpath, self.g_file.name)
 
+    def get_submission_epoch_str_primary(self):
+        return time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
-    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=[], custom_python_env_filepath: str = None) -> None:
+    def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=None, custom_python_env_filepath: str = None) -> None:
+        if custom_slurm_options is None:
+            custom_slurm_options = []
+
         logging.info('Executing submission {} by {}'.format(self.g_file.name, actor.name))
         self.execution_epoch = execution_epoch
         self.execution_results_dirpath = os.path.join(self.actor_results_dirpath, self.get_execute_time_str())
@@ -733,16 +543,19 @@ class Submission(object):
             self.active_slurm_job_name = None
             self.web_display_execution_errors += ":Slurm Script Error:"
 
-    def get_result_table_row(self, a: Airium, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO):
+    def get_result_table_row(self, results_manager: ResultsManager, a: Airium, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO):
         if self.active_slurm_job_name is not None:
             return
 
         submission_timestr = time_utils.convert_epoch_to_iso(self.submission_epoch)
 
-        # if self.execution_epoch == 0 or self.execution_epoch is None:
-        #     execute_timestr = "None"
-        # else:
-        #     execute_timestr = time_utils.convert_epoch_to_iso(self.execution_epoch)
+        df = results_manager.load_results(leaderboard.name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
+        filtered_df = results_manager.filter_primary_key(df, self.get_submission_epoch_str_primary(), self.data_split_name, actor.uuid)
+
+        if len(filtered_df) > 1:
+            logging.warning('Found multiple entries that match {} {} {} for actor {} on leaderboard {}'.format(self.get_submission_epoch_str_primary(), self.data_split_name, actor.uuid, actor.name, leaderboard.name))
+            return
+
         if self.g_file.modified_epoch == 0 or self.g_file.modified_epoch is None:
             file_timestr = "None"
         else:
@@ -756,10 +569,11 @@ class Submission(object):
 
         with a.tr():
             a.td(_t=actor.name)
-            submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
+
+            submission_metrics = leaderboard.submission_metrics
             for metric_name, metric in submission_metrics.items():
                 if metric.write_html:
-                    metric_value = self.metric_results[metric_name]
+                    metric_value = filtered_df[metric_name].values[0]
 
                     if metric_value is None or math.isnan(float(metric_value)):
                         metric_value = ''
@@ -788,38 +602,25 @@ class Submission(object):
             a.td(_t=self.web_display_execution_errors)
 
     def has_new_metrics(self, leaderboard: Leaderboard) -> bool:
-        submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
+        submission_metrics = leaderboard.submission_metrics
         for metric_name, metric in submission_metrics.items():
-            if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
+            if metric_name not in self.processed_metric_names:
                 return True
 
-            if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
-                return True
         return False
 
-    def compute_missing_metrics(self, actor: Actor, leaderboard: Leaderboard, metadata_df: pd.DataFrame, g_drive: DriveIO, actor_submission_folder_id, external_actor_submission_folder_id):
-        submission_metrics = leaderboard.get_submission_metrics(self.data_split_name)
-        for metric_name, metric in submission_metrics.items():
-            if metric.store_result_in_submission and metric_name not in self.metric_results.keys():
-                logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
+    def compute_missing_metrics(self, results_manager: ResultsManager, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO):
+        if self.has_new_metrics(leaderboard):
+            errors, new_processed_metrics = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, self.get_submission_epoch_str_primary(), self.processed_metric_names)
+            self.processed_metric_names.extend(new_processed_metrics)
 
-                predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
-                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
-
-            if (metric.share_with_actor or metric.share_with_external) and metric_name not in self.saved_metric_results.keys():
-                logging.info('Recomputing metric {} for {}'.format(metric_name, actor.name))
-
-                predictions, targets, models = self.get_predictions_targets_models(leaderboard)
-                data_split_metadata = metadata_df[metadata_df['data_split'] == self.data_split_name]
-                self.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
-
+        # TODO: Should we update the errors for the submission (will have to be careful to not repeat errors)
 
 class SubmissionManager(object):
     def __init__(self, leaderboard_name):
-        self.leaderboard_name = leaderboard_name
+        self.leaderboard_name: str = leaderboard_name
         # keyed on uuid
-        self.__submissions = dict()
+        self.__submissions: Dict[str, List[Submission]] = dict()
 
     def __str__(self):
         msg = ""
@@ -829,79 +630,35 @@ class SubmissionManager(object):
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
-    def check_for_new_metrics(self, leaderboard: Leaderboard, actor_manager: ActorManager, g_drive: DriveIO):
-        try:
-            root_trojai_folder_id = g_drive.create_summary_root_folder()
-        except:
-            logging.error('Failed to create google drive actor directories')
-            return
-
-        metadata_df = leaderboard.load_metadata_csv_into_df()
-
+    def check_for_new_metrics(self, results_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, g_drive: DriveIO):
         for actor_uuid, submissions in self.__submissions.items():
             actor = actor_manager.get_from_uuid(actor_uuid)
-
-            try:
-                root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
-                root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
-            except:
-                logging.error('Failed to create google drive actor directories')
-                continue
 
             for submission in submissions:
                 if submission.active_slurm_job_name is not None:
                     continue
-                if submission.has_new_metrics(leaderboard):
-                    try:
-                        actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, submission.data_split_name), parent_id=root_actor_folder_id)
-                        external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, submission.data_split_name), parent_id=root_external_folder_id)
-                    except Exception as e:
-                        logging.error('Failed to create google drive actor directories')
-                        continue
+                submission.compute_missing_metrics(results_manager, actor, leaderboard, g_drive)
 
-                    submission.compute_missing_metrics(actor, leaderboard, metadata_df, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
-
-
-
-
-    def gather_submissions(self, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor, g_drive: DriveIO) -> List[Submission]:
-        # Create team directory on google drive
-        try:
-            root_trojai_folder_id = g_drive.create_summary_root_folder()
-            root_actor_folder_id = g_drive.create_actor_root_folder(actor.name)
-            root_external_folder_id = g_drive.create_folder('{}'.format(actor.name), parent_id=root_trojai_folder_id)
-            actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, data_split_name), parent_id=root_actor_folder_id)
-            external_actor_submission_folder_id = g_drive.create_folder('{}_{}'.format(leaderboard.name, data_split_name), parent_id=root_external_folder_id)
-
-        except:
-            logging.error('Failed to create google drive actor directories')
-            root_actor_folder_id = None
-            root_trojai_folder_id = None
-            root_external_folder_id = None
-            actor_submission_folder_id = None
-            external_actor_submission_folder_id = None
-        execution_submissions = list()
+    def gather_submissions(self, result_manager: ResultsManager, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor, g_drive: DriveIO) -> List[Submission]:
+        gathered_submissions = list()
 
         actor_submissions = self.__submissions[actor.uuid]
-        submission_metrics = leaderboard.get_submission_metrics(data_split_name)
-        metadata_df = leaderboard.load_metadata_csv_into_df()
+        submission_metrics = leaderboard.submission_metrics
+        metric = submission_metrics[metric_name]
 
-        # Subset data
-        data_split_metadata = metadata_df[metadata_df['data_split'] == data_split_name]
+        result_df = result_manager.load_results(leaderboard.name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
 
         for submission in actor_submissions:
             if submission.data_split_name == data_split_name:
-                metric = submission_metrics[metric_name]
+                filtered_result_df = result_manager.filter_primary_key(result_df, submission.get_submission_epoch_str_primary(), data_split_name, actor.uuid)
+                if metric.store_result:
+                    if filtered_result_df[metric.get_name()] is not None:
+                        metric_value = filtered_result_df[metric.get_name()].values[0]
 
-                if metric_name not in submission.metric_results.keys() or metric_name not in submission.saved_metric_results.keys():
-                    predictions, targets, models = submission.get_predictions_targets_models(leaderboard, print_details=False)
-                    submission.compute_metric(actor.name, metric, predictions, targets, models, data_split_metadata, g_drive, actor_submission_folder_id, external_actor_submission_folder_id)
+                        if metric.compare(metric_value, metric_criteria):
+                            gathered_submissions.append(submission)
 
-                metric_value = submission.metric_results[metric_name]
-                if metric.compare(metric_value, metric_criteria):
-                    execution_submissions.append(submission)
-
-        return execution_submissions
+        return gathered_submissions
 
     def merge_submissions(self, new_submission_manager: 'SubmissionManager'):
         for uuid, submissions in new_submission_manager.__submissions.items():
@@ -926,7 +683,6 @@ class SubmissionManager(object):
                 return True
 
         return False
-
 
     def add_submission(self, actor: Actor, submission: Submission) -> None:
         self.get_submissions_by_actor(actor).append(submission)
@@ -971,14 +727,14 @@ class SubmissionManager(object):
     def load_json(leaderboard: Leaderboard) -> 'SubmissionManager':
         return SubmissionManager.load_json_custom(leaderboard.submissions_filepath, leaderboard.name)
 
-    def write_score_table_unique(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
+    def write_score_table_unique(self, output_dirpath, result_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
 
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
 
         a = Airium()
 
-        valid_submissions = {}
+        valid_submissions : Dict[str, List[Submission]] = {}
 
         for actor_uuid, submission_list in self.__submissions.items():
             valid_submissions[actor_uuid] = list()
@@ -987,7 +743,10 @@ class SubmissionManager(object):
                 if submission.data_split_name == data_split_name:
                     valid_submissions[actor_uuid].append(submission)
 
-        evaluation_metric_name = leaderboard.get_evaluation_metric_name(data_split_name)
+        evaluation_metric_name = leaderboard.evaluation_metric_name
+        submission_metrics = leaderboard.submission_metrics
+
+        df = result_manager.load_results(leaderboard.name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
 
         with a.div(klass='card-body card-body-cascade pb-0'):
             a.h2(klass='pb-q card-title', _t='Best Results based on {}'.format(evaluation_metric_name))
@@ -996,7 +755,6 @@ class SubmissionManager(object):
                     with a.thead():
                         with a.tr():
                             a.th(klass='th-sm', _t='Team')
-                            submission_metrics = leaderboard.get_submission_metrics(data_split_name)
                             for metric_name, metric in submission_metrics.items():
                                 if metric.write_html:
                                     a.th(klass='th-sm', _t=metric_name)
@@ -1008,7 +766,6 @@ class SubmissionManager(object):
                             a.th(klass='th-sm', _t='Parsing Errors')
                             a.th(klass='th-sm', _t='Launch Errors')
                     with a.tbody():
-                        submission_metrics = leaderboard.get_submission_metrics(data_split_name)
                         metric = submission_metrics[evaluation_metric_name]
 
                         for actor_uuid, submissions in valid_submissions.items():
@@ -1019,30 +776,30 @@ class SubmissionManager(object):
                                 if s.active_slurm_job_name is not None:
                                     continue
 
-                                if evaluation_metric_name in s.metric_results.keys():
-                                    metric_score = s.metric_results[evaluation_metric_name]
-                                else:
-                                    metric_score = None
+                                # TODO: We could probably optimize this
+                                filtered_df = result_manager.filter_primary_key(df, s.get_submission_epoch_str_primary(), data_split_name, actor_uuid)
 
-                                if metric_score is not None:
-                                    if best_submission_score is None or metric.compare(metric_score, best_submission_score):
-                                        best_submission_score = metric_score
+                                if filtered_df[evaluation_metric_name] is not None:
+                                    value = filtered_df[evaluation_metric_name].values[0]
+                                    if best_submission_score is None or metric.compare(value, best_submission_score):
+                                        best_submission_score = value
                                         best_submission = s
 
                             if best_submission is not None:
-                                best_submission.get_result_table_row(a, actor, leaderboard, g_drive)
+                                best_submission.get_result_table_row(result_manager, a, actor, leaderboard, g_drive)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))
 
         return result_filepath
 
-    def write_score_table(self, output_dirpath, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
+    def write_score_table(self, output_dirpath, result_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
         result_filename = 'results-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
         a = Airium()
 
-        valid_submissions = {}
+        valid_submissions: Dict[str, List[Submission]] = {}
+        submission_metrics = leaderboard.submission_metrics
 
         for actor_uuid, submission_list in self.__submissions.items():
             valid_submissions[actor_uuid] = list()
@@ -1059,7 +816,6 @@ class SubmissionManager(object):
                     with a.thead():
                         with a.tr():
                             a.th(klass='th-sm', _t='Team')
-                            submission_metrics = leaderboard.get_submission_metrics(data_split_name)
                             for metric_name, metric in submission_metrics.items():
                                 if metric.write_html:
                                     a.th(klass='th-sm', _t=metric_name)
@@ -1074,19 +830,20 @@ class SubmissionManager(object):
                         for actor_uuid, submissions in valid_submissions.items():
                             actor = actor_manager.get_from_uuid(actor_uuid)
                             for s in submissions:
-                                s.get_result_table_row(a, actor, leaderboard, g_drive)
+                                s.get_result_table_row(result_manager, a, actor, leaderboard, g_drive)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))
 
         return result_filepath
 
-    def generate_round_results_csv(self, leaderboard: Leaderboard, actor_manager: ActorManager, overwrite_csv: bool = False):
-        # TODO: Make sure we are not getting duplicate entries
+
+    def generate_round_results_csv(self, results_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, overwrite_csv: bool = False):
         if os.path.exists(leaderboard.summary_results_csv_filepath) and not overwrite_csv:
             result_df = leaderboard.load_summary_results_csv_into_df()
         else:
             result_df = None
+
         if os.path.exists(leaderboard.per_container_summary_results_csv_filepath) and not overwrite_csv:
             per_container_result_df = leaderboard.load_per_container_summary_results_csv_into_df()
         else:
@@ -1094,9 +851,6 @@ class SubmissionManager(object):
 
         num_dfs_added = 0
         num_per_container_dfs_added = 0
-
-        default_result = leaderboard.get_default_prediction_result()
-        metadata_df = leaderboard.load_metadata_csv_into_df()
 
         new_data = dict()
         new_per_container_data = dict()
@@ -1106,9 +860,6 @@ class SubmissionManager(object):
         for actor in actor_manager.get_actors():
             submissions = self.get_submissions_by_actor(actor)
             for data_split in leaderboard.get_all_data_split_names():
-                leaderboard_metrics = leaderboard.get_submission_metrics(data_split)
-
-                metrics = dict()
                 for submission in submissions:
                     if submission.active_slurm_job_name is not None:
                         continue
@@ -1116,104 +867,24 @@ class SubmissionManager(object):
                     if submission.data_split_name == data_split:
                         time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
 
-                        # Check if the submission already exists in the result df
-                        result_df_already_exists = result_df is not None and not result_df[(result_df['team_name'] == actor.name) & (result_df['submission_timestamp'] == time_str) & (result_df['data_split'] == data_split)].empty
+                        temp_new_data, temp_new_per_container_data = leaderboard.update_results_csv(result_df, per_container_result_df, results_manager, time_str, data_split, actor.name, actor.uuid)
 
-                        per_container_result_df_already_exists = per_container_result_df is not None and not per_container_result_df[(per_container_result_df['team_name'] == actor.name) & (per_container_result_df['submission_timestamp'] == time_str) & (per_container_result_df['data_split'] == data_split)].empty
-
-                        if result_df_already_exists and per_container_result_df_already_exists:
-                            continue
-
-                        raw_predictions_np, raw_targets_np, model_names = submission.get_predictions_targets_models(leaderboard, update_nan_with_default=False, print_details=False)
-                        predictions_np = np.copy(raw_predictions_np)
-                        predictions_np[np.isnan(predictions_np)] = default_result
-
-                        # Subset data
-                        data_split_metadata = metadata_df[metadata_df['data_split'] == data_split]
-
-                        # Get full metric results
-                        for metric_name, metric in leaderboard_metrics.items():
-                            if metric.has_metadata():
-                                metric_time_str = time_utils.convert_epoch_to_psudo_iso(submission.submission_epoch)
-                                metric_output = metric.compute(predictions_np, raw_targets_np, model_names, data_split_metadata, actor.name, leaderboard.name, data_split, metric_time_str, submission.execution_results_dirpath)
-
-                                metadata = metric_output['metadata']
-
-                                if metadata is not None:
-                                    if isinstance(metadata, dict):
-                                        for key, value in metadata.items():
-                                            metrics[key] = value
-                                    else:
-                                        raise RuntimeError('Unexpected type for metadata: {}'.format(metadata))
-
-                        if not result_df_already_exists:
-                            if 'model_name' in new_data:
-                                new_data['model_name'].extend(model_names)
-                            else:
-                                new_data['model_name'] = model_names
-
-                            if 'team_name' in new_data:
-                                new_data['team_name'].extend([actor.name] * len(model_names))
-                            else:
-                                new_data['team_name'] = [actor.name] * len(model_names)
-
-                            if 'submission_timestamp' in new_data:
-                                new_data['submission_timestamp'].extend([time_str] * len(model_names))
-                            else:
-                                new_data['submission_timestamp'] = [time_str] * len(model_names)
-
-                            if 'data_split' in new_data:
-                                new_data['data_split'].extend([data_split] * len(model_names))
-                            else:
-                                new_data['data_split'] = [data_split] * len(model_names)
-
-                            if 'prediction' in new_data:
-                                new_data['prediction'].extend([float(i) for i in raw_predictions_np])
-                            else:
-                                new_data['prediction'] = [float(i) for i in raw_predictions_np]
-
-                            if 'ground_truth' in new_data:
-                                new_data['ground_truth'].extend([float(i) for i in raw_targets_np])
-                            else:
-                                new_data['ground_truth'] = [float(i) for i in raw_targets_np]
-
-                            for key, value in metrics.items():
-                                data = [float(i) for i in value]
-                                if len(data) == len(model_names):
-                                    if key in new_data:
-                                        new_data[key].extend(data)
-                                    else:
-                                        new_data[key] = data
+                        if len(temp_new_data) > 0:
                             num_dfs_added += 1
+                            for key in temp_new_data.keys():
+                                if key in new_data:
+                                    new_data[key].extend(temp_new_data[key])
+                                else:
+                                    new_data[key] = temp_new_data[key]
 
-
-                        if not per_container_result_df_already_exists:
-                            if 'team_name' in new_per_container_data:
-                                new_per_container_data['team_name'].append(actor.name)
-                            else:
-                                new_per_container_data['team_name'] = [actor.name]
-
-                            if 'submission_timestamp' in new_per_container_data:
-                                new_per_container_data['submission_timestamp'].append(time_str)
-                            else:
-                                new_per_container_data['submission_timestamp'] = [time_str]
-
-                            if 'data_split' in new_per_container_data:
-                                new_per_container_data['data_split'].append(data_split)
-                            else:
-                                new_per_container_data['data_split'] = [data_split]
-
-                            for key, value in metrics.items():
-                                data = [float(i) for i in value]
-                                if len(data) == len(model_names):
-                                    avg_data = np.average(data).item()
-                                    if key in new_per_container_data:
-                                        new_per_container_data[key].append(avg_data)
-                                    else:
-                                        new_per_container_data[key] = [avg_data]
+                        if len(temp_new_per_container_data) > 0:
                             num_per_container_dfs_added += 1
 
-                        
+                            for key in temp_new_per_container_data.keys():
+                                if key in new_data:
+                                    new_per_container_data[key].extend(temp_new_data[key])
+                                else:
+                                    new_per_container_data[key] = temp_new_data[key]
 
         dictionary_time_end = time.time()
 
@@ -1246,31 +917,21 @@ class SubmissionManager(object):
 
         return result_df
 
-    def recompute_metrics(self, trojai_config: TrojaiConfig, leaderboard: Leaderboard):
+    def recompute_metrics(self, trojai_config: TrojaiConfig, results_manager: ResultsManager, leaderboard: Leaderboard):
 
         actor_manager = ActorManager.load_json(trojai_config)
         g_drive = DriveIO(trojai_config.token_pickle_filepath)
-        log_file_byte_limit = trojai_config.log_file_byte_limit
 
         for actor_uuid, submissions in self.__submissions.items():
             actor = actor_manager.get_from_uuid(actor_uuid)
             for submission in submissions:
                 # Verify it is not active prior to computing metrics
                 if submission.active_slurm_job_name is None:
-                    submission.process_results(trojai_config, actor, leaderboard, g_drive, log_file_byte_limit, update_actor=False, print_details=False, output_metaparams_csv=False)
+                    # This should recompute all metrics
+                    errors, new_processed_metrics = leaderboard.process_metrics(g_drive, results_manager, submission.data_split_name, submission.execution_results_dirpath, actor.name, actor.uuid, submission.get_submission_epoch_str_primary(), processed_metrics=[])
+                    submission.processed_metric_names = new_processed_metrics
 
-        self.save_json(leaderboard)
-
-    def fix_metric(self, leaderboard: Leaderboard, metric_name):
-        for actor_uuid, submissions in self.__submissions.items():
-            for submission in submissions:
-                if submission.active_slurm_job_name is None:
-                    if metric_name in submission.metric_results.keys():
-                        del submission.metric_results[metric_name]
-
-                    if metric_name in submission.saved_metric_results.keys():
-                        del submission.saved_metric_results[metric_name]
-
+        results_manager.save_all()
         self.save_json(leaderboard)
 
     def dump_metaparameter_csv(self, trojai_config: TrojaiConfig, leaderboard: Leaderboard):
@@ -1300,6 +961,7 @@ def merge_submissions(args):
 
 def recompute_metrics(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    results_manager = ResultsManager()
 
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
@@ -1310,7 +972,7 @@ def recompute_metrics(args):
     if args.unsafe:
         leaderboard = Leaderboard.load_json(trojai_config, args.name)
         submission_manager = SubmissionManager.load_json(leaderboard)
-        submission_manager.recompute_metrics(trojai_config, leaderboard)
+        submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard)
         print('Finished recomputing metrics for {}'.format(leaderboard.name))
     else:
         with open(lock_file, 'w') as f:
@@ -1319,44 +981,12 @@ def recompute_metrics(args):
                 print('  PID lock acquired')
                 leaderboard = Leaderboard.load_json(trojai_config, args.name)
                 submission_manager = SubmissionManager.load_json(leaderboard)
-                submission_manager.recompute_metrics(trojai_config, leaderboard)
+                submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard)
                 print('Finished recomputing metrics for {}'.format(leaderboard.name))
             except OSError as e:
                 print('check-and-launch was already running when called. {}'.format(e))
             finally:
                 fcntl.lockf(f, fcntl.LOCK_UN)
-
-
-def fix_metric(args):
-    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
-
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
-                        handlers=[logging.StreamHandler()])
-
-    print('Attempting to acquire PID file lock.')
-    lock_file = '/var/lock/trojai-lockfile'
-    if args.unsafe:
-        leaderboard = Leaderboard.load_json(trojai_config, args.name)
-        submission_manager = SubmissionManager.load_json(leaderboard)
-        metric_name = args.metric_name
-        submission_manager.fix_metric(leaderboard, metric_name)
-        print('Finished fixing metric for {}, metric name {}'.format(leaderboard.name, metric_name))
-    else:
-        with open(lock_file, 'w') as f:
-            try:
-                fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                print('  PID lock acquired')
-                leaderboard = Leaderboard.load_json(trojai_config, args.name)
-                submission_manager = SubmissionManager.load_json(leaderboard)
-                metric_name = args.metric_name
-                submission_manager.fix_metric(leaderboard, metric_name)
-                print('Finished fixing metric for {}, metric name {}'.format(leaderboard.name, metric_name))
-            except OSError as e:
-                print('check-and-launch was already running when called. {}'.format(e))
-            finally:
-                fcntl.lockf(f, fcntl.LOCK_UN)
-
 
 def dump_metaparameters_csv(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
@@ -1406,8 +1036,9 @@ def generate_results_csv(args):
     actor_manager = ActorManager.load_json(trojai_config)
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
     submission_manager = SubmissionManager.load_json(leaderboard)
+    results_manager = ResultsManager()
 
-    submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
+    submission_manager.generate_round_results_csv(results_manager, leaderboard, actor_manager, overwrite_csv=False)
 
 
 
@@ -1430,13 +1061,6 @@ if __name__ == "__main__":
     recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     recompute_metrics_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
     recompute_metrics_parser.set_defaults(func=recompute_metrics)
-
-    fix_metric_parser = subparser.add_parser('fix-metric')
-    fix_metric_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    fix_metric_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
-    fix_metric_parser.add_argument('--metric-name', type=str, help='The name of the metric to reset', required=True)
-    fix_metric_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
-    fix_metric_parser.set_defaults(func=fix_metric)
 
     generate_results_csv_parser = subparser.add_parser('generate-results-csv', help='Generates the RESULTS CSV for a round')
     generate_results_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)

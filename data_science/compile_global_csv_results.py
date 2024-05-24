@@ -36,7 +36,7 @@ def main(results_dirpath, data_split, metadata_filepath, output_dirpath, round_n
 
     columns = list(metadata.columns)
 
-    ce_metric = leaderboards.metrics.AverageCrossEntropy(write_html=False, share_with_actor=False, store_result_in_submission=False)
+    ce_metric = leaderboards.metrics.AverageCrossEntropy(write_html=False, share_with_actor=False, store_result=False)
 
     df_list = list()
     meta_list = list()

@@ -56,6 +56,7 @@ class Leaderboard(object):
 
     GENERAL_SLURM_QUEUE_NAME = 'es'
     STS_SLURM_QUEUE_NAME = 'sts'
+    INFO_FILENAME = 'info.json'
 
     SLURM_QUEUE_NAMES = [GENERAL_SLURM_QUEUE_NAME, STS_SLURM_QUEUE_NAME]
 
@@ -369,6 +370,11 @@ class Leaderboard(object):
     def add_default_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, on_html: bool):
         raise NotImplementedError()
 
+    def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame,
+                           results_manager: ResultsManager, submission_epoch_str: str, data_split: str, actor_name: str,
+                           actor_uuid: str):
+        raise NotImplementedError()
+
     def get_valid_metric(self, metric_name):
         raise NotImplementedError()
 
@@ -390,7 +396,7 @@ class Leaderboard(object):
         # If the file did not exist, then we return nan
         return np.nan
 
-    def process_metrics(self, g_drive: DriveIO, result_manager: ResultsManager, data_split_name: str, execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str):
+    def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str, execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str, processed_metrics: list):
         raise NotImplementedError()
 
 class TrojAILeaderboard(Leaderboard):
@@ -398,7 +404,6 @@ class TrojAILeaderboard(Leaderboard):
     DEFAULT_EVALUATION_METRIC_NAME = 'ROC-AUC'
     DEFAULT_EXCLUDED_FILES = ["detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "ground_truth.csv", "log.txt", "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv", "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
     DEFAULT_REQUIRED_FILES = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
-    INFO_FILENAME = 'info.json'
     TRAIN_DATASET_NAME = 'train'
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
@@ -501,7 +506,7 @@ class TrojAILeaderboard(Leaderboard):
 
     def get_default_result_columns(self):
         column_names = super().get_default_result_columns()
-        column_names.extend(['model_names', 'raw_results', 'ground_truth'])
+        column_names.extend(['model_names', 'raw_predictions', 'ground_truth'])
         column_names.extend(self.submission_metrics.keys())
         return column_names
 
@@ -544,15 +549,62 @@ class TrojAILeaderboard(Leaderboard):
 
         return ground_truth_dict
 
+    def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch_str: str, data_split: str, actor_name: str, actor_uuid: str):
+        new_data = dict()
+        new_per_container_data = dict()
 
-    def process_metrics(self, g_drive: DriveIO, result_manager: ResultsManager, data_split_name: str,
-                        execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str):
+        df = results_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split, actor_uuid)
+
+
+        result_df_already_exists = result_df is not None and not result_df[
+            (result_df['team_name'] == actor_name) & (result_df['submission_timestamp'] == submission_epoch_str) & (
+                        result_df['data_split'] == data_split)].empty
+
+        per_container_result_df_already_exists = per_container_result_df is not None and not per_container_result_df[
+            (per_container_result_df['team_name'] == actor_name) & (
+                        per_container_result_df['submission_timestamp'] == submission_epoch_str) & (
+                        per_container_result_df['data_split'] == data_split)].empty
+
+        if result_df_already_exists and per_container_result_df_already_exists:
+            return
+
+        if len(filtered_df) != 1:
+            logging.warning('Failed to find {}, {}, {}, when generating round results CSV'.format(
+                submission_epoch_str, data_split, actor_uuid))
+            return
+
+        model_names = filtered_df['model_names'].values[0]
+        prediction_list = filtered_df['raw_results'].values[0]
+        target_list = filtered_df['ground_truth'].values[0]
+
+        np_preds = np.array(prediction_list)
+        targets = np.array(target_list)
+
+        if not result_df_already_exists:
+
+            new_data['model_name'] = model_names
+            new_data['team_name'] = [actor_name] * len(model_names)
+            new_data['submission_timestamp'] = [submission_epoch_str] * len(model_names)
+            new_data['data_split'] = [data_split] * len(model_names)
+            new_data['prediction'] = [float(i) for i in prediction_list]
+            new_data['ground_truth'] = [float(i) for i in target_list]
+            new_per_container_data['team_name'] = [actor_name]
+            new_per_container_data['submission_timestamp'] = [submission_epoch_str]
+            new_per_container_data['data_split'] = [data_split]
+
+        return new_data, new_per_container_data
+
+
+    def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
+                        execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str, processed_metrics: list):
         # Initialize error strings to return
         errors = {}
+        new_processed_metric_names = []
         web_display_parse_errors = ''
 
         # Load results dataframe
-        df = result_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
+        df = results_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
 
         # Check to make sure that all metrics exist in the dataframe
         missing_columns = []
@@ -565,7 +617,7 @@ class TrojAILeaderboard(Leaderboard):
             df = df.assign(**{col: None for col in missing_columns})
 
         #['submission_timestamp', 'actor_name', 'actor_UUID', 'data_split']
-        filtered_df = result_manager.filter_primary_key(df, submission_epoch_str, data_split_name, actor_uuid)
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split_name, actor_uuid)
         update_entry = {}
         metrics_to_compute = []
 
@@ -579,9 +631,15 @@ class TrojAILeaderboard(Leaderboard):
 
             # Check for metrics to compute
             for metric_name in submission_metric_names:
-                metric_values = filtered_df[metric_name].values[0]
-                if metric_values is None:
+                if processed_metrics is None or metric_name not in processed_metrics:
                     metrics_to_compute.append(metric_name)
+                # metric = self.submission_metrics[metric_name]
+                # if metric.store_result:
+                #     metric_values = filtered_df[metric_name].values[0]
+                #     if metric_values is None:
+                #         metrics_to_compute.append(metric_name)
+                # elif (metric.share_with_actor or metric.share_with_external) and metric_name not in processed_metrics:
+                #     metrics_to_compute.append(metric_name)
 
         # Entry is new, so we are creating a new row
         else:
@@ -617,11 +675,11 @@ class TrojAILeaderboard(Leaderboard):
                 predictions[i] = results[model_names[i]]
                 targets[i] = ground_truth[model_names[i]]
 
-            raw_results_list = predictions.tolist()
+            raw_predictions_list = predictions.tolist()
             ground_truth_list = targets.tolist()
 
             update_entry['model_names'] = model_names
-            update_entry['raw_results'] = raw_results_list
+            update_entry['raw_predictions'] = raw_predictions_list
             update_entry['ground_truth'] = ground_truth_list
 
             # Check for issues with predictions and report them
@@ -647,10 +705,16 @@ class TrojAILeaderboard(Leaderboard):
                 metric = self.submission_metrics[metric_name]
                 if isinstance(metric, TrojAIMetric):
                     metric_output = metric.compute(predictions, targets, model_names, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, self.get_result_dirpath(data_split_name))
-                    metric_result = metric_output['result']
 
-                    if metric_result is not None:
-                        update_entry[metric_name] = metric_result
+                    new_processed_metric_names.append(metric_name)
+
+                    if metric.store_result:
+                        metric_result = metric_output['result']
+
+                        if metric_result is not None:
+                            update_entry[metric_name] = metric_result
+                        else:
+                            logging.warning('Metric {} is slated to return a result, but the result was None'.format(metric_name))
 
                     files = metric_output['files']
 
@@ -676,16 +740,19 @@ class TrojAILeaderboard(Leaderboard):
             # Upload metric files with external and actor Google Drive folders
             if len(external_share_files) > 0 or len(actor_share_files) > 0:
                 actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor_name, self.name, data_split_name)
-                for file in external_share_files:
-                    g_drive.upload(file, folder_id=external_actor_submission_folder_id)
 
-                for file in actor_share_files:
-                    g_drive.upload(file, folder_id=actor_submission_folder_id)
+                if external_actor_submission_folder_id is not None:
+                    for file in external_share_files:
+                        g_drive.upload(file, folder_id=external_actor_submission_folder_id)
+
+                if actor_submission_folder_id is not None:
+                    for file in actor_share_files:
+                        g_drive.upload(file, folder_id=actor_submission_folder_id)
 
         if len(web_display_parse_errors) != 0:
             errors['web_display_parse_errors'] = web_display_parse_errors
 
-        return errors
+        return errors, new_processed_metric_names
 
 
 

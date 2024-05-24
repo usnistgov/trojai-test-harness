@@ -22,9 +22,9 @@ def main(global_results_csv_filepath, data_split, output_dirpath):
     # load the global results csv into a data frame
     results_df = pd.read_csv(global_results_csv_filepath)
 
-    ce_builder = leaderboards.metrics.AverageCrossEntropy(write_html=False, share_with_actor=False, store_result_in_submission=False)
-    ce_ci_builder = leaderboards.metrics.CrossEntropyConfidenceInterval(write_html=False, share_with_actor=False, store_result_in_submission=False)
-    cm_builder = leaderboards.metrics.ConfusionMatrix(write_html=False, share_with_actor=False, store_result_in_submission=False)
+    ce_builder = leaderboards.metrics.AverageCrossEntropy(write_html=False, share_with_actor=False, store_result=False)
+    ce_ci_builder = leaderboards.metrics.CrossEntropyConfidenceInterval(write_html=False, share_with_actor=False, store_result=False)
+    cm_builder = leaderboards.metrics.ConfusionMatrix(write_html=False, share_with_actor=False, store_result=False)
 
 
     # create output file

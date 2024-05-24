@@ -23,11 +23,11 @@ from leaderboards import trojai_metadata_utils
 
 
 class Metric(object):
-    def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool,
+    def __init__(self, write_html: bool, share_with_actor: bool, store_result: bool,
                  share_with_external: bool):
         self.write_html = write_html
         self.share_with_actor = share_with_actor
-        self.store_result_in_submission = store_result_in_submission
+        self.store_result = store_result
         self.share_with_external = share_with_external
         self.html_priority = 0
         self.html_decimal_places = 5
@@ -47,9 +47,9 @@ class Metric(object):
 
 class TrojAIMetric(Metric):
 
-    def __init__(self, write_html: bool, share_with_actor: bool, store_result_in_submission: bool,
+    def __init__(self, write_html: bool, share_with_actor: bool, store_result: bool,
                  share_with_external: bool):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
 
     # Returns a dictionary with the following:
     # 'result': None or value
@@ -62,9 +62,9 @@ class TrojAIMetric(Metric):
 
 
 class AverageCrossEntropy(TrojAIMetric):
-    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result_in_submission: bool = True,
+    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True,
                  share_with_external: bool = False, epsilon: float = 1e-12):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
         self.epsilon = epsilon
 
     def get_name(self):
@@ -96,9 +96,9 @@ class AverageCrossEntropy(TrojAIMetric):
 
 class GroupedCrossEntropyViolin(TrojAIMetric):
     def __init__(self, write_html: bool = False, share_with_actor: bool = False,
-                 store_result_in_submission: bool = False, share_with_external: bool = True, epsilon: float = 1e-12,
+                 store_result: bool = False, share_with_external: bool = True, epsilon: float = 1e-12,
                  columns_of_interest: list = None):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
         if columns_of_interest is None:
             self.columns_of_interest = ['all']
         else:
@@ -195,9 +195,9 @@ class CrossEntropyConfidenceInterval(TrojAIMetric):
     VALID_LEVELS = [90, 95, 98, 99]
 
     def __init__(self, write_html: bool = True, share_with_actor: bool = False,
-                 store_result_in_submission: bool = True, share_with_external: bool = False, level: int = 95,
+                 store_result: bool = True, share_with_external: bool = False, level: int = 95,
                  epsilon: float = 1e-12):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
         self.level = level
         self.epsilon = epsilon
 
@@ -238,9 +238,9 @@ class CrossEntropyConfidenceInterval(TrojAIMetric):
 
 
 class BrierScore(Metric):
-    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result_in_submission: bool = True,
+    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True,
                  share_with_external: bool = False):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
 
     def get_name(self):
         return 'Brier Score'
@@ -263,9 +263,9 @@ class BrierScore(Metric):
 
 class Grouped_ROC_AUC(TrojAIMetric):
     def __init__(self, write_html: bool = False, share_with_actor: bool = False,
-                 store_result_in_submission: bool = True, share_with_external: bool = True,
+                 store_result: bool = False, share_with_external: bool = True,
                  columns_of_interest: list = None):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
         self.columns_of_interest = []
         if columns_of_interest is not None:
             self.columns_of_interest = columns_of_interest
@@ -401,9 +401,9 @@ class Grouped_ROC_AUC(TrojAIMetric):
 
 
 class ROC_AUC(TrojAIMetric):
-    def __init__(self, write_html: bool = True, share_with_actor: bool = True, store_result_in_submission: bool = True,
+    def __init__(self, write_html: bool = True, share_with_actor: bool = True, store_result: bool = True,
                  share_with_external: bool = False):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
 
     def get_name(self):
         return 'ROC-AUC'
@@ -505,8 +505,8 @@ class ROC_AUC(TrojAIMetric):
 
 class DEX_Factor_csv(TrojAIMetric):
     def __init__(self, write_html: bool = False, share_with_actor: bool = True,
-                 store_result_in_submission: bool = False, share_with_external: bool = False):
-        super().__init__(write_html, share_with_actor, store_result_in_submission, share_with_external)
+                 store_result: bool = False, share_with_external: bool = False):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
 
     def has_metadata(self):
         return False

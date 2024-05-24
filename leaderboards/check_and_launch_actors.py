@@ -155,7 +155,7 @@ def process_new_submission(trojai_config: TrojaiConfig, g_drive: DriveIO, actor:
                 logging.info('Team {} timeout window has not elapsed. check_epoch: {}, last_submission_epoch: {}, leaderboards: {}, data split: {}'.format(actor.name, check_epoch, actor.get_last_submission_epoch(leaderboard_name, data_split_name), leaderboard_name, data_split_name))
                 actor.update_job_status(leaderboard_name, data_split_name, 'Awaiting Timeout')
 
-def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard], active_submission_managers: Dict[str, SubmissionManager], result_manager: ResultsManager) -> None:
+def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, active_leaderboards: Dict[str, Leaderboard], active_submission_managers: Dict[str, SubmissionManager], results_manager: ResultsManager) -> None:
 
     for leaderboard_name, submission_manager in active_submission_managers.items():
         actor_submission_list = submission_manager.get_submissions_by_actor(actor)
@@ -171,8 +171,7 @@ def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, ac
 
                 leaderboard = active_leaderboards[submission.leaderboard_name]
 
-                # TODO: Update as check will be responsible for running metrics when the submission is done
-                submission.check(trojai_config, g_drive, actor, leaderboard, submission_manager, trojai_config.log_file_byte_limit)
+                submission.check(trojai_config, results_manager, g_drive, actor, leaderboard, submission_manager, trojai_config.log_file_byte_limit)
 
     # look for any new submissions
     # This might modify the SubmissionManager instance
@@ -186,7 +185,7 @@ def main(trojai_config: TrojaiConfig) -> None:
     logging.debug('Loaded actor_manager from filepath: {}'.format(trojai_config.actors_filepath))
     logging.debug(actor_manager)
 
-    result_manager = ResultsManager()
+    results_manager = ResultsManager()
 
     # load the active leaderboards
     active_leaderboards = {}
@@ -208,7 +207,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
         # Load all results for active leaderboards
         for data_split_name in leaderboard.get_submission_data_split_names():
-            result_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
+            results_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
 
         logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
         logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))
@@ -225,7 +224,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
         # Load all results for archive leaderboards
         for data_split_name in leaderboard.get_submission_data_split_names():
-            result_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
+            results_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
 
         logging.info('Archived Leaderboard {} loaded'.format(leaderboard_name))
 
@@ -238,7 +237,7 @@ def main(trojai_config: TrojaiConfig) -> None:
             logging.info('**************************************************')
             logging.info('Processing {}:'.format(actor.name))
             logging.info('**************************************************')
-            process_team(trojai_config, g_drive, actor, active_leaderboards, active_submission_managers, result_manager)
+            process_team(trojai_config, g_drive, actor, active_leaderboards, active_submission_managers, results_manager)
         except:
             msg = 'Exception processing actor "{}" loop:\n{}'.format(actor.name, traceback.format_exc())
             logging.error(msg)
@@ -259,26 +258,23 @@ def main(trojai_config: TrojaiConfig) -> None:
         submission_manager.save_json(leaderboard)
 
     logging.info('Checking for new/missing metrics')
-    # TODO: This should be updated to operate using the leaderboard's new metric functionality
     # Check to see if we need to compute any new/missing metrics
     for leaderboard_name, leaderboard in active_leaderboards.items():
         if leaderboard.check_for_missing_metrics:
             submission_manager = active_submission_managers[leaderboard.name]
-            submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
+            submission_manager.check_for_new_metrics(results_manager, leaderboard, actor_manager, g_drive)
             submission_manager.save_json(leaderboard)
         else:
             logging.info('Skipping check new/missing for {}'.format(leaderboard_name))
 
-    # TODO: This should be updated to operate using the leaderboard's new metric functionality
     for leaderboard_name, leaderboard in archive_leaderboards.items():
         if leaderboard.check_for_missing_metrics:
             submission_manager = archive_submission_managers[leaderboard.name]
-            submission_manager.check_for_new_metrics(leaderboard, actor_manager, g_drive)
+            submission_manager.check_for_new_metrics(results_manager, leaderboard, actor_manager, g_drive)
             submission_manager.save_json(leaderboard)
         else:
             logging.info('Skipping check new/missing for {}'.format(leaderboard_name))
 
-    # TODO: Revisit this block of code to streamline it
     # Apply summary updates
     cur_epoch = time_utils.get_current_epoch()
     summary_html_plots = []
@@ -302,8 +298,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
             leaderboard.generate_metadata_csv(overwrite_csv=True)
 
-            # TODO: This could be replaced with new results dataframe
-            submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
+            submission_manager.generate_round_results_csv(results_manager, leaderboard, actor_manager, overwrite_csv=False)
 
             g_drive.upload(leaderboard.summary_metadata_csv_filepath, trojai_summary_folder_id)
             g_drive.upload(leaderboard.summary_results_csv_filepath, trojai_summary_folder_id)
@@ -341,12 +336,11 @@ def main(trojai_config: TrojaiConfig) -> None:
                         summary_html_plots.extend(output_files)
 
         # Run global metric updates for archive leaderboards if they don't exist
-        # TODO: Revisit this code to streamline it
         for leaderboard_name, leaderboard in archive_leaderboards.items():
             submission_manager = archive_submission_managers[leaderboard.name]
 
             leaderboard.generate_metadata_csv(overwrite_csv=False)
-            submission_manager.generate_round_results_csv(leaderboard, actor_manager, overwrite_csv=False)
+            submission_manager.generate_round_results_csv(results_manager, leaderboard, actor_manager, overwrite_csv=False)
 
             g_drive.upload(leaderboard.summary_metadata_csv_filepath, trojai_summary_folder_id)
             g_drive.upload(leaderboard.summary_results_csv_filepath, trojai_summary_folder_id)
@@ -398,7 +392,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         leaderboard = archive_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard)
 
-    result_manager.save_all()
+    results_manager.save_all()
 
     logging.info('Finished Check and Launch Actors, total g_drive API requests: {}'.format(g_drive.request_count))
 
