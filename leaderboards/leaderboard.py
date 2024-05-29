@@ -1151,6 +1151,11 @@ if __name__ == "__main__":
     add_summary_metric_parser.add_argument('--metric-params-json-filepath', type=str, help='The filepath to the json file that describes custom metric parameters', default=None)
     add_summary_metric_parser.set_defaults(func=add_summary_metric)
 
+    update_config_parser = subparser.add_parser('update-config')
+    update_config_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    update_config_parser.add_argument('--name', type=str, help='The name of the leaderboard to update, if not specified then will update all leaderboards', required=False, default=None)
+    update_config_parser.set_defaults(func=update_configuration_latest)
+
     args = parser.parse_args()
     args.func(args)
 

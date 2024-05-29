@@ -1128,16 +1128,6 @@ def update_configuration_latest(args):
         new_submission_manager.save_json(leaderboard)
 
 
-
-
-
-
-
-
-
-    pass
-
-
 if __name__ == "__main__":
     import argparse
 
@@ -1167,6 +1157,11 @@ if __name__ == "__main__":
     dump_metaparameters_csv_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     dump_metaparameters_csv_parser.add_argument('--name', type=str, help='The name of the leaderboards', default=None)
     dump_metaparameters_csv_parser.set_defaults(func=dump_metaparameters_csv)
+
+    update_config_parser = subparser.add_parser('update-config')
+    update_config_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    update_config_parser.add_argument('--name', type=str, help='The name of the leaderboard to update, if not specified then will update all leaderboards', required=False, default=None)
+    update_config_parser.set_defaults(func=update_configuration_latest)
 
     args = parser.parse_args()
     args.func(args)
