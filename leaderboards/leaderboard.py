@@ -7,16 +7,20 @@
 import collections
 import copy
 import datetime
+import json
 import os
+
+import jsonpickle
 import pandas as pd
 import numpy as np
 from airium import Airium
 from typing import Union
 
 from leaderboards.drive_io import DriveIO
+from leaderboards.python_utils import update_object_values, get_value
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards import json_io
-from leaderboards.dataset import DatasetManager
+from leaderboards.dataset import DatasetManager, Dataset
 from leaderboards.metrics import *
 from leaderboards.tasks import *
 from leaderboards.summary_metrics import *
@@ -93,6 +97,9 @@ class Leaderboard(object):
         self.evaluation_metric_name = None
         self.summary_metrics = []
         self.submission_metrics = {}
+
+        self.excluded_files = []
+        self.required_files = []
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
@@ -227,8 +234,6 @@ class Leaderboard(object):
                     slurm_queue_name: str,
                     slurm_nice: int,
                     has_source_data: bool,
-                    excluded_files: list,
-                    required_files: list,
                     auto_delete_submission: bool,
                     auto_execute_split_names: list,
                     generate_metadata_csv: bool=False,
@@ -237,9 +242,8 @@ class Leaderboard(object):
             raise RuntimeError('Dataset already exists in DatasetManager: {}'.format(split_name))
 
         dataset = Dataset(trojai_config, self.name, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data,
-                           excluded_files=excluded_files, required_files=required_files,
                            auto_delete_submission=auto_delete_submission, auto_execute_split_names=auto_execute_split_names)
-        if self.task.verify_dataset(self.name, dataset):
+        if self.task.verify_dataset(self.name, dataset, self.required_files):
             self.dataset_manager.add_dataset(dataset)
             if generate_metadata_csv:
                 self.generate_metadata_csv(overwrite_csv=True)
@@ -437,7 +441,7 @@ class TrojAILeaderboard(Leaderboard):
     DEFAULT_SUMMARY_METRICS = [SummaryAverageCEOverTime]
 
 
-    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False):
+    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False, default_metrics = None):
         super().__init__(name, task_name, trojai_config)
 
         if self.task_name not in TrojAILeaderboard.VALID_TASK_NAMES:
@@ -445,6 +449,9 @@ class TrojAILeaderboard(Leaderboard):
 
         self.task = TrojAILeaderboard.VALID_TASK_NAMES[self.task_name](trojai_config, self.name)
         self.evaluation_metric_name = 'ROC-AUC'
+
+        self.excluded_files.extend(TrojAILeaderboard.DEFAULT_EXCLUDED_FILES)
+        self.required_files.extend(TrojAILeaderboard.DEFAULT_REQUIRED_FILES)
 
         for metric in TrojAILeaderboard.DEFAULT_METRICS:
             new_metric = metric()
@@ -497,8 +504,6 @@ class TrojAILeaderboard(Leaderboard):
                          slurm_queue_name,
                          slurm_nice,
                          has_source_data,
-                         TrojAILeaderboard.DEFAULT_EXCLUDED_FILES,
-                         TrojAILeaderboard.DEFAULT_REQUIRED_FILES,
                          auto_delete_submission,
                          auto_execute_split_names,
                          generate_metadata_csv=False,
@@ -515,12 +520,12 @@ class TrojAILeaderboard(Leaderboard):
 
 
     def load_ground_truth(self, data_split_name: str) -> typing.OrderedDict[str, float]:
-        dataset = self.dataset_manager.get(data_split_name)
+        dataset: Dataset = self.dataset_manager.get(data_split_name)
 
         # Dictionary storing ground truth data -- key = model name, value = answer/ground truth
         ground_truth_dict = collections.OrderedDict()
 
-        models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
+        models_dirpath: str = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
 
         if os.path.exists(models_dirpath):
             for model_dir in os.listdir(models_dirpath):
@@ -959,6 +964,137 @@ def add_summary_metric(args):
     leaderboard.save_json(trojai_config)
 
     print('Added summary metric {} to {}'.format(metric_name, leaderboard.name))
+
+
+
+def update_configuration_latest(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+
+    leaderboard_names = []
+
+    if args.name is not None:
+        leaderboard_names.append(args.name)
+    else:
+        for name in trojai_config.archive_leaderboard_names:
+            leaderboard_names.append(name)
+        for name in trojai_config.active_leaderboard_names:
+            leaderboard_names.append(name)
+
+    for name in leaderboard_names:
+        leaderboard_config_filepath = os.path.join(trojai_config.leaderboard_configs_dirpath, '{}_config.json'.format(name))
+
+        backup_filepath = os.path.join(trojai_config.leaderboard_configs_dirpath, '{}_config_backup.json'.format(name))
+
+        if not os.path.exists(leaderboard_config_filepath):
+            print('Warning: Unable to find {}, skipping...'.format(leaderboard_config_filepath))
+            continue
+
+        # Load leaderboard config using json
+        old_leaderboard_config = None
+        with open(leaderboard_config_filepath, 'r') as fp:
+            old_leaderboard_config = json.load(fp)
+
+        # Write backup
+        with open(backup_filepath, 'w') as fp:
+            json.dump(old_leaderboard_config, fp)
+
+        leaderboard_name = None
+        task_name = None
+        py_object = None
+
+        if 'py/object' in old_leaderboard_config:
+            py_object = old_leaderboard_config['py/object']
+
+        if 'name' in old_leaderboard_config:
+            leaderboard_name = old_leaderboard_config['name']
+
+        if 'task_name' in old_leaderboard_config:
+            task_name = old_leaderboard_config['task_name']
+
+        if py_object is None or leaderboard_name is None or task_name is None:
+            print('Error unable to parse old leaderboard config {}, skipping...'.format(leaderboard_config_filepath))
+            continue
+
+        new_leaderboard_inst = None
+
+        if py_object == '__main__.Leaderboard':
+            new_leaderboard_inst = TrojAILeaderboard(leaderboard_name, task_name, trojai_config)
+        else:
+            print('Error unknown py_object: {} for {}, skipping...'.format(py_object, leaderboard_config_filepath))
+            continue
+
+        # First let's work with the task object
+        if 'task' in old_leaderboard_config:
+            task_copy = copy.deepcopy(new_leaderboard_inst.task)
+            old_task_dict = old_leaderboard_config['task']
+            del old_task_dict['py/object']
+
+            update_object_values(task_copy, old_task_dict)
+            new_leaderboard_inst.task = task_copy
+
+        # Next work with the dataset manager and corresponding datasets, metrics, excluded and required files
+        new_submission_metrics = None
+        new_excluded_files = None
+        new_required_files = None
+
+        if 'dataset_manager' in old_leaderboard_config:
+            old_dataset_manager = old_leaderboard_config['dataset_manager']
+            for dataset_name in old_dataset_manager.keys():
+                old_dataset_dict = old_dataset_manager[dataset_name]
+
+                split_name = get_value(old_dataset_dict, 'split_name')
+                can_submit = get_value(old_dataset_dict, 'can_submit')
+                slurm_queue_name = get_value(old_dataset_dict, 'slurm_queue_name')
+                slurm_nice = get_value(old_dataset_dict, 'slurm_nice')
+                has_source_data = False
+                if 'source_dataset_dirpath' in old_dataset_dict:
+                    has_source_data = True
+
+                if split_name is None or can_submit is None or slurm_queue_name is None or slurm_nice is None:
+                    print('Error, unable to process dataset {} for {}'.format(dataset_name, leaderboard_config_filepath))
+                    continue
+
+                new_dataset = Dataset(trojai_config, new_leaderboard_inst.name, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data)
+
+                update_object_values(new_dataset, old_dataset_dict)
+
+                new_leaderboard_inst.dataset_manager.add_dataset(new_dataset)
+
+                if new_submission_metrics is None:
+                    if 'submission_metrics' in old_dataset_dict:
+                        # TODO: Verify this works
+                        for metric_name, metric_dict in old_dataset_dict['submission_metrics'].values():
+                            json_string = json.dumps(metric_dict)
+                            metric_inst = jsonpickle.decode(json_string)
+                            new_leaderboard_inst.submission_metrics[metric_name] = metric_inst
+
+                if new_excluded_files is None:
+                    if 'excluded_files' in old_dataset_dict:
+                        new_leaderboard_inst.excluded_files = copy.deepcopy(old_dataset_dict['excluded_files'])
+
+                if new_required_files is None:
+                    if 'required_files' in old_dataset_dict:
+                        new_leaderboard_inst.required_files = copy.deepcopy(old_dataset_dict['required_files'])
+
+        # handle summary metrics
+        # TODO: Verify this works
+        if 'summary_metrics' in old_leaderboard_config:
+            old_summary_metrics = old_leaderboard_config['summary_metrics']
+            for old_summary_metric_dict in old_summary_metrics:
+                json_string = json.dumps(old_summary_metric_dict)
+                metric_inst = jsonpickle.decode(json_string)
+                new_leaderboard_inst.summary_metrics.append(metric_inst)
+
+
+        # hold out task and dataset objects and metrics
+        del old_leaderboard_config['task']
+        del old_leaderboard_config['dataset_manager']
+        del old_leaderboard_config['summary_metrics']
+
+        update_object_values(new_leaderboard_inst, old_leaderboard_config)
+
+        new_leaderboard_inst.save_json(trojai_config)
+        print('Finished updating leaderboard {}'.format(name))
 
 if __name__ == "__main__":
     import argparse

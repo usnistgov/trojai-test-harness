@@ -1,7 +1,9 @@
+import json
 import os
 
 from leaderboards import json_io
-
+from python_utils import update_object_values
+from typing import Dict
 
 class TrojaiConfig(object):
 
@@ -59,6 +61,7 @@ class TrojaiConfig(object):
         if init:
             self.initialize_directories()
 
+
     def initialize_directories(self):
         os.makedirs(self.trojai_dirpath, exist_ok=True)
         os.makedirs(self.html_repo_dirpath, exist_ok=True)
@@ -92,17 +95,82 @@ class TrojaiConfig(object):
     def load_json(filepath) -> 'TrojaiConfig':
         return json_io.read(filepath)
 
+# Updates the configuration file to map to the latest version. Only used when swithing to new infrastructure
+def update_configuration_latest(args):
+    trojai_config_filepath = args.trojai_config_filepath
+
+    backup_filepath = os.path.join(os.path.dirname(trojai_config_filepath), 'trojai_config_backup.json')
+    old_trojai_config = None
+
+    with open(trojai_config_filepath, 'r') as fp:
+        old_trojai_config = json.load(fp)
+
+    # Save backup
+    with open(backup_filepath, 'w') as fp:
+        json.dump(old_trojai_config, fp)
+
+    # Init from dictionary
+    trojai_dirpath = None
+    token_pickle_filepath = None
+    slurm_execute_script_filepath = None
+    control_slurm_queue_name = None
+    if 'trojai_dirpath' in old_trojai_config:
+        trojai_dirpath = old_trojai_config['trojai_dirpath']
+    if 'token_pickle_filepath' in old_trojai_config:
+        token_pickle_filepath = old_trojai_config['token_pickle_filepath']
+    if 'slurm_execute_script_filepath' in old_trojai_config:
+        slurm_execute_script_filepath = old_trojai_config['slurm_execute_script_filepath']
+    if 'control_slurm_queue_name' in old_trojai_config:
+        control_slurm_queue_name = old_trojai_config['control_slurm_queue_name']
+
+    if trojai_dirpath is None or token_pickle_filepath is None or slurm_execute_script_filepath is None or control_slurm_queue_name is None:
+        print(
+            'Error: unable to initialize from dictionary, missing entries. Make sure you are passing the correct config')
+        return
+
+    new_config = TrojaiConfig(trojai_dirpath=trojai_dirpath, token_pickle_filepath=token_pickle_filepath,
+                              slurm_execute_script_filepath=slurm_execute_script_filepath, init=False,
+                              control_slurm_queue_name=control_slurm_queue_name)
+
+    # Delete py/object prior to update
+    if 'py/object' in old_trojai_config:
+        del old_trojai_config['py/object']
+
+    update_object_values(new_config, old_trojai_config)
+
+    new_config.save_json()
+    print('Finished converting trojai config')
+
+
+def init_cmd(args):
+    trojai_config = TrojaiConfig(trojai_dirpath=args.trojai_dirpath, token_pickle_filepath=args.token_pickle_filepath,
+                                 init=args.init, control_slurm_queue_name=args.control_slurm_queue_name)
+    trojai_config.save_json()
+    print('Created: {}'.format(trojai_config))
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Creates trojai config')
-    parser.add_argument('--trojai-dirpath', type=str,
+    parser.set_defaults(func=lambda args: parser.print_help())
+
+    subparser = parser.add_subparsers(dest='cmd', required=True)
+
+
+    init_parser = subparser.add_parser('init')
+    init_parser.add_argument('--trojai-dirpath', type=str,
                         help='The main trojai directory path',
                         required=True)
-    parser.add_argument('--token-pickle-filepath', type=str, help='The token pickle filepath', required=True)
-    parser.add_argument('--control-slurm-queue-name', type=str, help='The name of the slurm queue used for control', default='control')
-    parser.add_argument('--init', action='store_true')
+    init_parser.add_argument('--token-pickle-filepath', type=str, help='The token pickle filepath', required=True)
+    init_parser.add_argument('--control-slurm-queue-name', type=str, help='The name of the slurm queue used for control', default='control')
+    init_parser.add_argument('--init', action='store_true')
+    init_parser.set_defaults(func=init_cmd)
+
+    update_config_parser = subparser.add_parser('update-config')
+    update_config_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
+    update_config_parser.set_defaults(func=update_configuration_latest)
+
+
     args = parser.parse_args()
 
     trojai_config = TrojaiConfig(trojai_dirpath=args.trojai_dirpath, token_pickle_filepath=args.token_pickle_filepath, init=args.init, control_slurm_queue_name=args.control_slurm_queue_name)

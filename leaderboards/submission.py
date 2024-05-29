@@ -1,4 +1,5 @@
 # NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+import json
 import math
 # NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
 
@@ -14,8 +15,9 @@ import subprocess
 import logging
 import traceback
 from typing import List, Dict
-
+from datetime import datetime
 from airium import Airium
+from python_utils import update_object_values, get_value
 
 from leaderboards.drive_io import DriveIO
 from leaderboards.google_drive_file import GoogleDriveFile
@@ -53,6 +55,8 @@ class Submission(object):
         self.web_display_execution_errors = "None"
         self.provenance = provenance
         self.processed_metric_names = []
+        #self.metric_results
+        #self.saved_metric_results
 
         submission_epoch_str = time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
 
@@ -616,6 +620,7 @@ class Submission(object):
 
         # TODO: Should we update the errors for the submission (will have to be careful to not repeat errors)
 
+
 class SubmissionManager(object):
     def __init__(self, leaderboard_name):
         self.leaderboard_name: str = leaderboard_name
@@ -1040,6 +1045,97 @@ def generate_results_csv(args):
 
     submission_manager.generate_round_results_csv(results_manager, leaderboard, actor_manager, overwrite_csv=False)
 
+def update_configuration_latest(args):
+    trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    actor_manager = ActorManager.load_json(trojai_config)
+
+    leaderboard_names = []
+
+    if args.name is not None:
+        leaderboard_names.append(args.name)
+    else:
+        for name in trojai_config.archive_leaderboard_names:
+            leaderboard_names.append(name)
+        for name in trojai_config.active_leaderboard_names:
+            leaderboard_names.append(name)
+
+    for name in leaderboard_names:
+        leaderboard = Leaderboard.load_json(trojai_config, name)
+
+        old_submission_config = None
+        backup_filepath = os.path.join(os.path.dirname(leaderboard.submissions_filepath), '{}_submissions_backup.json'.format(leaderboard.name))
+
+        if not os.path.exists(leaderboard.submissions_filepath):
+            print('Warning: Unable to find {}, skipping...'.format(leaderboard.submissions_filepath))
+            continue
+
+        with open(leaderboard.submissions_filepath, 'r') as fp:
+            old_submission_config = json.load(fp)
+
+        with open(backup_filepath, 'w') as fp:
+            json.dump(old_submission_config, fp)
+
+
+        new_submission_manager = SubmissionManager(leaderboard.name)
+
+        if '_SubmissionManager__submissions' in old_submission_config:
+            submissions_dict = old_submission_config['_SubmissionManager__submissions']
+            for actor_uuid, submissions_list in submissions_dict.values():
+                for submission_dict in submissions_list:
+                    actor = actor_manager.get_from_uuid(actor_uuid)
+
+                    g_email = None
+                    g_filename = None
+                    g_file_id = None
+                    now = datetime.now()
+                    g_temp_timestamp = now.strftime("%Y-%m-%dT%H:%M:%S")
+                    g_timestamp = None
+
+                    if 'g_file' in submission_dict:
+                        g_file_dict = submission_dict['g_file']
+                        g_email = get_value(g_file_dict, 'email')
+                        g_filename = get_value(g_file_dict, 'name')
+                        g_file_id = get_value(g_file_dict, 'id')
+                        g_timestamp = get_value(g_file_dict, 'modified_epoch')
+
+                    if g_email is None or g_filename is None or g_file_id is None or g_timestamp is None:
+                        print('Failed to parse g_file for {}... skipping'.format(leaderboard.submissions_filepath))
+                        continue
+
+                    g_file = GoogleDriveFile(g_email, g_filename, g_file_id, g_temp_timestamp)
+                    g_file.modified_epoch = g_timestamp
+
+                    data_split_name = get_value(submission_dict, 'data_split_name')
+                    provenance = get_value(submission_dict, 'provenance')
+                    submission_epoch = get_value(submission_dict, 'submission_epoch')
+                    slurm_queue_name = get_value(submission_dict, 'slurm_queue_name')
+
+                    if data_split_name is None or provenance is None or submission_epoch is None or slurm_queue_name is None:
+                        print('Failed to parse parameters for {}... skipping'.format(leaderboard.submissions_filepath))
+                        continue
+
+                    new_submission = Submission(g_file, actor, leaderboard, data_split_name, provenance, submission_epoch, slurm_queue_name)
+
+                    # Remove unneeded attributes
+                    del submission_dict['g_file']
+                    del submission_dict['py/object']
+
+                    # Copy over all attributes
+                    update_object_values(new_submission, submission_dict)
+
+                    new_submission_manager.add_submission(actor, new_submission)
+
+        new_submission_manager.save_json(leaderboard)
+
+
+
+
+
+
+
+
+
+    pass
 
 
 if __name__ == "__main__":

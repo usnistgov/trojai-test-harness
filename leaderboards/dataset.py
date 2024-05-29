@@ -22,20 +22,19 @@ class Dataset(object):
                  slurm_nice: int,
                  has_source_data: bool,
                  timeout_time_per_model_sec: int=600,
-                 excluded_files=None,
-                 required_files=None,
                  auto_delete_submission: bool=False,
                  auto_execute_split_names=None):
 
         self.split_name = split_name
         self.dataset_name = self.get_dataset_name()
-        self.dataset_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
+        self.dataset_dirpath: str = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, self.dataset_name)
         self.results_dirpath = os.path.join(trojai_config.results_dirpath, '{}-dataset'.format(leaderboard_name), self.dataset_name)
         self.can_submit = can_submit
         self.slurm_queue_name = slurm_queue_name
         self.slurm_nice = slurm_nice
-        self.excluded_files = excluded_files
-        self.required_files = required_files
+        # self.excluded_files = excluded_files
+        # self.required_files = required_files
+        # self.submission_metrics
 
         self.source_dataset_dirpath = None
 

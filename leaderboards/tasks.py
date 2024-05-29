@@ -3,9 +3,8 @@ import os.path
 import subprocess
 import time
 import typing
-import collections
 import glob
-
+from typing import List
 from leaderboards.mail_io import TrojaiMail
 from leaderboards import jsonschema_checker
 from leaderboards.dataset import Dataset
@@ -41,6 +40,7 @@ def cleanup_scratch(host, remote_scratch):
     else:
         child = subprocess.Popen(['ssh', '-q', 'trojai@'+host, 'rm', '-rf', '{}/*'.format(remote_scratch)])
     return child.wait()
+
 
 def create_directory_on_vm(host, dirpath: str):
     if host == Task.LOCAL_VM_IP:
@@ -119,6 +119,7 @@ def check_subprocess_error(sc, errors, msg, send_mail=False, subject=''):
 
 
 class Task(object):
+    LOCAL_VM_IP = 'local'
 
     # TODO: Determine optimal init
     def __init__(self):
@@ -133,7 +134,7 @@ class Task(object):
     def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
         raise NotImplementedError()
 
-    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+    def verify_dataset(self, leaderboard_name, dataset: Dataset, required_files: List[str]):
         raise NotImplementedError()
 
     def run_basic_checks(self, vm_ip, vm_name):
@@ -148,7 +149,7 @@ class Task(object):
     def copy_in_env(self, vm_ip, vm_name, trojai_config: TrojaiConfig, custom_remote_home: str=None, custom_remote_scratch: str=None):
         raise NotImplementedError()
 
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         raise NotImplementedError()
 
     def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
@@ -174,7 +175,6 @@ class Task(object):
 
 
 class TrojAITask(Task):
-    LOCAL_VM_IP = 'local'
     VALID_TECHNIQUE_TYPES = ['Weight Analysis', 'Trigger Inversion', 'Attribution Analysis', 'Jacobian Inspection', 'Other']
 
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_type: str, evaluate_model_python_filepath: str = None,  remote_home: str = '/home/trojai', remote_scratch: str = '/mnt/scratch'):
@@ -185,7 +185,7 @@ class TrojAITask(Task):
         self.default_prediction_result = 0.5
 
         self.remote_home = remote_home
-        self.remote_dataset_dirpath = self.get_remote_dataset_dirpath(self.remote_home, leaderboard_name)
+        self.remote_dataset_dirpath: str = self.get_remote_dataset_dirpath(self.remote_home, leaderboard_name)
         self.remote_scratch = remote_scratch
         self.evaluate_model_python_filepath = evaluate_model_python_filepath
 
@@ -215,7 +215,7 @@ class TrojAITask(Task):
     def get_remote_dataset_dirpath(self, remote_dirpath, leaderboard_name):
         return os.path.join(remote_dirpath, 'datasets', leaderboard_name)
 
-    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+    def verify_dataset(self, leaderboard_name, dataset: Dataset, required_files: List[str]):
         dataset_dirpath = dataset.dataset_dirpath
         source_dataset_dirpath = dataset.source_dataset_dirpath
         models_dirpath = os.path.join(dataset_dirpath, Dataset.MODEL_DIRNAME)
@@ -237,7 +237,7 @@ class TrojAITask(Task):
 
         if is_valid:
             for model_id_dir in os.listdir(models_dirpath):
-                for required_filename in dataset.required_files:
+                for required_filename in required_files:
                     filepath = os.path.join(models_dirpath, str(model_id_dir), required_filename)
                     if not os.path.exists(filepath):
                         logging.error('Failed to verify dataset {} for leaderboards: {}; file in model {} does not exist '.format(dataset.dataset_name, leaderboard_name, filepath))
@@ -326,7 +326,7 @@ class TrojAITask(Task):
                 logging.warning('schema "technique_type" should have at least one item in it')
 
             for technique_type in schema_dict['technique_type']:
-                if technique_type.upper() not in map(str.upper, Task.VALID_TECHNIQUE_TYPES):
+                if technique_type.upper() not in map(str.upper, TrojAITask.VALID_TECHNIQUE_TYPES):
                     errors = ':Schema Header:'
                     logging.warning('schema "technique_type" value "{}" is not found from list of valid technique types {}. Contact the TrojAI team to add your technique type.'.format(technique_type, Task.VALID_TECHNIQUE_TYPES))
 
@@ -350,7 +350,7 @@ class TrojAITask(Task):
 
         return errors
 
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         logging.info('Copying in task data')
 
         remote_home = self.remote_home
@@ -403,7 +403,7 @@ class TrojAITask(Task):
 
             # copy in models
             source_params = []
-            for excluded_file in dataset.excluded_files:
+            for excluded_file in excluded_files:
                 source_params.append('--exclude={}'.format(excluded_file))
             source_params.extend(copy_dataset_params)
             sc = rsync_dir_to_vm(vm_ip, dataset_dirpath, remote_dataset_dirpath, source_params=source_params)
@@ -624,15 +624,15 @@ class NaturalLanguageProcessingTask(TrojAITask):
             remote_tokenizer_dirpath = os.path.join(self.remote_dataset_dirpath, tokenizer_dirname)
         return ['--tokenizer-dir', remote_tokenizer_dirpath]
 
-    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+    def verify_dataset(self, leaderboard_name, dataset: Dataset, required_files: List[str]):
         if not os.path.exists(self.tokenizers_dirpath):
             logging.error('Failed to verify dataset {} for leaderboards: {}; tokenizers_dirpath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.tokenizers_dirpath))
             return False
 
-        return super().verify_dataset(leaderboard_name, dataset)
+        return super().verify_dataset(leaderboard_name, dataset, required_files)
 
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
-        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, excluded_files, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
 
         # Copy in tokenizers
         copy_dataset_params = ['--copy-links']
@@ -709,15 +709,15 @@ class CyberPdfMalware(TrojAITask):
             remote_scale_params_filepath = os.path.join(self.remote_dataset_dirpath, scale_params_dirname)
         return ['--scale-params-filepath', remote_scale_params_filepath]
 
-    def verify_dataset(self, leaderboard_name, dataset: Dataset):
+    def verify_dataset(self, leaderboard_name, dataset: Dataset, required_files: List[str]):
         if not os.path.exists(self.scale_params_filepath):
             logging.error('Failed to verify dataset {} for leaderboards: {}; scale_params_filepath {} does not exist '.format(dataset.dataset_name, leaderboard_name, self.scale_params_filepath))
             return False
 
-        return super().verify_dataset(leaderboard_name, dataset)
+        return super().verify_dataset(leaderboard_name, dataset, required_files)
 
-    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
-        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
+        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, excluded_files, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath)
 
         # Copy in scale params
         sc = rsync_file_to_vm(vm_ip, self.scale_params_filepath, self.remote_dataset_dirpath)
