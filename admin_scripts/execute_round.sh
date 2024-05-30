@@ -1,3 +1,3 @@
 #!/bin/bash
 
-PYTHONPATH=/mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai-test-harness /home/trojai/trojai-test-harness-env/bin/python3 -u /mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai-test-harness/leaderboards/check_and_launch_actors.py --trojai-config-filepath /mnt/isgnas/deploy/trojai/multi-round-leaderboard/trojai_config.json
+PYTHONPATH=/mnt/isgnas/deploy/trojai-dev/multi-round-leaderboard/trojai-test-harness /mnt/isgnas/home/tjb3/miniconda3/envs/trojai-test-harness/bin/python -u /mnt/isgnas/deploy/trojai-dev/multi-round-leaderboard/trojai-test-harness/leaderboards/check_and_launch_actors.py --trojai-config-filepath /mnt/isgnas/deploy/trojai-dev/multi-round-leaderboard/trojai_config.json

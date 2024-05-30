@@ -237,7 +237,7 @@ class CrossEntropyConfidenceInterval(TrojAIMetric):
         return {'result': float(ci), 'metadata': None, 'files': None}
 
 
-class BrierScore(Metric):
+class BrierScore(TrojAIMetric):
     def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True,
                  share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result, share_with_external)

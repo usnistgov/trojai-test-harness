@@ -1,3 +1,4 @@
+import pyarrow.parquet as pq
 import pandas
 import pandas as pd
 import os
@@ -15,7 +16,8 @@ class ResultsManager(object):
         self.results_filepaths[leaderboard_name] = result_filepath
 
         if os.path.exists(result_filepath):
-            df = pd.read_msgpack(result_filepath)
+            # pq.read_table(result_filepath)
+            df = pd.read_parquet(result_filepath)
         else:
             df = pd.DataFrame(columns=default_columns)
 
@@ -23,12 +25,19 @@ class ResultsManager(object):
 
         return df
 
+    def save(self, leaderboard_name: str):
+        if leaderboard_name in self.results_filepaths:
+            filepath = self.results_filepaths[leaderboard_name]
+
+            if not os.path.exists(os.path.dirname(filepath)):
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            df = self.results_cache[leaderboard_name]
+            df.to_parquet(filepath)
+
     def save_all(self):
         for leaderboard_name in self.results_filepaths.keys():
-            filepath = self.results_filepaths[leaderboard_name]
-            df = self.results_cache[leaderboard_name]
-
-            df.to_msgpack(filepath)
+            self.save(leaderboard_name)
 
     def filter_primary_key(self, df: pandas.DataFrame, submission_epoch_str: str, data_split_name: str, actor_uuid: str):
         check_submission_timestamp = df['submission_timestamp'] == submission_epoch_str

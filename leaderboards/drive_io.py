@@ -13,11 +13,14 @@ import time
 import logging
 from typing import List
 from leaderboards import time_utils
+from threading import Thread, Lock, Condition
+from queue import Queue, Empty
 
 import socket
 socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
 
 from leaderboards.google_drive_file import GoogleDriveFile
+
 
 # Limit logging from Drive API
 logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
@@ -27,15 +30,60 @@ logging.getLogger('googleapiclient.http').setLevel(logging.WARNING)
 logging.getLogger('googleapiclient.errors').setLevel(logging.WARNING)
 
 
+
+class UploadWorker(Thread):
+    def __init__(self, g_drive: 'DriveIO', queue: Queue, lock: Lock, cond: Condition):
+        super().__init__()
+        self.g_drive = g_drive
+        self.queue = queue
+        self.lock = lock
+        self.cond = cond
+        self.daemon = True
+        self.work_done = False
+
+    def run(self):
+        while True:
+            file_path = None
+            folder_id = None
+            with self.lock:
+                try:
+                    file_path, folder_id = self.queue.get(block=False)
+                    if file_path is None:
+                        self.cond.notify_all()
+                        return
+                except Empty:
+                    self.cond.wait()
+                    continue
+
+            self.g_drive.upload(file_path, folder_id)
+            print('Finished uploading {}'.format(file_path))
+
+
+
+    @staticmethod
+    def init_workers(num_threads: int, g_drive: 'DriveIO'):
+        workers = []
+        for _ in range(num_threads):
+            worker = UploadWorker(g_drive, g_drive.upload_queue, g_drive.upload_queue_lock, g_drive.upload_queue_cond)
+            worker.start()
+            workers.append(worker)
+        g_drive.is_upload_workers_initialized = True
+        return workers
+
+
 class DriveIO(object):
     # If modifying these scopes, delete the file token.pickle.
     SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    def __init__(self, token_pickle_filepath):
+    def __init__(self, token_pickle_filepath, upload_queue: Queue = None, upload_queue_lock: Lock = None, upload_queue_cond: Condition = None):
         self.token_pickle_filepath = token_pickle_filepath
         self.page_size = 100
         self.max_retry_count = 4
-        self.request_count = 0
+        # self.request_count = 0
+        self.upload_queue = upload_queue
+        self.upload_queue_lock = upload_queue_lock
+        self.upload_queue_cond = upload_queue_cond
+        self.is_upload_workers_initialized = False
 
         self.__get_service(self.token_pickle_filepath)
 
@@ -85,7 +133,7 @@ class DriveIO(object):
 
             logging.debug('Querying Drive to determine account owner details.')
             response = self.service.about().get(fields="user").execute(num_retries=self.max_retry_count)
-            self.request_count += 1
+            # self.request_count += 1
             self.user_details = response.get('user')
             self.email_address = self.user_details.get('emailAddress')
             logging.info('Connected to Drive for user: "{}" with email "{}".'.format(self.user_details.get('displayName'), self.email_address))
@@ -113,7 +161,7 @@ class DriveIO(object):
                                                              fields="nextPageToken, files(name, id, modifiedTime, owners)",
                                                              pageToken=page_token,
                                                              spaces='drive').execute(num_retries=self.max_retry_count)
-                        self.request_count += 1
+                        # self.request_count += 1
                         items.extend(response.get('files'))
                         page_token = response.get('nextPageToken', None)
                         if page_token is None:
@@ -173,7 +221,7 @@ class DriveIO(object):
         while True:
             try:
                 request = self.service.files().get_media(fileId=g_file.id)
-                self.request_count += 1
+                # self.request_count += 1
                 file_data = io.FileIO(os.path.join(output_dirpath, g_file.name), 'wb')
                 downloader = MediaIoBaseDownload(file_data, request)
                 done = False
@@ -226,7 +274,7 @@ class DriveIO(object):
                     return existing_folders[0].id
 
                 file = self.service.files().create(body=file_metadata, fields='id').execute()
-                self.request_count += 1
+                # self.request_count += 1
                 self.folder_cache[folder_key] = file.get('id')
                 self.folder_times[folder_key] = time_utils.get_current_epoch()
                 return file.get('id')
@@ -242,6 +290,16 @@ class DriveIO(object):
             except:
                 logging.error('Failed to create folder  "{}" from Drive.'.format(folder_name))
                 raise
+
+    def enqueue_file_upload(self, file_paths: List[str], folder_id=None):
+        if self.is_upload_workers_initialized:
+            with self.upload_queue_lock:
+                for i in range(len(file_paths)):
+                    self.upload_queue.put([file_paths[i], folder_id])
+                self.upload_queue_cond.notify_all()
+        else:
+            logging.error('Upload workers were not correctly initialized prior to enqueueing files for upload')
+
 
     def upload(self, file_path: str, folder_id=None) -> str:
         from googleapiclient.http import MediaFileUpload
@@ -277,11 +335,11 @@ class DriveIO(object):
                 if existing_file_id is not None:
                     logging.info("Updating existing file '{}' on Drive.".format(file_name))
                     request = self.service.files().update(fileId=existing_file_id, body=file_metadata, media_body=media)
-                    self.request_count += 1
+                    # self.request_count += 1
                 else:
                     logging.info("Uploading new file '{}' to Drive.".format(file_name))
                     request = self.service.files().create(body=file_metadata, media_body=media, fields='id')
-                    self.request_count += 1
+                    # self.request_count += 1
 
                 response = None
                 # loop while there are additional chunks
@@ -317,7 +375,7 @@ class DriveIO(object):
                 time.sleep(sleep_time)
                 try:
                     self.service.permissions().create(fileId=file_id, body=user_permissions, fields='id', sendNotificationEmail=False).execute()
-                    self.request_count += 1
+                    # self.request_count += 1
                     logging.info('Successfully shared file {} with {}.'.format(file_id, share_email))
                     return  # permissions were successfully modified if no exception
                 except:
@@ -329,7 +387,7 @@ class DriveIO(object):
 
     def remove_all_sharing_permissions(self, file_id: str) -> None:
         permissions = self.service.permissions().list(fileId=file_id).execute()
-        self.request_count += 1
+        # self.request_count += 1
         permissions = permissions['permissions']
 
         for permission in permissions:
@@ -343,7 +401,7 @@ class DriveIO(object):
 
                     try:
                         self.service.permissions().delete(fileId=file_id, permissionId=permission['id']).execute()
-                        self.request_count += 1
+                        # self.request_count += 1
                         logging.info("Successfully removed share permission '{}' from file {}.".format(permission, file_id))
                         break  # break retry loop
                     except:

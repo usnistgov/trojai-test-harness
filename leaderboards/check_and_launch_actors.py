@@ -8,17 +8,18 @@ import traceback
 import logging
 import logging.handlers
 import os
-
+from threading import Thread, Lock, Condition
+from queue import Queue
 from typing import Dict
 
 import fcntl
 
 from leaderboards.trojai_config import TrojaiConfig
-from leaderboards.drive_io import DriveIO
+from leaderboards.drive_io import DriveIO, UploadWorker
 from leaderboards.actor import Actor, ActorManager
 from leaderboards.submission import Submission, SubmissionManager
 from leaderboards import time_utils
-from leaderboards.leaderboard import Leaderboard
+from leaderboards.leaderboard import *
 from leaderboards.html_output import update_html_pages
 from leaderboards.results_manager import ResultsManager
 
@@ -180,6 +181,8 @@ def process_team(trojai_config: TrojaiConfig, g_drive: DriveIO, actor: Actor, ac
 
 
 def main(trojai_config: TrojaiConfig) -> None:
+    start_time = time.time()
+
     # load the instance of ActorManager from the serialized json file
     actor_manager = ActorManager.load_json(trojai_config)
     logging.debug('Loaded actor_manager from filepath: {}'.format(trojai_config.actors_filepath))
@@ -205,9 +208,8 @@ def main(trojai_config: TrojaiConfig) -> None:
         submission_manager = SubmissionManager.load_json(leaderboard)
         active_submission_managers[leaderboard_name] = submission_manager
 
-        # Load all results for active leaderboards
-        for data_split_name in leaderboard.get_submission_data_split_names():
-            results_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
+        # Load all results for active leaderboard
+        results_manager.load_results(leaderboard_name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
 
         logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
         logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))
@@ -222,15 +224,24 @@ def main(trojai_config: TrojaiConfig) -> None:
         archive_leaderboards[leaderboard_name] = leaderboard
         archive_submission_managers[leaderboard_name] = SubmissionManager.load_json(leaderboard)
 
-        # Load all results for archive leaderboards
-        for data_split_name in leaderboard.get_submission_data_split_names():
-            results_manager.load_results(leaderboard_name, leaderboard.get_result_dirpath(data_split_name), leaderboard.get_default_result_columns())
+        # Load all results for archive leaderboard
+        results_manager.load_results(leaderboard_name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
 
         logging.info('Archived Leaderboard {} loaded'.format(leaderboard_name))
 
     logging.info('Actor Manger has {} actors.'.format(len(actor_manager.get_keys())))
 
-    g_drive = DriveIO(trojai_config.token_pickle_filepath)
+    # Initialize parallel upload workers
+    upload_queue = Queue()
+    lock = Lock()
+    cond = Condition(lock)
+
+    g_drive = DriveIO(trojai_config.token_pickle_filepath, upload_queue, lock, cond)
+
+    # TODO: Sort out how to handle multi-threaded upload
+    # upload_worker_threads = 1
+    # upload_workers = UploadWorker.init_workers(upload_worker_threads, g_drive)
+
     # Loop over actors, checking if there is a submission for each
     for actor in actor_manager.get_actors():
         try:
@@ -246,6 +257,9 @@ def main(trojai_config: TrojaiConfig) -> None:
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')
     actor_manager.save_json(trojai_config)
+
+    # Save all results thus far
+    results_manager.save_all()
 
     logging.debug('Serializing updated submission_managers back to json.')
     # Should only have to save the submission manager. Leaderboard should be static
@@ -263,6 +277,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         if leaderboard.check_for_missing_metrics:
             submission_manager = active_submission_managers[leaderboard.name]
             submission_manager.check_for_new_metrics(results_manager, leaderboard, actor_manager, g_drive)
+            results_manager.save(leaderboard.name)
             submission_manager.save_json(leaderboard)
         else:
             logging.info('Skipping check new/missing for {}'.format(leaderboard_name))
@@ -271,6 +286,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         if leaderboard.check_for_missing_metrics:
             submission_manager = archive_submission_managers[leaderboard.name]
             submission_manager.check_for_new_metrics(results_manager, leaderboard, actor_manager, g_drive)
+            results_manager.save(leaderboard.name)
             submission_manager.save_json(leaderboard)
         else:
             logging.info('Skipping check new/missing for {}'.format(leaderboard_name))
@@ -376,7 +392,7 @@ def main(trojai_config: TrojaiConfig) -> None:
 
     # Check web-site updates
     logging.info('Updating HTML pages')
-    update_html_pages(trojai_config, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, archive_submission_managers, commit_and_push=trojai_config.commit_and_push_html, g_drive=g_drive)
+    update_html_pages(trojai_config, results_manager, actor_manager, active_leaderboards, active_submission_managers, archive_leaderboards, archive_submission_managers, commit_and_push=trojai_config.commit_and_push_html, g_drive=g_drive)
 
     # Write all updates to actors back to file
     logging.debug('Serializing updated actor_manger back to json.')
@@ -394,7 +410,21 @@ def main(trojai_config: TrojaiConfig) -> None:
 
     results_manager.save_all()
 
-    logging.info('Finished Check and Launch Actors, total g_drive API requests: {}'.format(g_drive.request_count))
+    # Add None special value into queue and notify all
+    # TODO: Uncomment when multi thread upload is working
+    # with lock:
+    #     for _ in range(upload_worker_threads):
+    #         upload_queue.put([None, None])
+    #
+    #     cond.notify_all()
+    #
+    # for worker in upload_workers:
+    #     worker.join()
+
+    end_time = time.time()
+    exec_time = end_time - start_time
+
+    logging.info('Finished Check and Launch Actors, total time {} s'.format(exec_time))
 
 
 if __name__ == "__main__":

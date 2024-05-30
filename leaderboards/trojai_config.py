@@ -106,8 +106,12 @@ def update_configuration_latest(args):
         old_trojai_config = json.load(fp)
 
     # Save backup
+    if os.path.exists(backup_filepath):
+        print('Error, backup already exists, cancelling')
+        return
+
     with open(backup_filepath, 'w') as fp:
-        json.dump(old_trojai_config, fp)
+        json.dump(old_trojai_config, fp, indent=2)
 
     # Init from dictionary
     trojai_dirpath = None
@@ -173,6 +177,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    trojai_config = TrojaiConfig(trojai_dirpath=args.trojai_dirpath, token_pickle_filepath=args.token_pickle_filepath, init=args.init, control_slurm_queue_name=args.control_slurm_queue_name)
-    trojai_config.save_json()
-    print('Created: {}'.format(trojai_config))
+    args.func(args)

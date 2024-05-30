@@ -87,7 +87,7 @@ class Leaderboard(object):
         self.submission_dirpath = os.path.join(trojai_config.submission_dirpath, self.name)
         self.submissions_filepath = os.path.join(self.submission_dirpath, 'submissions.json')
 
-        self.leaderboard_results_filepath = os.path.join(trojai_config.leaderboard_results_dirpath, '{}_results.msgpack')
+        self.leaderboard_results_filepath = os.path.join(trojai_config.leaderboard_results_dirpath, '{}_results.parquet'.format(self.name))
 
         self.highlight_old_submissions = False
         self.html_leaderboard_priority = 0
@@ -126,7 +126,7 @@ class Leaderboard(object):
             return None
 
         leaderboard_config = json_io.read(leaderboard_config_filepath)
-        assert leaderboard_config.task_name in TrojAILeaderboard.VALID_TASK_NAMES
+        assert leaderboard_config.task_name in Leaderboard.ALL_TASK_NAMES
 
         leaderboard_config.check_instance_data(trojai_config)
 
@@ -512,8 +512,11 @@ class TrojAILeaderboard(Leaderboard):
     def get_default_result_columns(self):
         column_names = super().get_default_result_columns()
         column_names.extend(['model_names', 'raw_predictions', 'ground_truth'])
-        column_names.extend(self.submission_metrics.keys())
+        for metric_name, metric in self.submission_metrics.items():
+            if metric.store_result:
+                column_names.append(metric_name)
         return column_names
+
 
     def get_training_dataset_name(self):
         raise TrojAILeaderboard.TRAIN_DATASET_NAME
@@ -572,12 +575,12 @@ class TrojAILeaderboard(Leaderboard):
                         per_container_result_df['data_split'] == data_split)].empty
 
         if result_df_already_exists and per_container_result_df_already_exists:
-            return
+            return new_data, new_per_container_data
 
         if len(filtered_df) != 1:
             logging.warning('Failed to find {}, {}, {}, when generating round results CSV'.format(
                 submission_epoch_str, data_split, actor_uuid))
-            return
+            return new_data, new_per_container_data
 
         model_names = filtered_df['model_names'].values[0]
         prediction_list = filtered_df['raw_results'].values[0]
@@ -613,8 +616,8 @@ class TrojAILeaderboard(Leaderboard):
 
         # Check to make sure that all metrics exist in the dataframe
         missing_columns = []
-        for metric_name in self.submission_metrics.keys():
-            if metric_name not in df.columns:
+        for metric_name, metric in self.submission_metrics.items():
+            if metric.store_result and metric_name not in df.columns:
                 missing_columns.append(metric_name)
 
         # Add all missing metric columns, each with default value None
@@ -747,10 +750,14 @@ class TrojAILeaderboard(Leaderboard):
                 actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor_name, self.name, data_split_name)
 
                 if external_actor_submission_folder_id is not None:
+                    # if len(external_share_files) > 0:
+                    #     g_drive.enqueue_file_upload(external_share_files, folder_id=external_actor_submission_folder_id)
                     for file in external_share_files:
                         g_drive.upload(file, folder_id=external_actor_submission_folder_id)
 
                 if actor_submission_folder_id is not None:
+                    # if len(actor_share_files) > 0:
+                    #     g_drive.enqueue_file_upload(actor_share_files, folder_id=actor_submission_folder_id)
                     for file in actor_share_files:
                         g_drive.upload(file, folder_id=actor_submission_folder_id)
 
@@ -994,9 +1001,13 @@ def update_configuration_latest(args):
         with open(leaderboard_config_filepath, 'r') as fp:
             old_leaderboard_config = json.load(fp)
 
+        if os.path.exists(backup_filepath):
+            print('Error, backup already exists, cancelling')
+            # return
+
         # Write backup
-        with open(backup_filepath, 'w') as fp:
-            json.dump(old_leaderboard_config, fp)
+        # with open(backup_filepath, 'w') as fp:
+        #     json.dump(old_leaderboard_config, fp, indent=2)
 
         leaderboard_name = None
         task_name = None
@@ -1017,8 +1028,14 @@ def update_configuration_latest(args):
 
         new_leaderboard_inst = None
 
-        if py_object == '__main__.Leaderboard':
+        if py_object == 'leaderboards.leaderboard.Leaderboard':
             new_leaderboard_inst = TrojAILeaderboard(leaderboard_name, task_name, trojai_config)
+        elif py_object == '__main__.Leaderboard':
+            new_leaderboard_inst = TrojAILeaderboard(leaderboard_name, task_name, trojai_config)
+        # elif py_object == '__main__.TrojAILeaderboard':
+        #     new_leaderboard_inst = TrojAILeaderboard(leaderboard_name, task_name, trojai_config)
+        # elif py_object == 'leaderboards.leaderboard.TrojAILeaderboard':
+        #     new_leaderboard_inst = TrojAILeaderboard(leaderboard_name, task_name, trojai_config)
         else:
             print('Error unknown py_object: {} for {}, skipping...'.format(py_object, leaderboard_config_filepath))
             continue
@@ -1033,14 +1050,15 @@ def update_configuration_latest(args):
             new_leaderboard_inst.task = task_copy
 
         # Next work with the dataset manager and corresponding datasets, metrics, excluded and required files
-        new_submission_metrics = None
-        new_excluded_files = None
-        new_required_files = None
+        updated_submission_metrics = False
+        updated_excluded_files = False
+        updated_required_files = False
 
         if 'dataset_manager' in old_leaderboard_config:
             old_dataset_manager = old_leaderboard_config['dataset_manager']
-            for dataset_name in old_dataset_manager.keys():
-                old_dataset_dict = old_dataset_manager[dataset_name]
+
+            for dataset_name in old_dataset_manager['datasets'].keys():
+                old_dataset_dict = old_dataset_manager['datasets'][dataset_name]
 
                 split_name = get_value(old_dataset_dict, 'split_name')
                 can_submit = get_value(old_dataset_dict, 'can_submit')
@@ -1060,24 +1078,33 @@ def update_configuration_latest(args):
 
                 new_leaderboard_inst.dataset_manager.add_dataset(new_dataset)
 
-                if new_submission_metrics is None:
+                if not updated_submission_metrics:
                     if 'submission_metrics' in old_dataset_dict:
-                        # TODO: Verify this works
-                        for metric_name, metric_dict in old_dataset_dict['submission_metrics'].values():
+                        for metric_name, metric_dict in old_dataset_dict['submission_metrics'].items():
+                            # Fix for renaming the store_result attribute in Metric class
+                            if 'store_result_in_submission' in metric_dict:
+                                temp_store_result = copy.deepcopy(metric_dict['store_result_in_submission'])
+                                del metric_dict['store_result_in_submission']
+                                metric_dict['store_result'] = temp_store_result
                             json_string = json.dumps(metric_dict)
-                            metric_inst = jsonpickle.decode(json_string)
-                            new_leaderboard_inst.submission_metrics[metric_name] = metric_inst
 
-                if new_excluded_files is None:
+                            metric_inst = jsonpickle.decode(json_string)
+
+
+                            new_leaderboard_inst.submission_metrics[metric_name] = metric_inst
+                        updated_submission_metrics = True
+
+                if not updated_excluded_files:
                     if 'excluded_files' in old_dataset_dict:
                         new_leaderboard_inst.excluded_files = copy.deepcopy(old_dataset_dict['excluded_files'])
+                        updated_excluded_files = True
 
-                if new_required_files is None:
+                if not updated_required_files:
                     if 'required_files' in old_dataset_dict:
                         new_leaderboard_inst.required_files = copy.deepcopy(old_dataset_dict['required_files'])
+                        updated_required_files = True
 
         # handle summary metrics
-        # TODO: Verify this works
         if 'summary_metrics' in old_leaderboard_config:
             old_summary_metrics = old_leaderboard_config['summary_metrics']
             for old_summary_metric_dict in old_summary_metrics:

@@ -25,7 +25,7 @@ from leaderboards.actor import Actor, ActorManager
 from leaderboards import json_io
 from leaderboards import slurm
 from leaderboards import time_utils
-from leaderboards.leaderboard import Leaderboard
+from leaderboards.leaderboard import *
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards import hash_utils
 from leaderboards import jsonschema_checker
@@ -968,6 +968,17 @@ def recompute_metrics(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
     results_manager = ResultsManager()
 
+    leaderboard_names = []
+
+    if args.name is not None:
+        leaderboard_names.append(args.name)
+    else:
+        for name in trojai_config.archive_leaderboard_names:
+            leaderboard_names.append(name)
+        for name in trojai_config.active_leaderboard_names:
+            leaderboard_names.append(name)
+
+
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                         handlers=[logging.StreamHandler()])
@@ -975,19 +986,21 @@ def recompute_metrics(args):
     print('Attempting to acquire PID file lock.')
     lock_file = '/var/lock/trojai-lockfile'
     if args.unsafe:
-        leaderboard = Leaderboard.load_json(trojai_config, args.name)
-        submission_manager = SubmissionManager.load_json(leaderboard)
-        submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard)
-        print('Finished recomputing metrics for {}'.format(leaderboard.name))
+        for name in leaderboard_names:
+            leaderboard = Leaderboard.load_json(trojai_config, name)
+            submission_manager = SubmissionManager.load_json(leaderboard)
+            submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard)
+            print('Finished recomputing metrics for {}'.format(leaderboard.name))
     else:
         with open(lock_file, 'w') as f:
             try:
                 fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 print('  PID lock acquired')
-                leaderboard = Leaderboard.load_json(trojai_config, args.name)
-                submission_manager = SubmissionManager.load_json(leaderboard)
-                submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard)
-                print('Finished recomputing metrics for {}'.format(leaderboard.name))
+                for name in leaderboard_names:
+                    leaderboard = Leaderboard.load_json(trojai_config, name)
+                    submission_manager = SubmissionManager.load_json(leaderboard)
+                    submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard)
+                    print('Finished recomputing metrics for {}'.format(leaderboard.name))
             except OSError as e:
                 print('check-and-launch was already running when called. {}'.format(e))
             finally:
@@ -1072,22 +1085,26 @@ def update_configuration_latest(args):
         with open(leaderboard.submissions_filepath, 'r') as fp:
             old_submission_config = json.load(fp)
 
+        if os.path.exists(backup_filepath):
+            print('Error, backup already exists, cancelling')
+            # return
+
         with open(backup_filepath, 'w') as fp:
-            json.dump(old_submission_config, fp)
+            json.dump(old_submission_config, fp, indent=2)
 
 
         new_submission_manager = SubmissionManager(leaderboard.name)
 
         if '_SubmissionManager__submissions' in old_submission_config:
             submissions_dict = old_submission_config['_SubmissionManager__submissions']
-            for actor_uuid, submissions_list in submissions_dict.values():
+            for actor_uuid, submissions_list in submissions_dict.items():
                 for submission_dict in submissions_list:
                     actor = actor_manager.get_from_uuid(actor_uuid)
 
                     g_email = None
                     g_filename = None
                     g_file_id = None
-                    now = datetime.now()
+                    now = datetime.datetime.now()
                     g_temp_timestamp = now.strftime("%Y-%m-%dT%H:%M:%S")
                     g_timestamp = None
 
@@ -1126,6 +1143,7 @@ def update_configuration_latest(args):
                     new_submission_manager.add_submission(actor, new_submission)
 
         new_submission_manager.save_json(leaderboard)
+        print('finished writing updated submission manager: {}'.format(leaderboard.name))
 
 
 if __name__ == "__main__":
@@ -1144,7 +1162,7 @@ if __name__ == "__main__":
 
     recompute_metrics_parser = subparser.add_parser('recompute-metrics')
     recompute_metrics_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
-    recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
+    recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards or None if rerun all leaderboards', required=False, default=None)
     recompute_metrics_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
     recompute_metrics_parser.set_defaults(func=recompute_metrics)
 

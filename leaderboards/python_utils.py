@@ -6,7 +6,7 @@ def update_object_values(object_inst: object, config_dict: Dict) -> bool:
     is_updated = False
 
     for key in config_keys:
-        if key in config_keys:
+        if key in config_dict:
             if hasattr(object_inst, key):
                 setattr(object_inst, key, config_dict[key])
                 is_updated = True
