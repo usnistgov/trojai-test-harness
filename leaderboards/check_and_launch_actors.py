@@ -209,7 +209,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         active_submission_managers[leaderboard_name] = submission_manager
 
         # Load all results for active leaderboard
-        results_manager.load_results(leaderboard_name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
+        leaderboard.load_results_df(results_manager)
 
         logging.info('Leaderboard {}: Submissions Manger has {} actors and {} total submissions.'.format(leaderboard_name, submission_manager.get_number_actors(), submission_manager.get_number_submissions()))
         logging.info('Finished loading leaderboards and submission manager for: {}'.format(leaderboard_name))
@@ -225,7 +225,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         archive_submission_managers[leaderboard_name] = SubmissionManager.load_json(leaderboard)
 
         # Load all results for archive leaderboard
-        results_manager.load_results(leaderboard_name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
+        leaderboard.load_results_df(results_manager)
 
         logging.info('Archived Leaderboard {} loaded'.format(leaderboard_name))
 
@@ -299,7 +299,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         if not os.path.exists(trojai_config.summary_metrics_dirpath):
             os.makedirs(trojai_config.summary_metrics_dirpath)
 
-        trojai_summary_folder_id = g_drive.create_folder('trojai_summary_plots')
+        trojai_summary_folder_id = g_drive.create_summary_root_folder()
 
         # Run global metric updates for active leaderboards
         for leaderboard_name, leaderboard in active_leaderboards.items():

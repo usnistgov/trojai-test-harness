@@ -152,10 +152,10 @@ class Task(object):
     def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None):
         raise NotImplementedError()
 
-    def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
+    def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
         raise NotImplementedError()
 
-    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
+    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str],  custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
         raise NotImplementedError()
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
@@ -412,7 +412,7 @@ class TrojAITask(Task):
         return errors
 
     # TODO: It may be necessary to specify the python_execution_env_filepath related to the task, rather than the current use from the trojai config
-    def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
+    def execute_submission(self, vm_ip, vm_name, python_execution_env_filepath: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str], info_dict: dict, custom_remote_home: str=None, custom_remote_scratch: str=None, custom_metaparameter_filepath: str=None, subset_model_ids: list=None, custom_result_dirpath: str=None):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -434,7 +434,7 @@ class TrojAITask(Task):
         else:
             params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', python_execution_env_filepath, remote_evaluate_models_python_filepath]
 
-        params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids, custom_result_dirpath))
+        params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, excluded_files, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids, custom_result_dirpath))
         params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_result_dirpath))
 
         logging.info('Launching with params {}'.format(' '.join(params)))
@@ -457,7 +457,7 @@ class TrojAITask(Task):
 
         return errors
 
-    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
+    def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str],  custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
 
@@ -487,7 +487,7 @@ class TrojAITask(Task):
 
         # Add excluded files into list
         args.append('--rsync-excludes')
-        for excluded_file in dataset.excluded_files:
+        for excluded_file in excluded_files:
             args.append(excluded_file)
 
         if custom_metaparameter_filepath is not None:

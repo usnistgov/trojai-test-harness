@@ -459,7 +459,7 @@ class DriveIO(object):
 
 
     def create_summary_root_folder(self):
-        return self.create_folder('trojai_summary_plots')
+        return self.create_folder('trojai_admin_leaderboard')
 
     def create_actor_root_folder(self, actor_name):
         return self.create_folder('trojai_results_{}'.format(actor_name))

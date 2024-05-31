@@ -155,6 +155,9 @@ class Leaderboard(object):
             self.generate_metadata_csv()
         return pd.read_csv(self.summary_metadata_csv_filepath)
 
+    def load_results_df(self, results_manager: ResultsManager):
+        return results_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
+
     ########################
     # Dataset utility functions
     ########################
@@ -375,7 +378,7 @@ class Leaderboard(object):
         raise NotImplementedError()
 
     def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame,
-                           results_manager: ResultsManager, submission_epoch_str: str, data_split: str, actor_name: str,
+                           results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str,
                            actor_uuid: str):
         raise NotImplementedError()
 
@@ -519,7 +522,7 @@ class TrojAILeaderboard(Leaderboard):
 
 
     def get_training_dataset_name(self):
-        raise TrojAILeaderboard.TRAIN_DATASET_NAME
+        return TrojAILeaderboard.TRAIN_DATASET_NAME
 
 
     def load_ground_truth(self, data_split_name: str) -> typing.OrderedDict[str, float]:
@@ -557,13 +560,16 @@ class TrojAILeaderboard(Leaderboard):
 
         return ground_truth_dict
 
-    def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch_str: str, data_split: str, actor_name: str, actor_uuid: str):
+    def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str, actor_uuid: str):
         new_data = dict()
         new_per_container_data = dict()
 
-        df = results_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
-        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split, actor_uuid)
+        submission_epoch_str = time_utils.convert_epoch_to_iso(submission_epoch)
 
+        df = self.load_results_df(results_manager)
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split, actor_uuid)
+        if filtered_df is None:
+            print('Why you none...')
 
         result_df_already_exists = result_df is not None and not result_df[
             (result_df['team_name'] == actor_name) & (result_df['submission_timestamp'] == submission_epoch_str) & (
@@ -577,21 +583,20 @@ class TrojAILeaderboard(Leaderboard):
         if result_df_already_exists and per_container_result_df_already_exists:
             return new_data, new_per_container_data
 
-        if len(filtered_df) != 1:
+        if filtered_df is None or len(filtered_df) != 1:
             logging.warning('Failed to find {}, {}, {}, when generating round results CSV'.format(
                 submission_epoch_str, data_split, actor_uuid))
             return new_data, new_per_container_data
 
         model_names = filtered_df['model_names'].values[0]
-        prediction_list = filtered_df['raw_results'].values[0]
+        prediction_list = filtered_df['raw_predictions'].values[0]
         target_list = filtered_df['ground_truth'].values[0]
 
-        np_preds = np.array(prediction_list)
-        targets = np.array(target_list)
+        # np_preds = np.array(prediction_list)
+        # targets = np.array(target_list)
 
         if not result_df_already_exists:
-
-            new_data['model_name'] = model_names
+            new_data['model_name'] =[str(i) for i in model_names]
             new_data['team_name'] = [actor_name] * len(model_names)
             new_data['submission_timestamp'] = [submission_epoch_str] * len(model_names)
             new_data['data_split'] = [data_split] * len(model_names)
@@ -612,7 +617,7 @@ class TrojAILeaderboard(Leaderboard):
         web_display_parse_errors = ''
 
         # Load results dataframe
-        df = results_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
+        df = self.load_results_df(results_manager)
 
         # Check to make sure that all metrics exist in the dataframe
         missing_columns = []
@@ -676,19 +681,19 @@ class TrojAILeaderboard(Leaderboard):
             model_names = list(ground_truth.keys())
             model_names.sort()
 
-            predictions = np.zeros(len(model_names))
-            targets = np.zeros(len(model_names))
+            predictions = np.zeros(len(model_names), dtype=np.float64)
+            targets = np.zeros(len(model_names), dtype=np.float64)
 
             for i in range(len(model_names)):
                 predictions[i] = results[model_names[i]]
                 targets[i] = ground_truth[model_names[i]]
 
-            raw_predictions_list = predictions.tolist()
-            ground_truth_list = targets.tolist()
+            raw_predictions = copy.deepcopy(predictions)
+            # ground_truth_list = targets.tolist()
 
             update_entry['model_names'] = model_names
-            update_entry['raw_predictions'] = raw_predictions_list
-            update_entry['ground_truth'] = ground_truth_list
+            update_entry['raw_predictions'] = raw_predictions
+            update_entry['ground_truth'] = targets
 
             # Check for issues with predictions and report them
             if not np.any(np.isfinite(predictions)):
@@ -712,7 +717,7 @@ class TrojAILeaderboard(Leaderboard):
             for metric_name in metrics_to_compute:
                 metric = self.submission_metrics[metric_name]
                 if isinstance(metric, TrojAIMetric):
-                    metric_output = metric.compute(predictions, targets, model_names, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, self.get_result_dirpath(data_split_name))
+                    metric_output = metric.compute(predictions, targets, model_names, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, execution_results_dirpath)
 
                     new_processed_metric_names.append(metric_name)
 

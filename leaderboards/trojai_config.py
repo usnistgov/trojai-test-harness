@@ -30,14 +30,14 @@ class TrojaiConfig(object):
         self.local_trojai_conda_env = '/home/trojai/miniconda3'
         # self.default_excluded_files = ["detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "ground_truth.csv", "log.txt", "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv", "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
         # self.default_required_files = ["model.pt", "ground_truth.csv", "clean-example-data", "reduced-config.json"]
-        self.leaderboard_csvs_dirpath = os.path.join(self.datasets_dirpath, 'leaderboard_summary_csvs')
+        self.leaderboard_csvs_dirpath = os.path.join(trojai_dirpath, 'leaderboard-summary-csvs')
         self.vm_cpu_cores_per_partition = {'es': 10, 'sts': 10}
         self.job_color_key = {604800: 'text-success font-weight-bold',
                               1209600: 'text-warning font-weight-bold',
                               float('inf'): 'text-danger font-weight-bold'}
 
         self.summary_metric_email_addresses = []
-        self.summary_metrics_dirpath = os.path.join(trojai_dirpath, 'summary_metrics')
+        self.summary_metrics_dirpath = os.path.join(trojai_dirpath, 'summary-metrics')
         self.summary_metric_update_timeframe = 3600
         self.last_summary_metric_update = 0
 

@@ -1,6 +1,6 @@
 from leaderboards.trojai_config import TrojaiConfig
 from leaderboards.actor import ActorManager, Actor
-from leaderboards.leaderboard import Leaderboard
+from leaderboards.leaderboard import *
 from leaderboards.mail_io import TrojaiMail
 from leaderboards.drive_io import DriveIO
 from leaderboards import json_io
@@ -59,7 +59,7 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
 
     if custom_evaluate_python_env_filepath is None:
         custom_evaluate_python_env_filepath = trojai_config.evaluate_python_env
-    task = leaderboard.task
+    task : Task = leaderboard.task
     dataset = leaderboard.get_dataset(data_split_name)
     train_dataset = leaderboard.get_dataset(leaderboard.get_training_dataset_name())
 
@@ -105,13 +105,13 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
         time.sleep(2)
 
         # Step 6) Copy in and update permissions task data/scripts (submission, eval_scripts, training dataset, model dataset, other per-task data (tokenizers), source_data)
-        errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath)
+        errors += task.copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, train_dataset, leaderboard.excluded_files, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath)
 
         # Add some delays
         time.sleep(2)
 
         # Step 7) Execute submission and check errors
-        errors += task.execute_submission(vm_ip, vm_name, custom_evaluate_python_env_filepath, submission_filepath, dataset, train_dataset, info_dict, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath, subset_model_ids)
+        errors += task.execute_submission(vm_ip, vm_name, custom_evaluate_python_env_filepath, submission_filepath, dataset, train_dataset, leaderboard.excluded_files, info_dict, custom_remote_home, custom_remote_scratch_with_job_id, custom_metaparameter_filepath, subset_model_ids)
 
         # Add some delays
         time.sleep(2)

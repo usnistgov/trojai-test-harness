@@ -353,7 +353,7 @@ class Submission(object):
         ##################################################
         # Process the metrics from the submission
         ##################################################
-        error_dict, processed_metric_names = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, epoch_str, self.processed_metric_names)
+        error_dict, processed_metric_names = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, self.get_submission_epoch_str_primary(), self.processed_metric_names)
 
         self.processed_metric_names.extend(processed_metric_names)
 
@@ -416,7 +416,7 @@ class Submission(object):
         return os.path.join(self.actor_submission_dirpath, self.g_file.name)
 
     def get_submission_epoch_str_primary(self):
-        return time_utils.convert_epoch_to_psudo_iso(self.submission_epoch)
+        return time_utils.convert_epoch_to_iso(self.submission_epoch)
 
     def execute(self, actor: Actor, trojai_config: TrojaiConfig, execution_epoch: int, execute_local=False, custom_home_dirpath: str=None, custom_scratch_dirpath: str=None, custom_slurm_options=None, custom_python_env_filepath: str = None) -> None:
         if custom_slurm_options is None:
@@ -553,11 +553,15 @@ class Submission(object):
 
         submission_timestr = time_utils.convert_epoch_to_iso(self.submission_epoch)
 
-        df = results_manager.load_results(leaderboard.name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
+        df = leaderboard.load_results_df(results_manager)
         filtered_df = results_manager.filter_primary_key(df, self.get_submission_epoch_str_primary(), self.data_split_name, actor.uuid)
 
+        if filtered_df is None:
+            logging.error('Unable to find submission: {} {} {} for actor {} on leaderboad {}'.format(self.get_submission_epoch_str_primary(), self.data_split_name, actor.uuid, actor.name, leaderboard.name))
+            return
+
         if len(filtered_df) > 1:
-            logging.warning('Found multiple entries that match {} {} {} for actor {} on leaderboard {}'.format(self.get_submission_epoch_str_primary(), self.data_split_name, actor.uuid, actor.name, leaderboard.name))
+            logging.error('Found multiple entries that match {} {} {} for actor {} on leaderboard {}'.format(self.get_submission_epoch_str_primary(), self.data_split_name, actor.uuid, actor.name, leaderboard.name))
             return
 
         if self.g_file.modified_epoch == 0 or self.g_file.modified_epoch is None:
@@ -644,18 +648,18 @@ class SubmissionManager(object):
                     continue
                 submission.compute_missing_metrics(results_manager, actor, leaderboard, g_drive)
 
-    def gather_submissions(self, result_manager: ResultsManager, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor, g_drive: DriveIO) -> List[Submission]:
+    def gather_submissions(self, results_manager: ResultsManager, leaderboard: Leaderboard, data_split_name:str, metric_name: str, metric_criteria: float, actor: Actor, g_drive: DriveIO) -> List[Submission]:
         gathered_submissions = list()
 
         actor_submissions = self.__submissions[actor.uuid]
         submission_metrics = leaderboard.submission_metrics
         metric = submission_metrics[metric_name]
 
-        result_df = result_manager.load_results(leaderboard.name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
+        result_df = leaderboard.load_results_df(results_manager)
 
         for submission in actor_submissions:
             if submission.data_split_name == data_split_name:
-                filtered_result_df = result_manager.filter_primary_key(result_df, submission.get_submission_epoch_str_primary(), data_split_name, actor.uuid)
+                filtered_result_df = results_manager.filter_primary_key(result_df, submission.get_submission_epoch_str_primary(), data_split_name, actor.uuid)
                 if metric.store_result:
                     if filtered_result_df[metric.get_name()] is not None:
                         metric_value = filtered_result_df[metric.get_name()].values[0]
@@ -732,7 +736,7 @@ class SubmissionManager(object):
     def load_json(leaderboard: Leaderboard) -> 'SubmissionManager':
         return SubmissionManager.load_json_custom(leaderboard.submissions_filepath, leaderboard.name)
 
-    def write_score_table_unique(self, output_dirpath, result_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
+    def write_score_table_unique(self, output_dirpath, results_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, data_split_name: str, g_drive: DriveIO):
 
         result_filename = 'results-unique-{}-{}.html'.format(leaderboard.name, data_split_name)
         result_filepath = os.path.join(output_dirpath, leaderboard.name, result_filename)
@@ -751,7 +755,7 @@ class SubmissionManager(object):
         evaluation_metric_name = leaderboard.evaluation_metric_name
         submission_metrics = leaderboard.submission_metrics
 
-        df = result_manager.load_results(leaderboard.name, leaderboard.leaderboard_results_filepath, leaderboard.get_default_result_columns())
+        df = leaderboard.load_results_df(results_manager)
 
         with a.div(klass='card-body card-body-cascade pb-0'):
             a.h2(klass='pb-q card-title', _t='Best Results based on {}'.format(evaluation_metric_name))
@@ -782,8 +786,9 @@ class SubmissionManager(object):
                                     continue
 
                                 # TODO: We could probably optimize this
-                                filtered_df = result_manager.filter_primary_key(df, s.get_submission_epoch_str_primary(), data_split_name, actor_uuid)
-
+                                filtered_df = results_manager.filter_primary_key(df, s.get_submission_epoch_str_primary(), data_split_name, actor_uuid)
+                                if filtered_df is None:
+                                    print('Why you none...')
                                 if filtered_df[evaluation_metric_name] is not None:
                                     value = filtered_df[evaluation_metric_name].values[0]
                                     if best_submission_score is None or metric.compare(value, best_submission_score):
@@ -791,7 +796,7 @@ class SubmissionManager(object):
                                         best_submission = s
 
                             if best_submission is not None:
-                                best_submission.get_result_table_row(result_manager, a, actor, leaderboard, g_drive)
+                                best_submission.get_result_table_row(results_manager, a, actor, leaderboard, g_drive)
 
         with open(result_filepath, 'w') as f:
             f.write(str(a))
@@ -870,15 +875,17 @@ class SubmissionManager(object):
                         continue
 
                     if submission.data_split_name == data_split:
-                        time_str = time_utils.convert_epoch_to_iso(submission.submission_epoch)
 
-                        temp_new_data, temp_new_per_container_data = leaderboard.update_results_csv(result_df, per_container_result_df, results_manager, time_str, data_split, actor.name, actor.uuid)
+                        temp_new_data, temp_new_per_container_data = leaderboard.update_results_csv(result_df, per_container_result_df, results_manager, submission.submission_epoch, data_split, actor.name, actor.uuid)
 
                         if len(temp_new_data) > 0:
                             num_dfs_added += 1
                             for key in temp_new_data.keys():
                                 if key in new_data:
-                                    new_data[key].extend(temp_new_data[key])
+                                    if isinstance(temp_new_data[key], list):
+                                        new_data[key].extend(temp_new_data[key])
+                                    elif isinstance(temp_new_data[key], np.ndarray):
+                                        new_data[key] = np.concatenate((new_data[key], temp_new_data[key]))
                                 else:
                                     new_data[key] = temp_new_data[key]
 
@@ -886,10 +893,10 @@ class SubmissionManager(object):
                             num_per_container_dfs_added += 1
 
                             for key in temp_new_per_container_data.keys():
-                                if key in new_data:
-                                    new_per_container_data[key].extend(temp_new_data[key])
+                                if key in new_per_container_data:
+                                    new_per_container_data[key].extend(temp_new_per_container_data[key])
                                 else:
-                                    new_per_container_data[key] = temp_new_data[key]
+                                    new_per_container_data[key] = temp_new_per_container_data[key]
 
         dictionary_time_end = time.time()
 

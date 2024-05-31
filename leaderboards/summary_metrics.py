@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdate
 from leaderboards import time_utils
 
+from leaderboards.metrics import AverageCrossEntropy
+
 
 class SummaryMetric(object):
     def __init__(self, share_with_collaborators: bool, add_to_html: bool):
@@ -43,7 +45,15 @@ class SummaryAverageCEOverTime(SummaryMetric):
             # TODO: Add a legend and color-code each actor
             actor_name = actor_names[0]
 
-            ce_values = actor_results_df['cross_entropy'].values
+            raw_predictions = actor_results_df['prediction'].values
+            ground_truth = actor_results_df['ground_truth'].values
+
+            raw_predictions[np.isnan(raw_predictions)] = 0.5
+
+            pred = np.array(raw_predictions)
+            tgt = np.array(ground_truth)
+
+            ce_values = AverageCrossEntropy.compute_cross_entropy(pred, tgt)
 
             ce_score = np.average(ce_values).item()
             avg_ce_scores[index] = ce_score
