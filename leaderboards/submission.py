@@ -854,16 +854,9 @@ class SubmissionManager(object):
         else:
             result_df = None
 
-        if os.path.exists(leaderboard.per_container_summary_results_csv_filepath) and not overwrite_csv:
-            per_container_result_df = leaderboard.load_per_container_summary_results_csv_into_df()
-        else:
-            per_container_result_df = None
-
         num_dfs_added = 0
-        num_per_container_dfs_added = 0
 
         new_data = dict()
-        new_per_container_data = dict()
 
         dictionary_time_start = time.time()
 
@@ -876,7 +869,7 @@ class SubmissionManager(object):
 
                     if submission.data_split_name == data_split:
 
-                        temp_new_data, temp_new_per_container_data = leaderboard.update_results_csv(result_df, per_container_result_df, results_manager, submission.submission_epoch, data_split, actor.name, actor.uuid)
+                        temp_new_data = leaderboard.update_results_csv(result_df, results_manager, submission.submission_epoch, data_split, actor.name, actor.uuid)
 
                         if len(temp_new_data) > 0:
                             num_dfs_added += 1
@@ -889,14 +882,6 @@ class SubmissionManager(object):
                                 else:
                                     new_data[key] = temp_new_data[key]
 
-                        if len(temp_new_per_container_data) > 0:
-                            num_per_container_dfs_added += 1
-
-                            for key in temp_new_per_container_data.keys():
-                                if key in new_per_container_data:
-                                    new_per_container_data[key].extend(temp_new_per_container_data[key])
-                                else:
-                                    new_per_container_data[key] = temp_new_per_container_data[key]
 
         dictionary_time_end = time.time()
 
@@ -913,15 +898,10 @@ class SubmissionManager(object):
 
             result_df.to_csv(leaderboard.summary_results_csv_filepath, index=False)
 
-        if num_per_container_dfs_added > 0:
-            if per_container_result_df is None:
-                per_container_result_df = pd.DataFrame(new_per_container_data)
-            else:
-                new_result_df = pd.DataFrame(new_per_container_data)
-                per_container_result_df = pd.concat([per_container_result_df, new_result_df], ignore_index=True)
-
-            per_container_result_df.to_csv(leaderboard.per_container_summary_results_csv_filepath, index=False)
-
+        # If there have been no submissions, then we should just create an empty one
+        if not os.path.exists(leaderboard.summary_results_csv_filepath):
+            with open(leaderboard.summary_results_csv_filepath, 'w') as fp:
+                pass
 
         df_time_end = time.time()
 

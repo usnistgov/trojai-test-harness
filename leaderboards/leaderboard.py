@@ -9,12 +9,13 @@ import copy
 import datetime
 import json
 import os
+import typing
 
 import jsonpickle
 import pandas as pd
 import numpy as np
 from airium import Airium
-from typing import Union
+from typing import Union, Tuple, Dict, Any
 
 from leaderboards.drive_io import DriveIO
 from leaderboards.python_utils import update_object_values, get_value
@@ -42,7 +43,8 @@ class Leaderboard(object):
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
-                        'causal_language': CausalLanguageModeling}
+                        'causal_language': CausalLanguageModeling,
+                        'image_classification_mitigation': ImageClassificationMitigationTask}
 
     ALL_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,
@@ -52,6 +54,9 @@ class Leaderboard(object):
         'BrierScore': BrierScore,
         'ROC_AUC': ROC_AUC,
         'DEX_Factor_csv': DEX_Factor_csv,
+        'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
+        'Mit_Clean_Acc_Psn': MitigationCleanAccuracyOnPoisonedModel,
+        'Mit_Clean_acc': MitigationAccuracyOnCleanModel
     }
 
     ALL_SUMMARY_METRIC_NAMES = {
@@ -96,14 +101,13 @@ class Leaderboard(object):
 
         self.evaluation_metric_name = None
         self.summary_metrics = []
-        self.submission_metrics = {}
+        self.submission_metrics: Dict[str, Metric] = {}
 
         self.excluded_files = []
         self.required_files = []
 
         self.summary_metadata_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_METADATA.csv'.format(self.name))
         self.summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_RESULTS.csv'.format(self.name))
-        self.per_container_summary_results_csv_filepath = os.path.join(trojai_config.leaderboard_csvs_dirpath, '{}_PER_CONTAINER_RESULTS.csv'.format(self.name))
 
         self.dataset_manager = DatasetManager()
         self.task = None
@@ -137,16 +141,12 @@ class Leaderboard(object):
 
     def load_summary_results_csv_into_df(self):
         if os.path.exists(self.summary_results_csv_filepath):
-            return pd.read_csv(self.summary_results_csv_filepath)
+            try:
+                return pd.read_csv(self.summary_results_csv_filepath)
+            except pd.errors.EmptyDataError:
+                return None
         else:
             logging.warning('Unable to find summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.summary_results_csv_filepath))
-            return None
-
-    def load_per_container_summary_results_csv_into_df(self):
-        if os.path.exists(self.per_container_summary_results_csv_filepath):
-            return pd.read_csv(self.per_container_summary_results_csv_filepath)
-        else:
-            logging.warning('Unable to find per container summary results metadata_csv at location: {}, please generate it through the submission manager.'.format(self.per_container_summary_results_csv_filepath))
             return None
 
     def load_metadata_csv_into_df(self):
@@ -362,24 +362,97 @@ class Leaderboard(object):
                                                          'split_name': split_name}
                 else:
                     if self.dataset_manager.has_dataset(split_name) and self.evaluation_metric_name is not None:
+                        sort_order = 'desc'
+                        if self.evaluation_metric_name in self.submission_metrics:
+                            sort_order = self.submission_metrics[self.evaluation_metric_name].get_sort_order()
                         self.html_table_sort_options[key] = {'column': self.evaluation_metric_name,
-                                                             'order': 'desc', 'split_name': split_name}
+                                                             'order': sort_order, 'split_name': split_name}
                     else:
                         self.html_table_sort_options[key] = {'column': 'Submission Timestamp', 'order': 'asc',
                                                              'split_name': split_name}
 
     def generate_metadata_csv(self, overwrite_csv: bool = True):
-        pass
+        all_df_list = []
+
+        if os.path.exists(self.summary_metadata_csv_filepath) and not overwrite_csv:
+            logging.warning('Skipping building round metadata: {} already exists and overwrite is disabled.'.format(self.summary_metadata_csv_filepath))
+            return
+
+        for split_name in self.get_all_data_split_names():
+            dataset = self.get_dataset(split_name)
+            dataset_dirpath = dataset.dataset_dirpath
+
+            metadata_filepath = os.path.join(dataset_dirpath, Dataset.METADATA_NAME)
+
+            if not os.path.exists(metadata_filepath):
+                logging.warning('Skipping {}, it does not contain the metadata file: {}'.format(dir, metadata_filepath))
+                continue
+
+            df = pd.read_csv(metadata_filepath)
+
+            # Add column for data_split
+            new_df = df.assign(data_split=split_name)
+
+            # Add column for ground_truth
+            new_df = new_df.assign(ground_truth='NaN')
+
+            models_dir = os.path.join(dataset_dirpath, 'models')
+
+            if os.path.exists(models_dir):
+                # Add ground truth values into data
+                for model_name in os.listdir(models_dir):
+                    model_dirpath = os.path.join(models_dir, model_name)
+
+                    # Skip model_name that is not a directory
+                    if not os.path.isdir(model_dirpath):
+                        continue
+
+                    ground_truth_filepath = os.path.join(models_dir, model_name, Dataset.GROUND_TRUTH_NAME)
+                    if not os.path.exists(ground_truth_filepath):
+                        logging.warning('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
+                        continue
+
+                    with open(ground_truth_filepath, 'r') as f:
+                        data = float(f.read())
+                        new_df.loc[new_df['model_name'] == model_name, 'ground_truth'] = data
+            else:
+                logging.warning('{} does not exist'.format(models_dir))
+
+            all_df_list.append(new_df)
+
+        if len(all_df_list) == 0:
+            logging.warning('Skipping {}, it does not contain any datasets for metadata'.format(self.summary_metadata_csv_filepath))
+            return
+
+        all_df = pd.concat(all_df_list)
+
+        # Rearrange columns slightly
+        columns = all_df.columns.tolist()
+        column_order = ['model_name', 'ground_truth', 'data_split']
+        remove_columns = ['converged', 'nonconverged_reason', 'Unnamed: 0']
+
+        # Remove columns
+        for column_name in remove_columns:
+            if column_name in columns:
+                columns.remove(column_name)
+
+        # Reorder columns
+        index = 0
+        for column_name in column_order:
+            if column_name in columns:
+                columns.remove(column_name)
+                columns.insert(index, column_name)
+                index += 1
+
+        all_df = all_df[columns]
+
+        all_df.to_csv(self.summary_metadata_csv_filepath, index=False)
+        logging.info('Finished writing round metadata to {}'.format(self.summary_metadata_csv_filepath))
 
     def get_default_result_columns(self):
         return ['submission_timestamp', 'actor_name', 'actor_UUID', 'data_split']
 
-    def add_default_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, on_html: bool):
-        raise NotImplementedError()
-
-    def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame,
-                           results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str,
-                           actor_uuid: str):
+    def update_results_csv(self, result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str, actor_uuid: str):
         raise NotImplementedError()
 
     def get_valid_metric(self, metric_name):
@@ -451,14 +524,14 @@ class TrojAILeaderboard(Leaderboard):
             raise RuntimeError('Invalid task name: {}'.format(self.task_name))
 
         self.task = TrojAILeaderboard.VALID_TASK_NAMES[self.task_name](trojai_config, self.name)
-        self.evaluation_metric_name = 'ROC-AUC'
+        self.evaluation_metric_name = ROC_AUC().get_name()
 
         self.excluded_files.extend(TrojAILeaderboard.DEFAULT_EXCLUDED_FILES)
         self.required_files.extend(TrojAILeaderboard.DEFAULT_REQUIRED_FILES)
 
         for metric in TrojAILeaderboard.DEFAULT_METRICS:
             new_metric = metric()
-            self.submission_metrics[new_metric.get_name()] =  new_metric
+            self.submission_metrics[new_metric.get_name()] = new_metric
 
         for metric in TrojAILeaderboard.DEFAULT_SUMMARY_METRICS:
             new_metric = metric()
@@ -473,12 +546,19 @@ class TrojAILeaderboard(Leaderboard):
                     can_submit = False
                     on_html = False
 
+                auto_delete_submission = False
+                auto_execute_split_names = []
+
                 if split_name == 'sts':
                     slurm_queue_name = TrojAILeaderboard.STS_SLURM_QUEUE_NAME
                     slurm_nice = 0
+                    auto_delete_submission = True
                 else:
                     slurm_queue_name = TrojAILeaderboard.GENERAL_SLURM_QUEUE_NAME
                     slurm_nice = 0
+
+                if split_name == 'test':
+                    auto_execute_split_names.append('train')
 
                 source_data_filepath = os.path.join(trojai_config.datasets_dirpath, self.name, 'source-data')
                 has_source_data = False
@@ -486,31 +566,11 @@ class TrojAILeaderboard(Leaderboard):
                 if os.path.exists(source_data_filepath):
                     has_source_data = True
 
-                self.add_default_dataset(trojai_config, split_name, can_submit, slurm_queue_name,
-                                         slurm_nice, has_source_data, on_html)
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data,
+                                 auto_delete_submission, auto_execute_split_names, generate_metadata_csv=False, on_html=on_html)
 
         self.initialize_directories()
         self.generate_metadata_csv()
-
-    def add_default_dataset(self, trojai_config: TrojaiConfig, split_name: str, can_submit: bool, slurm_queue_name: str, slurm_nice: int, has_source_data: bool, on_html: bool):
-        auto_delete_submission = False
-        auto_execute_split_names = []
-        if split_name == 'sts':
-            auto_delete_submission = True
-
-        if split_name == 'test':
-            auto_execute_split_names.append('train')
-
-        return self.add_dataset(trojai_config,
-                         split_name,
-                         can_submit,
-                         slurm_queue_name,
-                         slurm_nice,
-                         has_source_data,
-                         auto_delete_submission,
-                         auto_execute_split_names,
-                         generate_metadata_csv=False,
-                         on_html=on_html)
 
     def get_default_result_columns(self):
         column_names = super().get_default_result_columns()
@@ -560,33 +620,25 @@ class TrojAILeaderboard(Leaderboard):
 
         return ground_truth_dict
 
-    def update_results_csv(self, result_df: pd.DataFrame, per_container_result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str, actor_uuid: str):
+    def update_results_csv(self, result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str, actor_uuid: str):
         new_data = dict()
-        new_per_container_data = dict()
 
         submission_epoch_str = time_utils.convert_epoch_to_iso(submission_epoch)
 
         df = self.load_results_df(results_manager)
         filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split, actor_uuid)
-        if filtered_df is None:
-            print('Why you none...')
 
         result_df_already_exists = result_df is not None and not result_df[
             (result_df['team_name'] == actor_name) & (result_df['submission_timestamp'] == submission_epoch_str) & (
                         result_df['data_split'] == data_split)].empty
 
-        per_container_result_df_already_exists = per_container_result_df is not None and not per_container_result_df[
-            (per_container_result_df['team_name'] == actor_name) & (
-                        per_container_result_df['submission_timestamp'] == submission_epoch_str) & (
-                        per_container_result_df['data_split'] == data_split)].empty
-
-        if result_df_already_exists and per_container_result_df_already_exists:
-            return new_data, new_per_container_data
+        if result_df_already_exists:
+            return new_data
 
         if filtered_df is None or len(filtered_df) != 1:
             logging.warning('Failed to find {}, {}, {}, when generating round results CSV'.format(
                 submission_epoch_str, data_split, actor_uuid))
-            return new_data, new_per_container_data
+            return new_data
 
         model_names = filtered_df['model_names'].values[0]
         prediction_list = filtered_df['raw_predictions'].values[0]
@@ -602,11 +654,8 @@ class TrojAILeaderboard(Leaderboard):
             new_data['data_split'] = [data_split] * len(model_names)
             new_data['prediction'] = [float(i) for i in prediction_list]
             new_data['ground_truth'] = [float(i) for i in target_list]
-            new_per_container_data['team_name'] = [actor_name]
-            new_per_container_data['submission_timestamp'] = [submission_epoch_str]
-            new_per_container_data['data_split'] = [data_split]
 
-        return new_data, new_per_container_data
+        return new_data
 
 
     def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
@@ -771,91 +820,402 @@ class TrojAILeaderboard(Leaderboard):
 
         return errors, new_processed_metric_names
 
-
-
-    def generate_metadata_csv(self, overwrite_csv: bool = True):
-        all_df_list = []
-
-        if os.path.exists(self.summary_metadata_csv_filepath) and not overwrite_csv:
-            logging.warning('Skipping building round metadata: {} already exists and overwrite is disabled.'.format(self.summary_metadata_csv_filepath))
-            return
-
-        for split_name in self.get_all_data_split_names():
-            dataset = self.get_dataset(split_name)
-            dataset_dirpath = dataset.dataset_dirpath
-
-            metadata_filepath = os.path.join(dataset_dirpath, Dataset.METADATA_NAME)
-
-            if not os.path.exists(metadata_filepath):
-                logging.warning('Skipping {}, it does not contain the metadata file: {}'.format(dir, metadata_filepath))
-                continue
-
-            df = pd.read_csv(metadata_filepath)
-
-            # Add column for data_split
-            new_df = df.assign(data_split=split_name)
-
-            # Add column for ground_truth
-            new_df = new_df.assign(ground_truth='NaN')
-
-            models_dir = os.path.join(dataset_dirpath, 'models')
-
-            if os.path.exists(models_dir):
-                # Add ground truth values into data
-                for model_name in os.listdir(models_dir):
-                    model_dirpath = os.path.join(models_dir, model_name)
-
-                    # Skip model_name that is not a directory
-                    if not os.path.isdir(model_dirpath):
-                        continue
-
-                    ground_truth_filepath = os.path.join(models_dir, model_name, Dataset.GROUND_TRUTH_NAME)
-                    if not os.path.exists(ground_truth_filepath):
-                        logging.warning('WARNING, ground truth file does not exist: {}'.format(ground_truth_filepath))
-                        continue
-
-                    with open(ground_truth_filepath, 'r') as f:
-                        data = float(f.read())
-                        new_df.loc[new_df['model_name'] == model_name, 'ground_truth'] = data
-            else:
-                logging.warning('{} does not exist'.format(models_dir))
-
-            all_df_list.append(new_df)
-
-        if len(all_df_list) == 0:
-            logging.warning('Skipping {}, it does not contain any datasets for metadata'.format(self.summary_metadata_csv_filepath))
-            return
-
-        all_df = pd.concat(all_df_list)
-
-        # Rearrange columns slightly
-        columns = all_df.columns.tolist()
-        column_order = ['model_name', 'ground_truth', 'data_split']
-        remove_columns = ['converged', 'nonconverged_reason']
-
-        # Remove columns
-        for column_name in remove_columns:
-            if column_name in columns:
-                columns.remove(column_name)
-
-        # Reorder columns
-        index = 0
-        for column_name in column_order:
-            if column_name in columns:
-                columns.remove(column_name)
-                columns.insert(index, column_name)
-                index += 1
-
-        all_df = all_df[columns]
-
-        all_df.to_csv(self.summary_metadata_csv_filepath, index=False)
-        logging.info('Finished writing round metadata to {}'.format(self.summary_metadata_csv_filepath))
-
     def get_valid_metric(self, metric_name):
         return TrojAILeaderboard.VALID_METRIC_NAMES[metric_name]
 
     def get_valid_summary_metric(self, metric_name):
         return TrojAILeaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name]
+
+
+class MitigationLeaderboard(Leaderboard):
+    DEFAULT_EVALUATION_METRIC_NAME = ''
+    DEFAULT_EXCLUDED_FILES = ["test_example_data_lookup.json", 'ground_truth.csv', 'poisoned-example-data', 'detailed_stats.csv', 'fg_class_translation.json', 'clean-example-data', 'foregrounds',
+                               "detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "log.txt",
+                               "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv",
+                               "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
+    DEFAULT_REQUIRED_FILES = ["model.pt", 'mitigate-example-data', "test-example-data", "reduced-config.json", "test_example_data_lookup.json", 'ground_truth.csv']
+    TRAIN_DATASET_NAME = 'train'
+    DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']
+    DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
+    VALID_TASK_NAMES = {'image_classification_mitigation': ImageClassificationMitigationTask}
+    VALID_METRIC_NAMES = { 'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
+        'Mit_Clean_Acc_Psn': MitigationCleanAccuracyOnPoisonedModel,
+        'Mit_Clean_acc': MitigationAccuracyOnCleanModel}
+
+    DEFAULT_METRICS = [MitigationPoisonedAccuracyOnPoisonedModel,
+                       MitigationCleanAccuracyOnPoisonedModel,
+                       MitigationAccuracyOnCleanModel]
+
+
+    VALID_SUMMARY_METRIC_NAMES = {}
+    DEFAULT_SUMMARY_METRICS = []
+    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool):
+        super().__init__(name, task_name, trojai_config)
+
+        if self.task_name not in MitigationLeaderboard.VALID_TASK_NAMES:
+            raise RuntimeError('Invalid task name: {}'.format(self.task_name))
+
+        self.task = MitigationLeaderboard.VALID_TASK_NAMES[self.task_name](trojai_config, self.name)
+        self.evaluation_metric_name = MitigationPoisonedAccuracyOnPoisonedModel().get_name()
+
+        self.excluded_files.extend(MitigationLeaderboard.DEFAULT_EXCLUDED_FILES)
+        self.required_files.extend(MitigationLeaderboard.DEFAULT_REQUIRED_FILES)
+
+        for metric in MitigationLeaderboard.DEFAULT_METRICS:
+            new_metric = metric()
+            self.submission_metrics[new_metric.get_name()] = new_metric
+
+        for metric in MitigationLeaderboard.DEFAULT_SUMMARY_METRICS:
+            new_metric = metric()
+            self.summary_metrics.append(new_metric)
+
+        if add_default_data_split:
+            for split_name in MitigationLeaderboard.DEFAULT_DATASET_SPLIT_NAMES:
+                if split_name in MitigationLeaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+                    can_submit = True
+                    on_html = True
+                else:
+                    can_submit = False
+                    on_html = False
+
+                auto_delete_submission = False
+                auto_execute_split_names = []
+
+                if split_name == 'sts':
+                    slurm_queue_name = MitigationLeaderboard.STS_SLURM_QUEUE_NAME
+                    slurm_nice = 0
+                    auto_delete_submission = True
+                else:
+                    slurm_queue_name = MitigationLeaderboard.GENERAL_SLURM_QUEUE_NAME
+                    slurm_nice = 0
+
+                has_source_data = False
+
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data, auto_delete_submission, auto_execute_split_names, generate_metadata_csv=False, on_html=on_html)
+
+        self.initialize_directories()
+        self.generate_metadata_csv()
+
+    def get_default_result_columns(self):
+        column_names = super().get_default_result_columns()
+        column_names.extend(['ground_truth_dict', 'predictions_dict'])
+        for metric_name, metric in self.submission_metrics.items():
+            if metric.store_result:
+                column_names.append(metric_name)
+        return column_names
+
+    def get_training_dataset_name(self):
+        return MitigationLeaderboard.TRAIN_DATASET_NAME
+
+    # Loads the results from an actor into a dictionary with the format: Dict[model_name][example_filename] = np.nan or np.ndarray
+    def load_results(self, actor_name: str, execution_results_dirpath: str, all_models_ground_truth: Dict[str, Dict[str, Any]], metadata_df: pd.DataFrame) -> Tuple[str, Dict[str, Dict[str, Union[float, np.ndarray]]]]:
+        results_dict = {}
+        errors = ''
+        for model_name in all_models_ground_truth.keys():
+            results_dict[model_name] = {}
+            filtered_df = metadata_df[metadata_df['model_name'] == model_name]
+            if len(filtered_df) != 1:
+                logging.warning('Unable to find {} in metadata_df'.format(model_name))
+                continue
+
+            number_classes = filtered_df['number_classes'].values[0]
+
+            example_file_list = all_models_ground_truth[model_name].keys()
+            result_filepath = os.path.join(execution_results_dirpath, model_name + '.json')
+
+            if not os.path.exists(result_filepath):
+                for example_name in example_file_list:
+                    results_dict[model_name][example_name] = np.nan
+                logging.warning(
+                    'Missing result file from actor {} for {} example {}'.format(actor_name,
+                                                                                              model_name,
+                                                                                              example_filename))
+                if ':Missing Results(file):' not in errors:
+                    errors += ':Missing Results(file):'
+                continue
+
+            with open(result_filepath, 'r') as fp:
+                prediction_dict = json.load(fp)
+                if 'pred_logits' not in prediction_dict:
+                    for example_name in example_file_list:
+                        results_dict[model_name][example_name] = np.nan
+                    logging.warning(
+                        'Incorrect format for pred_logits from actor {} for {} example {}'.format(actor_name,
+                                                                                                      model_name,
+                                                                                                      example_filename))
+
+                    if ':Result Parse:' not in errors:
+                        errors += ':Result Parse:'
+                    continue
+
+                prediction_dict = prediction_dict['pred_logits']
+                for example_filename in example_file_list:
+                    results_dict[model_name][example_filename] = np.nan
+                    if example_filename in prediction_dict:
+                        logits: np.ndarray = prediction_dict[example_filename]
+                        if len(logits) == number_classes:
+                            results_dict[model_name][example_filename] = logits
+                        else:
+                            results_dict[model_name][example_filename] = np.nan
+                            if ':Missing Results(logits):' not in errors:
+                                errors += ':Missing Results(logits):'
+
+                            logging.warning('Missing results from actor {} for {} example {}, expected {}, got {}'.format(actor_name, model_name, example_filename, number_classes, len(logits)))
+
+        return errors, results_dict
+
+
+    def update_results_csv(self, result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str, actor_uuid: str):
+        new_data = dict()
+
+        submission_epoch_str = time_utils.convert_epoch_to_iso(submission_epoch)
+
+        df = self.load_results_df(results_manager)
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split, actor_uuid)
+
+        result_df_already_exists = result_df is not None and not result_df[
+            (result_df['team_name'] == actor_name) & (result_df['submission_timestamp'] == submission_epoch_str) & (
+                        result_df['data_split'] == data_split)].empty
+
+
+        if result_df_already_exists:
+            return new_data
+
+        if filtered_df is None or len(filtered_df) != 1:
+            logging.warning('Failed to find {}, {}, {}, when generating round results CSV'.format(
+                submission_epoch_str, data_split, actor_uuid))
+            return new_data
+
+        ground_truth_dict = filtered_df['ground_truth_dict'].values[0]
+        predictions_dict = filtered_df['predictions_dict'].values[0]
+
+        ground_truth_clean_entries = []
+        ground_truth_poisoned_entries = []
+        model_names = []
+        example_names = []
+        predictions = []
+
+
+        for model_dir, examples_dict in ground_truth_dict.items():
+            for example_name, labels_dict in examples_dict.items():
+                model_names.append(model_dir)
+                example_names.append(example_name)
+                ground_truth_clean_entries.append(labels_dict['clean'])
+                ground_truth_poisoned_entries.append(labels_dict['poisoned'])
+                logits = predictions_dict[model_dir][example_name]
+
+                if np.isnan(logits):
+                    predictions.append(np.nan)
+                else:
+                    predictions.append(np.argmax(logits))
+
+
+
+        if not result_df_already_exists:
+            new_data['model_name'] = model_names
+            new_data['team_name'] = [actor_name] * len(model_names)
+            new_data['submission_timestamp'] = [submission_epoch_str] * len(model_names)
+            new_data['data_split'] = [data_split] * len(model_names)
+            new_data['prediction'] = predictions
+            new_data['ground_truth_clean_entries'] = ground_truth_clean_entries
+            new_data['ground_truth_poisoned_entries'] = ground_truth_poisoned_entries
+
+        return new_data
+
+    # Loads the ground truth for every model and every example, this returns Dict[model_name][example_name]['clean'/'poisoned']
+    def load_ground_truth(self, data_split_name) -> Dict[str, Dict[str, Dict[str, int]]]:
+        # Tuple[
+        # Dict[str, List[str]], Dict[str, Dict[str, int]], Dict[str, Dict[str, int]], Dict[str, Dict[str, int]]]:
+        dataset: Dataset = self.dataset_manager.get(data_split_name)
+
+        all_models_ground_truth = {}
+        # clean_models_ground_truth = {}
+        # poisoned_models_ground_truth = {}
+        # poisoned_models_trigger_ground_truth = {}
+        # all_model_examples = {}
+
+        models_dirpath: str = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
+
+        if os.path.exists(models_dirpath):
+            for model_dir in os.listdir(models_dirpath):
+                if not model_dir.startswith('id-'):
+                    continue
+
+                model_dirpath = os.path.join(models_dirpath, model_dir)
+
+                if not os.path.isdir(model_dirpath):
+                    logging.warning('Failed to find model {}'.format(model_dirpath))
+                    continue
+
+                model_ground_truth_filepath = os.path.join(model_dirpath, 'ground_truth.csv')
+                if not os.path.exists(model_ground_truth_filepath):
+                    logging.warning('Failed to find model ground truth CSV'.format(model_ground_truth_filepath))
+                    continue
+
+                model_ground_truth = np.nan
+                with open(model_ground_truth_filepath, 'r') as fp:
+                    file_contents = fp.readline().strip()
+                    model_ground_truth = float(file_contents)
+
+                test_data_ground_truth_filepath = os.path.join(model_dirpath, 'test_example_data_lookup.json')
+
+                if not os.path.exists(test_data_ground_truth_filepath):
+                    continue
+
+                all_models_ground_truth[model_dir] = {}
+                # clean_models_ground_truth[str(model_dir)] = {}
+                # poisoned_models_trigger_ground_truth[str(model_dir)] = {}
+                # poisoned_models_ground_truth[str(model_dir)] = {}
+                # all_model_examples[model_dir] = []
+
+                with open(test_data_ground_truth_filepath, 'r') as fp:
+                    example_data_lookup_dict = json.load(fp)
+
+                    if isinstance(example_data_lookup_dict, dict):
+                        for example_filename, example_dict in example_data_lookup_dict.items():
+                            # all_model_examples[model_dir].append(example_filename)
+                            clean_label = example_dict['clean_label']
+                            poisoned_label = example_dict['poisoned_label']
+
+                            all_models_ground_truth[model_dir][example_filename] = {'clean': clean_label, 'poisoned': poisoned_label}
+                            # if model_ground_truth == 0:
+                            #     clean_models_ground_truth[str(model_dir)][example_filename] =  clean_label
+                            # else:
+                            #     poisoned_models_ground_truth[str(model_dir)][example_filename] = clean_label
+                            #     poisoned_models_trigger_ground_truth[str(model_dir)][example_filename] = poisoned_label
+
+        return all_models_ground_truth
+
+    def get_valid_metric(self, metric_name):
+        return MitigationLeaderboard.VALID_METRIC_NAMES[metric_name]
+
+    def get_valid_summary_metric(self, metric_name):
+        return MitigationLeaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name]
+
+    def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
+                        execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str,
+                        processed_metrics: list):
+        errors = {}
+        new_processed_metric_names = {}
+        web_display_parse_errors = ''
+
+        # Load results dataframe
+        df = self.load_results_df(results_manager)
+
+        # Check to make sure that all metrics exist in the dataframe
+        missing_columns = []
+        for metric_name, metric in self.submission_metrics.items():
+            if metric.store_result and metric_name not in df.columns:
+                missing_columns.append(metric_name)
+
+        # Add all missing metric columns, each with default value None
+        if len(missing_columns) > 0:
+            df = df.assign(**{col: None for col in missing_columns})
+
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split_name, actor_uuid)
+
+        update_entry = {}
+        metrics_to_compute = []
+
+        # If the entry already exists, then we need to check for missing/empty metrics
+        if filtered_df is not None:
+            if len(filtered_df) > 1:
+                logging.error('Found {} entries for submission {}, split {}, actor {}'.format(len(filtered_df), submission_epoch_str, data_split_name, actor_name))
+                return
+
+            submission_metric_names = self.submission_metrics.keys()
+
+            # Check for metrics to compute
+            for metric_name in submission_metric_names:
+                if processed_metrics is None or metric_name not in processed_metrics:
+                    metrics_to_compute.append(metric_name)
+
+        else:
+            update_entry = {'submission_timestamp': submission_epoch_str, 'data_split': data_split_name,
+                         'actor_UUID': actor_uuid, 'actor_name': actor_name}
+
+            # Add all metrics to compute
+            metrics_to_compute.extend(self.submission_metrics.keys())
+
+        # If there are any metrics to compute, then let's compute them and update the filtered_df
+        # We will also ensure we get the latest
+        if len(metrics_to_compute) > 0:
+            metadata_df = self.load_metadata_csv_into_df()
+            data_split_metadata = metadata_df[metadata_df['data_split'] == data_split_name]
+
+            all_models_ground_truth = self.load_ground_truth(data_split_name)
+            errors, predictions_dict = self.load_results(actor_name, execution_results_dirpath, all_models_ground_truth, data_split_metadata)
+
+            if errors != '':
+                web_display_parse_errors = errors
+
+            external_share_files = []
+            actor_share_files = []
+
+            update_entry['ground_truth_dict'] = all_models_ground_truth
+            update_entry['predictions_dict'] = predictions_dict
+
+            # Compute metrics for leaderboard
+            for metric_name in metrics_to_compute:
+                metric = self.submission_metrics[metric_name]
+
+                if isinstance(metric, MitigationMetric):
+                    metric_output = metric.compute(predictions_dict, all_models_ground_truth, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, execution_results_dirpath)
+
+                    new_processed_metric_names.append(metric_name)
+
+                    if metric.store_result:
+                        metric_result = metric_output['result']
+
+                        if metric_result is not None:
+                            update_entry[metric_name] = metric_result
+                        else:
+                            logging.warning('Metric {} is slated to return a result, but the result was None'.format(metric_name))
+
+                    files = metric_output['files']
+
+                    if files is not None:
+                        if isinstance(files, str):
+                            files = [files]
+
+                        if metric.share_with_actor:
+                            actor_share_files.extend(files)
+
+                        if metric.share_with_external:
+                            external_share_files.extend(files)
+                else:
+                    logging.warning(
+                        'Invalid metric type: {}, expected MitigationMetric for leaderboard {}'.format(type(metric),
+                                                                                                   self.name))
+                    continue
+
+            # Update entry or add entry to result dataframe
+            if filtered_df is not None:
+                df.loc[filtered_df.index[0], update_entry.keys()] = update_entry.values()
+            else:
+                df.loc[len(df)] = update_entry
+
+            # Upload metric files with external and actor Google Drive folders
+            if len(external_share_files) > 0 or len(actor_share_files) > 0:
+                actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor_name, self.name, data_split_name)
+
+                if external_actor_submission_folder_id is not None:
+                    # if len(external_share_files) > 0:
+                    #     g_drive.enqueue_file_upload(external_share_files, folder_id=external_actor_submission_folder_id)
+                    for file in external_share_files:
+                        g_drive.upload(file, folder_id=external_actor_submission_folder_id)
+
+                if actor_submission_folder_id is not None:
+                    # if len(actor_share_files) > 0:
+                    #     g_drive.enqueue_file_upload(actor_share_files, folder_id=actor_submission_folder_id)
+                    for file in actor_share_files:
+                        g_drive.upload(file, folder_id=actor_submission_folder_id)
+
+        if len(web_display_parse_errors) != 0:
+            errors['web_display_parse_errors'] = web_display_parse_errors
+
+        return errors, new_processed_metric_names
+
 
 def init_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
@@ -864,7 +1224,6 @@ def init_leaderboard(args):
         logging.warning("Over-riding default required files list {} with {}".format(trojai_config.default_required_files, req_files))
         trojai_config.default_required_files = req_files
 
-    # TODO: Update to indicate what type of leaderboard
     leaderboard_type = args.leaderboard_type
 
     leaderboard = None
@@ -872,8 +1231,7 @@ def init_leaderboard(args):
     if leaderboard_type == 'trojai':
         leaderboard = TrojAILeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
     elif leaderboard_type == 'mitigation':
-        # TODO: Implement
-        raise NotImplementedError()
+        leaderboard = MitigationLeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
 
     if leaderboard is not None:
         leaderboard.save_json(trojai_config)
@@ -1137,7 +1495,7 @@ if __name__ == "__main__":
     subparser = parser.add_subparsers(dest='cmd', required=True)
 
     init_parser = subparser.add_parser('init', help='Initializes a new leaderboard')
-    init_parser.add_argument('--leaderboard_type', type=str, choices=Leaderboard.LEADERBOARD_TYPES, help='Declares the type of leaderboard to generate')
+    init_parser.add_argument('--leaderboard-type', type=str, choices=Leaderboard.LEADERBOARD_TYPES, help='Declares the type of leaderboard to generate')
     init_parser.add_argument('--trojai-config-filepath', type=str, help='The filepath to the main trojai config', required=True)
     init_parser.add_argument('--name', type=str, help='The name of the leaderboards', required=True)
     init_parser.add_argument('--task-name', type=str, choices=Leaderboard.ALL_TASK_NAMES, help='The name of the task for this leaderboards', required=True)

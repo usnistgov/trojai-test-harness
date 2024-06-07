@@ -45,7 +45,6 @@ def build_round_csvs(trojai_config: TrojaiConfig, leaderboard_names: list, outpu
         active_rounds = trojai_config.active_leaderboard_names
         archive_rounds = trojai_config.archive_leaderboard_names
 
-
         leaderboard_names.extend(active_rounds)
         leaderboard_names.extend(archive_rounds)
 

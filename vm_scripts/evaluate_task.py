@@ -82,7 +82,7 @@ class EvaluateTrojAITask(EvaluateTask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-
+        super().__init__()
         self.models_dirpath = models_dirpath
         self.submission_filepath = submission_filepath
         self.home_dirpath = home_dirpath
@@ -579,6 +579,7 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
 
     def execute_container(self, container_instance, active_dirpath, container_scratch_dirpath, model_dirname):
 
+        # Called for each model.
         # Setup mitigation Arguments
         model_filepath = os.path.join(active_dirpath, 'model.pt')
         output_dirpath = os.path.join(active_dirpath, 'output')
@@ -590,7 +591,6 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
         mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
 
         mitigate_args = ['--mitigate',
-                         '--metaparameters', self.metaparameters_filepath,
                          '--model_filepath', model_filepath,
                          '--dataset', mitigate_dataset_dirpath,
                          '--scratch_dirpath', container_scratch_dirpath,
@@ -600,6 +600,7 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
         # Execute mitigate
         # TODO: How to handle result from mitigate (check for 0 status?)
         result = Client.run(container_instance, mitigate_args, return_result=True)
+        logging.info('Output from mitigate step: {}'.format(result))
 
         # Setup test arguments
         mitigated_model_filepath = os.path.join(output_dirpath, output_model_name)
@@ -607,11 +608,11 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
         # TODO: What to do if no mitigated model exists
         if not os.path.exists(mitigated_model_filepath):
             logging.error('Failed to find mitigated model, mitigate step may have errors.')
+            return {}
         else:
             mitigated_model_filepath = model_filepath
 
         test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
-
 
         test_args = ['--test',
                      '--metaparameters', self.metaparameters_filepath,
@@ -624,11 +625,17 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
         result = Client.run(container_instance, test_args, return_result=True)
 
         # TODO: The results filepath should probably be passed in as a parameter.
-        output_results_filepath = os.path.join(output_dirpath, 'results.pkl')
+        output_results_filepath = os.path.join(output_dirpath, 'results.json')
 
         # copy results back to real output filename
         if os.path.exists(output_results_filepath):
-            shutil.copy(output_results_filepath, os.path.join(self.result_dirpath, '{}{}.txt'.format(self.result_prefix_filename, model_dirname)))
+            with open(output_results_filepath, 'r') as fp:
+                result_dict = json.load(fp)
+                if 'pred_logits' not in result_dict:
+                    logging.warning('{} is missing prediction logits in its result json'.format(model_dirname))
+            shutil.copy(output_results_filepath, os.path.join(self.result_dirpath, '{}{}.json'.format(self.result_prefix_filename, model_dirname)))
+        else:
+            logging.warning('{} is missing the output result file {}'.format(model_dirname, output_results_filepath))
 
         return result
 
@@ -662,7 +669,8 @@ if __name__ == '__main__':
                               'image': EvaluateImageTask,
                               'cyber': EvaluateCyberTask,
                               'cyber_pdf': EvaluateCyberPDFTask,
-                              'clm': EvaluateClmTask}
+                              'clm': EvaluateClmTask,
+                              'image_classification_mitigation': EvaluateMitigationTask}
 
     parser = argparse.ArgumentParser(description='Entry point to execute containers')
 

@@ -14,6 +14,8 @@ import logging
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 
+from typing import Dict, List, Optional, Union
+
 import os
 
 from leaderboards import fs_utils
@@ -32,14 +34,12 @@ class Metric(object):
         self.html_priority = 0
         self.html_decimal_places = 5
 
-
-    def has_metadata(self):
-        raise NotImplementedError()
-
-
     def get_name(self):
         raise NotImplementedError()
 
+    # asc or desc for ascending or descending, respectively
+    def get_sort_order(self):
+        return 'desc'
 
     def compare(self, computed, baseline):
         raise NotImplementedError()
@@ -53,7 +53,6 @@ class TrojAIMetric(Metric):
 
     # Returns a dictionary with the following:
     # 'result': None or value
-    # 'metadata': None or dict
     # 'files': None or list of files saved
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
@@ -70,8 +69,8 @@ class AverageCrossEntropy(TrojAIMetric):
     def get_name(self):
         return 'Cross Entropy'
 
-    def has_metadata(self):
-        return True
+    def get_sort_order(self):
+        return 'asc'
 
     @staticmethod
     def compute_cross_entropy(pred: np.ndarray, tgt: np.ndarray, epsilon: float = 1e-12) -> np.ndarray:
@@ -88,7 +87,7 @@ class AverageCrossEntropy(TrojAIMetric):
                 output_dirpath: str):
         ce = self.compute_cross_entropy(predictions, targets, self.epsilon)
 
-        return {'result': np.average(ce).item(), 'metadata': {'cross_entropy': ce}, 'files': None}
+        return {'result': np.average(ce).item(), 'files': None}
 
     def compare(self, computed, baseline):
         return computed < baseline
@@ -108,9 +107,6 @@ class GroupedCrossEntropyViolin(TrojAIMetric):
             raise RuntimeError('Columns of interest must be passed as a list')
 
         self.epsilon = epsilon
-
-    def has_metadata(self):
-        return False
 
     def get_name(self):
         return 'Grouped Cross Entropy Violin {}'.format('_'.join(self.columns_of_interest))
@@ -188,7 +184,7 @@ class GroupedCrossEntropyViolin(TrojAIMetric):
         plt.close(fig)
         plt.clf()
 
-        return {'result': None, 'metadata': None, 'files': [filepath]}
+        return {'result': None, 'files': [filepath]}
 
 
 class CrossEntropyConfidenceInterval(TrojAIMetric):
@@ -208,8 +204,6 @@ class CrossEntropyConfidenceInterval(TrojAIMetric):
     def get_name(self):
         return 'CE {}% CI'.format(self.level)
 
-    def has_metadata(self):
-        return False
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
@@ -234,7 +228,7 @@ class CrossEntropyConfidenceInterval(TrojAIMetric):
         else:
             raise RuntimeError(
                 'Unsupported confidence interval level: {}. Must be in [90, 95, 98, 99]'.format(self.level))
-        return {'result': float(ci), 'metadata': None, 'files': None}
+        return {'result': float(ci), 'files': None}
 
 
 class BrierScore(TrojAIMetric):
@@ -245,9 +239,6 @@ class BrierScore(TrojAIMetric):
     def get_name(self):
         return 'Brier Score'
 
-    def has_metadata(self):
-        return False
-
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
                 output_dirpath: str):
@@ -255,7 +246,7 @@ class BrierScore(TrojAIMetric):
         targets = targets.astype(np.float64)
 
         mse = np.mean(np.square(predictions - targets))
-        return {'result': float(mse), 'metadata': None, 'files': None}
+        return {'result': float(mse), 'files': None}
 
     def compare(self, computed, baseline):
         return computed > baseline
@@ -272,9 +263,6 @@ class Grouped_ROC_AUC(TrojAIMetric):
 
         if not isinstance(self.columns_of_interest, list):
             raise RuntimeError('Columns of interest must be passed as a list')
-
-    def has_metadata(self):
-        return False
 
     def get_name(self):
         if len(self.columns_of_interest) == 0:
@@ -397,7 +385,7 @@ class Grouped_ROC_AUC(TrojAIMetric):
 
         files.append(filepath)
 
-        return {'result': None, 'metadata': None, 'files': files}
+        return {'result': None, 'files': files}
 
 
 class ROC_AUC(TrojAIMetric):
@@ -407,9 +395,6 @@ class ROC_AUC(TrojAIMetric):
 
     def get_name(self):
         return 'ROC-AUC'
-
-    def has_metadata(self):
-        return True
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
@@ -496,8 +481,7 @@ class ROC_AUC(TrojAIMetric):
         except Exception as e:
             logging.warning(e)
 
-        return {'result': float(roc_auc), 'metadata': {'tpr': TPR, 'fpr': FPR},
-                'files': [confusion_matrix_filepath, roc_filepath]}
+        return {'result': float(roc_auc), 'files': [confusion_matrix_filepath, roc_filepath]}
 
     def compare(self, computed, baseline):
         return computed > baseline
@@ -507,9 +491,6 @@ class DEX_Factor_csv(TrojAIMetric):
     def __init__(self, write_html: bool = False, share_with_actor: bool = True,
                  store_result: bool = False, share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result, share_with_external)
-
-    def has_metadata(self):
-        return False
 
     def get_name(self):
         return 'DEX_Factor_csv'
@@ -572,4 +553,120 @@ class DEX_Factor_csv(TrojAIMetric):
 
         files.append(filepath)
 
-        return {'result': None, 'metadata': None, 'files': files}
+        return {'result': None, 'files': files}
+
+class MitigationMetric(Metric):
+
+    def __init__(self, write_html: bool, share_with_actor: bool, store_result: bool, share_with_external: bool):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
+
+    def compute(self, predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], targets_dict: Dict[str, Dict[str, int]], metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath:str):
+        raise NotImplementedError()
+
+class MitigationAverageAccuracy(MitigationMetric):
+    def __init__(self, name: str, target_name: str, clean_only: bool, poisoned_only: bool, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True, share_with_external: bool = False):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
+        self.name = name
+        self.target_name = target_name
+        self.clean_only = clean_only
+        self.poisoned_only = poisoned_only
+
+    def get_name(self):
+        return self.name
+
+    def compute(self, predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], targets_dict: Dict[str, Dict[str, Dict[str, int]]],
+            metadata_df: pd.DataFrame,
+            actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+            output_dirpath: str):
+
+        # Gather list of models based on whether the metric requires poisoned only, clean only, or both
+        model_names_to_process = []
+        for model_name in targets_dict.keys():
+            # Check metadata_df for clean or poisoned
+            filtered_df = metadata_df[metadata_df['model_name'] == model_name]
+
+            if len(filtered_df) != 1:
+                logging.warning('Failed to process metadata_df for model name {} found {} rows'.format(model_name,
+                                                                                                       len(filtered_df)))
+            is_both = False
+            is_model_poisoned = filtered_df['poisoned'].values[0]
+            is_model_clean = not is_model_poisoned
+
+            # check if wanting to process both clean and poisoned models
+            if self.clean_only and self.poisoned_only:
+                is_both = True
+
+            # Check for clean model, but should only process poisoned, if is_both then will process
+            if not is_both and is_model_clean and self.poisoned_only:
+                continue
+
+            # Check for poisoned model, but should only process clean, if is_both then will process
+            if not is_both and is_model_poisoned and self.clean_only:
+                continue
+
+            model_names_to_process.append(model_name)
+
+
+        accuracy_vals = np.zeros(len(model_names_to_process))
+        accuracy_index = -1
+        for model_name in model_names_to_process:
+            accuracy_index += 1
+            target_examples_dict = targets_dict[model_name]
+
+            if model_name not in predictions_dict:
+                logging.warning('{}, Unable to find {} in predictions_dict for avg accuracy metric'.format(actor_name, model_name))
+                continue
+
+            examples_logits_dict = predictions_dict[model_name]
+
+            correct = 0
+            total = 0
+            for example_name, targets_dict in target_examples_dict.items():
+                if example_name not in examples_logits_dict:
+                    logging.warning('{}, Unable to find example {} in model {}, examples_logits_dict for avg accuracy metric'.format(actor_name, example_name, model_name))
+                    continue
+
+                logits = examples_logits_dict[example_name]
+
+                if np.any(~(np.isfinite(logits))):
+                    logging.warning('One or more logits for {} may contain errors for {} (not finite)'.format(actor_name, model_name))
+                    continue
+
+                prediction = np.argmax(logits)
+                target = targets_dict[self.target_name]
+
+                if target is None:
+                    logging.warning('Metric {} is requesting to process a target that does not exist'.format(self.get_name()))
+                    continue
+
+                if prediction == target:
+                    correct += 1
+                total += 1
+
+            if total == 0:
+                logging.warning('Model {} contained no examples or there were other errors'.format(model_name))
+                accuracy_vals[accuracy_index] = 0
+            else:
+                accuracy_vals[accuracy_index] = float(correct) / float(total)
+
+        return {'result': np.average(accuracy_vals).item(), 'files': None}
+
+    def compare(self, computed, baseline):
+        return computed > baseline
+
+class MitigationPoisonedAccuracyOnPoisonedModel(MitigationAverageAccuracy):
+    def __init__(self):
+        super().__init__(name='Avg Poisoned Acc (psn model)', target_name='poisoned', clean_only=False, poisoned_only=True)
+
+    def get_sort_order(self):
+        return 'asc'
+class MitigationCleanAccuracyOnPoisonedModel(MitigationAverageAccuracy):
+    def __init__(self):
+        super().__init__(name='Avg Clean Acc (psn model)', target_name='clean', clean_only=False, poisoned_only=True)
+
+
+class MitigationAccuracyOnCleanModel(MitigationAverageAccuracy):
+    def __init__(self):
+        super().__init__('Avg Acc (clean model)', target_name='clean', clean_only=True, poisoned_only=False)

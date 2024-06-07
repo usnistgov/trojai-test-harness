@@ -125,9 +125,6 @@ class Task(object):
     def __init__(self):
         pass
 
-    def get_task_type(self):
-        raise NotImplementedError()
-
     def check_instance_params(self, trojai_config: TrojaiConfig):
         raise NotImplementedError()
 
@@ -195,9 +192,6 @@ class TrojAITask(Task):
         if self.evaluate_model_python_filepath is None:
             self.evaluate_model_python_filepath = os.path.join(vm_scripts_dirpath, 'evaluate_task.py')
 
-    def get_task_type(self):
-        raise NotImplementedError()
-
     def check_instance_params(self, trojai_config: TrojaiConfig):
         has_updated = False
         if not hasattr(self, 'evaluate_model_python_filepath'):
@@ -207,7 +201,7 @@ class TrojAITask(Task):
             has_updated = True
 
         if not hasattr(self, 'task_type'):
-            self.task_type = self.get_task_type()
+            self.task_type = 'TODO: Fix'
             has_updated = True
 
         return has_updated
@@ -570,51 +564,149 @@ class TrojAITask(Task):
         return errors
 
 class MitigationTask(TrojAITask):
-    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
-        super().__init__(trojai_config, leaderboard_name, 'mitigation', task_script_filepath)
-
-    def get_task_type(self):
-        return 'mitigation'
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_type: str,
+                 task_script_filepath: str = None, remote_home: str = '/home/trojai',
+                 remote_scratch: str = '/mnt/scratch'):
+        super().__init__(trojai_config, leaderboard_name, task_type, task_script_filepath, remote_home, remote_scratch)
 
     def run_submission_checks(self, submission_filepath):
-        errors = ''
-        return errors
+        return ''
 
     def run_submission_schema_header_checks(self, submission_filepath):
+        return ''
+
+    # copy_in_env, use base
+    # cleanup_vm, use base
+
+    def copy_in_env(self, vm_ip, vm_name, trojai_config: TrojaiConfig, custom_remote_home: str = None,
+                    custom_remote_scratch: str = None):
+        logging.info("Copying miniconda3 env into VM.")
+        remote_home = self.remote_home
+        remote_scratch = self.remote_scratch
+
+        if custom_remote_home is not None:
+            remote_home = custom_remote_home
+
+        if custom_remote_scratch is not None:
+            remote_scratch = custom_remote_scratch
+
         errors = ''
+
+        sc = rsync_dir_to_vm(vm_ip, trojai_config.local_trojai_conda_env, remote_home)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} failed to copy in conda env {}'.format(vm_name,
+                                                                                                     trojai_config.local_trojai_conda_env))
+
         return errors
 
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset,
+                          training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str = None,
+                          custom_remote_scratch: str = None, custom_metaparameter_filepath: str = None):
+        logging.info('Copying in task data')
+
+        remote_home = self.remote_home
+        remote_scratch = self.remote_scratch
+
+        if custom_remote_home is not None:
+            remote_home = custom_remote_home
+
+        if custom_remote_scratch is not None:
+            remote_scratch = custom_remote_scratch
+        errors = ''
+
+        sc = create_directory_on_vm(vm_ip, remote_home)
+        errors += check_subprocess_error(sc, ':Create directory:',
+                                         '{} failed to create directory {}'.format(vm_name, remote_home),
+                                         send_mail=True,
+                                         subject='{} failed to create directory {}'.format(vm_name, remote_home))
+
+        sc = create_directory_on_vm(vm_ip, remote_scratch)
+        errors += check_subprocess_error(sc, ':Create directory:',
+                                         '{} failed to create directory {}'.format(vm_name, remote_scratch),
+                                         send_mail=True,
+                                         subject='{} failed to create directory {}'.format(vm_name, remote_scratch))
+
+        # copy in evaluate scripts (all models and single model) and update permissions
+        permissions_params = ['--perms', '--chmod=u+rwx']
+        sc = rsync_file_to_vm(vm_ip, self.evaluate_model_python_filepath, remote_home,
+                              source_params=permissions_params)
+        errors += check_subprocess_error(sc, ':Copy in:',
+                                         '{} evaluate python model script copy in may have failed'.format(vm_name),
+                                         send_mail=True,
+                                         subject='{} evaluate model script copy failed'.format(vm_name))
+
+        # copy in submission filepath
+        sc = rsync_file_to_vm(vm_ip, submission_filepath, remote_scratch)
+        errors += check_subprocess_error(sc, ':Copy in:', '{} submission copy in may have failed'.format(vm_name),
+                                         send_mail=True, subject='{} submission copy failed'.format(vm_name))
+
+        # Copy in datasets
+        if vm_ip != Task.LOCAL_VM_IP:
+            dataset_dirpath = dataset.dataset_dirpath
+            source_dataset_dirpath = dataset.source_dataset_dirpath
+            remote_dataset_dirpath = self.remote_dataset_dirpath
+
+            # Create datasets dirpath
+            sc = create_directory_on_vm(vm_ip, remote_dataset_dirpath)
+            errors += check_subprocess_error(sc, ':Create directory:',
+                                             '{} failed to create directory {}'.format(vm_name,
+                                                                                       remote_dataset_dirpath),
+                                             send_mail=True,
+                                             subject='{} failed to create directory {}'.format(vm_name,
+                                                                                               remote_dataset_dirpath))
+
+            copy_dataset_params = ['--copy-links']
+
+            sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath,
+                                 source_params=copy_dataset_params)
+            errors += check_subprocess_error(sc, ':Copy in:',
+                                             '{} training dataset copy in may have failed'.format(vm_name),
+                                             send_mail=True,
+                                             subject='{} training dataset copy failed'.format(vm_name))
+
+            # copy in models
+            source_params = []
+            for excluded_file in excluded_files:
+                source_params.append('--exclude={}'.format(excluded_file))
+            source_params.extend(copy_dataset_params)
+            sc = rsync_dir_to_vm(vm_ip, dataset_dirpath, remote_dataset_dirpath, source_params=source_params)
+            errors += check_subprocess_error(sc, ':Copy in:',
+                                             '{} model dataset {} copy in may have failed'.format(vm_name,
+                                                                                                  dataset.dataset_name),
+                                             send_mail=True, subject='{} dataset copy failed'.format(vm_name))
+
+            return errors
+        # def run_submission_checks(self, submission_filepath):
+    #     errors = ''
+    #     return errors
+    #
+    # def run_submission_schema_header_checks(self, submission_filepath):
+    #     errors = ''
+    #     return errors
+
+def package_results(self, result_dirpath: str, info_dict: dict):
+    pass
+class ImageClassificationMitigationTask(MitigationTask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        super().__init__(trojai_config, leaderboard_name, 'image_classification_mitigation', task_script_filepath)
 
 
 class ImageTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'image', task_script_filepath)
 
-    def get_task_type(self):
-        return 'image'
-
 
 class CyberTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
        super().__init__(trojai_config, leaderboard_name, 'cyber', task_script_filepath)
 
-    def get_task_type(self):
-        return 'cyber'
-
 class ReinforcementLearningTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'rl', task_script_filepath)
-
-    def get_task_type(self):
-        return 'rl'
 
 class NaturalLanguageProcessingTask(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         self.tokenizers_dirpath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'tokenizers')
         super().__init__(trojai_config, leaderboard_name, 'nlp', task_script_filepath)
-
-    def get_task_type(self):
-        return 'nlp'
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
@@ -671,9 +763,6 @@ class CausalLanguageModeling(Task):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name, 'clm')
 
-    def get_task_type(self):
-        return 'clm'
-
 
 class NaturalLanguageProcessingSentiment(NaturalLanguageProcessingTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
@@ -698,8 +787,6 @@ class CyberPdfMalware(TrojAITask):
         self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
         super().__init__(trojai_config, leaderboard_name, 'cyber_pdf')
 
-    def get_task_type(self):
-        return 'cyber_pdf'
 
     def get_custom_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, custom_remote_home: str, custom_remote_scratch: str, custom_result_dirpath: str):
         if vm_ip == Task.LOCAL_VM_IP:
