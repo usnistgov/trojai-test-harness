@@ -299,7 +299,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         if not os.path.exists(trojai_config.summary_metrics_dirpath):
             os.makedirs(trojai_config.summary_metrics_dirpath)
 
-        trojai_summary_folder_id = g_drive.create_summary_root_folder()
+        trojai_summary_folder_id = g_drive.create_leaderboard_summary_folder()
 
         # Run global metric updates for active leaderboards
         for leaderboard_name, leaderboard in active_leaderboards.items():
@@ -454,8 +454,7 @@ if __name__ == "__main__":
                                 format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
                                 handlers=[handler])
             # Enable when debugging
-            # TODO: Comment out
-            logging.getLogger().addHandler(logging.StreamHandler())
+            # logging.getLogger().addHandler(logging.StreamHandler())
 
             logging.debug('PID file lock acquired in directory {}'.format(args.trojai_config_filepath))
             main(trojai_config)

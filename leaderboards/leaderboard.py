@@ -929,26 +929,14 @@ class MitigationLeaderboard(Leaderboard):
                 logging.warning(
                     'Missing result file from actor {} for {} example {}'.format(actor_name,
                                                                                               model_name,
-                                                                                              example_filename))
+                                                                                              example_name))
                 if ':Missing Results(file):' not in errors:
                     errors += ':Missing Results(file):'
                 continue
 
             with open(result_filepath, 'r') as fp:
                 prediction_dict = json.load(fp)
-                if 'pred_logits' not in prediction_dict:
-                    for example_name in example_file_list:
-                        results_dict[model_name][example_name] = np.nan
-                    logging.warning(
-                        'Incorrect format for pred_logits from actor {} for {} example {}'.format(actor_name,
-                                                                                                      model_name,
-                                                                                                      example_filename))
 
-                    if ':Result Parse:' not in errors:
-                        errors += ':Result Parse:'
-                    continue
-
-                prediction_dict = prediction_dict['pred_logits']
                 for example_filename in example_file_list:
                     results_dict[model_name][example_filename] = np.nan
                     if example_filename in prediction_dict:
@@ -1004,7 +992,7 @@ class MitigationLeaderboard(Leaderboard):
                 ground_truth_poisoned_entries.append(labels_dict['poisoned'])
                 logits = predictions_dict[model_dir][example_name]
 
-                if np.isnan(logits):
+                if logits is None or np.any(~(np.isfinite(logits))):
                     predictions.append(np.nan)
                 else:
                     predictions.append(np.argmax(logits))
@@ -1016,9 +1004,10 @@ class MitigationLeaderboard(Leaderboard):
             new_data['team_name'] = [actor_name] * len(model_names)
             new_data['submission_timestamp'] = [submission_epoch_str] * len(model_names)
             new_data['data_split'] = [data_split] * len(model_names)
+            new_data['example_name'] = example_names
             new_data['prediction'] = predictions
-            new_data['ground_truth_clean_entries'] = ground_truth_clean_entries
-            new_data['ground_truth_poisoned_entries'] = ground_truth_poisoned_entries
+            new_data['ground_truth_clean_entry'] = ground_truth_clean_entries
+            new_data['ground_truth_poisoned_entry'] = ground_truth_poisoned_entries
 
         return new_data
 
@@ -1095,8 +1084,8 @@ class MitigationLeaderboard(Leaderboard):
     def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
                         execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str,
                         processed_metrics: list):
-        errors = {}
-        new_processed_metric_names = {}
+        errors_dict = {}
+        new_processed_metric_names = []
         web_display_parse_errors = ''
 
         # Load results dataframe
@@ -1212,9 +1201,9 @@ class MitigationLeaderboard(Leaderboard):
                         g_drive.upload(file, folder_id=actor_submission_folder_id)
 
         if len(web_display_parse_errors) != 0:
-            errors['web_display_parse_errors'] = web_display_parse_errors
+            errors_dict['web_display_parse_errors'] = web_display_parse_errors
 
-        return errors, new_processed_metric_names
+        return errors_dict, new_processed_metric_names
 
 
 def init_leaderboard(args):

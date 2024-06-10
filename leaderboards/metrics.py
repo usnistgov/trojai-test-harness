@@ -576,14 +576,14 @@ class MitigationAverageAccuracy(MitigationMetric):
     def get_name(self):
         return self.name
 
-    def compute(self, predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], targets_dict: Dict[str, Dict[str, Dict[str, int]]],
+    def compute(self, model_predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], model_targets_dict: Dict[str, Dict[str, Dict[str, int]]],
             metadata_df: pd.DataFrame,
             actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
             output_dirpath: str):
 
         # Gather list of models based on whether the metric requires poisoned only, clean only, or both
         model_names_to_process = []
-        for model_name in targets_dict.keys():
+        for model_name in model_targets_dict.keys():
             # Check metadata_df for clean or poisoned
             filtered_df = metadata_df[metadata_df['model_name'] == model_name]
 
@@ -613,13 +613,14 @@ class MitigationAverageAccuracy(MitigationMetric):
         accuracy_index = -1
         for model_name in model_names_to_process:
             accuracy_index += 1
-            target_examples_dict = targets_dict[model_name]
 
-            if model_name not in predictions_dict:
+            target_examples_dict = model_targets_dict[model_name]
+
+            if model_name not in model_predictions_dict:
                 logging.warning('{}, Unable to find {} in predictions_dict for avg accuracy metric'.format(actor_name, model_name))
                 continue
 
-            examples_logits_dict = predictions_dict[model_name]
+            examples_logits_dict = model_predictions_dict[model_name]
 
             correct = 0
             total = 0
@@ -631,7 +632,7 @@ class MitigationAverageAccuracy(MitigationMetric):
                 logits = examples_logits_dict[example_name]
 
                 if np.any(~(np.isfinite(logits))):
-                    logging.warning('One or more logits for {} may contain errors for {} (not finite)'.format(actor_name, model_name))
+                    # logging.warning('One or more logits for {} may contain errors for {} (not finite)'.format(actor_name, model_name))
                     continue
 
                 prediction = np.argmax(logits)
@@ -646,7 +647,7 @@ class MitigationAverageAccuracy(MitigationMetric):
                 total += 1
 
             if total == 0:
-                logging.warning('Model {} contained no examples or there were other errors'.format(model_name))
+                logging.warning('Metric {}: Model {} contained no examples or there were other errors'.format(self.name, model_name))
                 accuracy_vals[accuracy_index] = 0
             else:
                 accuracy_vals[accuracy_index] = float(correct) / float(total)

@@ -214,7 +214,10 @@ class EvaluateTrojAITask(EvaluateTask):
         if uses_gpu:
             gpu_option = '--nv'
 
-        options = ['--contain', '--bind', active_dirpath, '--bind', scratch_dirpath, '--bind', '{}:{}:ro'.format(self.training_dataset_dirpath, self.training_dataset_dirpath)]
+        options = ['--contain', '--bind', active_dirpath, '--bind', scratch_dirpath]
+
+        if self.training_dataset_dirpath is not None:
+            options.extend(['--bind', '{}:{}:ro'.format(self.training_dataset_dirpath, self.training_dataset_dirpath)])
 
         options.append(gpu_option)
 
@@ -263,10 +266,12 @@ class EvaluateImageTask(EvaluateTrojAITask):
                 '--result_filepath', active_result_filepath,
                 '--scratch_dirpath', container_scratch_dirpath,
                 '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
                 '--metaparameters_filepath', self.metaparameters_filepath,
                 '--schema_filepath', self.metaparameters_schema_filepath,
                 '--learned_parameters_dirpath', self.learned_parameters_dirpath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         if self.source_dataset_dirpath is not None:
             args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
@@ -310,10 +315,12 @@ class EvaluateClmTask(EvaluateTrojAITask):
                 '--result_filepath', active_result_filepath,
                 '--scratch_dirpath', container_scratch_dirpath,
                 '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
                 '--metaparameters_filepath', self.metaparameters_filepath,
                 '--schema_filepath', self.metaparameters_schema_filepath,
                 '--learned_parameters_dirpath', self.learned_parameters_dirpath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         if self.source_dataset_dirpath is not None:
             args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
@@ -376,11 +383,13 @@ class EvaluateNLPTask(EvaluateTrojAITask):
                 '--result_filepath', active_result_filepath,
                 '--scratch_dirpath', container_scratch_dirpath,
                 '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
                 '--metaparameters_filepath', self.metaparameters_filepath,
                 '--schema_filepath', self.metaparameters_schema_filepath,
                 '--learned_parameters_dirpath', self.learned_parameters_dirpath,
                 '--tokenizer_filepath', tokenizer_filepath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         if self.source_dataset_dirpath is not None:
             args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
@@ -425,10 +434,12 @@ class EvaluateRLTask(EvaluateTrojAITask):
                 '--result_filepath', active_result_filepath,
                 '--scratch_dirpath', container_scratch_dirpath,
                 '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
                 '--metaparameters_filepath', self.metaparameters_filepath,
                 '--schema_filepath', self.metaparameters_schema_filepath,
                 '--learned_parameters_dirpath', self.learned_parameters_dirpath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         if self.source_dataset_dirpath is not None:
             args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
@@ -472,10 +483,12 @@ class EvaluateCyberTask(EvaluateTrojAITask):
                 '--result_filepath', active_result_filepath,
                 '--scratch_dirpath', container_scratch_dirpath,
                 '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
                 '--metaparameters_filepath', self.metaparameters_filepath,
                 '--schema_filepath', self.metaparameters_schema_filepath,
                 '--learned_parameters_dirpath', self.learned_parameters_dirpath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         if self.source_dataset_dirpath is not None:
             args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
@@ -525,17 +538,17 @@ class EvaluateCyberPDFTask(EvaluateTrojAITask):
         active_scale_params_filepath = os.path.join(active_dirpath, self.scale_params_filename)
         shutil.copy(self.scale_params_filepath, active_scale_params_filepath)
 
-
-
         args = ['--model_filepath', os.path.join(active_dirpath, 'model.pt'),
                 '--result_filepath', active_result_filepath,
                 '--scratch_dirpath', container_scratch_dirpath,
                 '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
                 '--metaparameters_filepath', self.metaparameters_filepath,
                 '--schema_filepath', self.metaparameters_schema_filepath,
                 '--learned_parameters_dirpath', self.learned_parameters_dirpath,
                 '--scale_parameters_filepath', active_scale_params_filepath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         if self.source_dataset_dirpath is not None:
             args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
@@ -555,6 +568,9 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
+        # TODO: Might be necessary to use json here depending on Taylor
+        if metaparameters_filepath is None:
+            metaparameters_filepath = '/metaparameters.yml'
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -592,6 +608,7 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
 
         mitigate_args = ['--mitigate',
                          '--model_filepath', model_filepath,
+                         '--metaparameters', self.metaparameters_filepath,
                          '--dataset', mitigate_dataset_dirpath,
                          '--scratch_dirpath', container_scratch_dirpath,
                          '--output_dirpath', output_dirpath,
@@ -629,10 +646,6 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
 
         # copy results back to real output filename
         if os.path.exists(output_results_filepath):
-            with open(output_results_filepath, 'r') as fp:
-                result_dict = json.load(fp)
-                if 'pred_logits' not in result_dict:
-                    logging.warning('{} is missing prediction logits in its result json'.format(model_dirname))
             shutil.copy(output_results_filepath, os.path.join(self.result_dirpath, '{}{}.json'.format(self.result_prefix_filename, model_dirname)))
         else:
             logging.warning('{} is missing the output result file {}'.format(model_dirname, output_results_filepath))
@@ -643,23 +656,10 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
 
     def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
-        active_scale_params_filepath = os.path.join(active_dirpath, self.scale_params_filename)
-        shutil.copy(self.scale_params_filepath, active_scale_params_filepath)
+        # active_scale_params_filepath = os.path.join(active_dirpath, self.scale_params_filename)
+        # shutil.copy(self.scale_params_filepath, active_scale_params_filepath)
 
-
-
-        args = ['--model_filepath', os.path.join(active_dirpath, 'model.pt'),
-                '--result_filepath', active_result_filepath,
-                '--scratch_dirpath', container_scratch_dirpath,
-                '--examples_dirpath', os.path.join(active_dirpath, 'clean-example-data'),
-                '--round_training_dataset_dirpath', self.training_dataset_dirpath,
-                '--metaparameters_filepath', self.metaparameters_filepath,
-                '--schema_filepath', self.metaparameters_schema_filepath,
-                '--learned_parameters_dirpath', self.learned_parameters_dirpath,
-                '--scale_parameters_filepath', active_scale_params_filepath]
-
-        if self.source_dataset_dirpath is not None:
-            args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
+        args = []
 
         return args
 
@@ -680,7 +680,7 @@ if __name__ == '__main__':
     parser.add_argument('--home-dirpath', type=str, help='The directory path to home', required=True)
     parser.add_argument('--result-dirpath', type=str, help='The directory path for results', required=True)
     parser.add_argument('--scratch-dirpath', type=str, help='The directory path for scratch', required=True)
-    parser.add_argument('--training-dataset-dirpath', type=str, help='The directory path to the training dataset', required=True)
+    parser.add_argument('--training-dataset-dirpath', type=str, help='The directory path to the training dataset', required=False, default=None)
     parser.add_argument('--metaparameter-filepath', type=str, help='The directory path for the metaparameters file when running custom metaparameters', required=False, default=None)
     parser.add_argument('--rsync-excludes', nargs='*', help='List of files to exclude for rsyncing data', required=False, default=None)
     parser.add_argument('--learned-parameters-dirpath', type=str, help='The directory path to the learned parameters', required=False, default=None)

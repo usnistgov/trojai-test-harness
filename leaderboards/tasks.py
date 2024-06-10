@@ -392,8 +392,10 @@ class TrojAITask(Task):
             if source_dataset_dirpath is not None:
                 sc = rsync_dir_to_vm(vm_ip, source_dataset_dirpath, remote_dataset_dirpath, source_params=copy_dataset_params)
                 errors += check_subprocess_error(sc, ':Copy in:', '{} source dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} source dataset copy failed'.format(vm_name))
-            sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath, source_params=copy_dataset_params)
-            errors += check_subprocess_error(sc, ':Copy in:', '{} training dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} training dataset copy failed'.format(vm_name))
+
+            if training_dataset is not None:
+                sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath, source_params=copy_dataset_params)
+                errors += check_subprocess_error(sc, ':Copy in:', '{} training dataset copy in may have failed'.format(vm_name), send_mail=True, subject='{} training dataset copy failed'.format(vm_name))
 
             # copy in models
             source_params = []
@@ -454,6 +456,7 @@ class TrojAITask(Task):
     def get_basic_execute_args(self, vm_ip: str, submission_filepath: str, dataset: Dataset, training_dataset: Dataset, excluded_files: List[str],  custom_remote_home: str, custom_remote_scratch: str , custom_metaparameter_filepath: str, subset_model_ids: list, custom_result_dirpath: str):
         remote_home = self.remote_home
         remote_scratch = self.remote_scratch
+        remote_training_dataset_dirpath = None
 
         if custom_remote_home is not None:
             remote_home = custom_remote_home
@@ -463,10 +466,13 @@ class TrojAITask(Task):
 
         if vm_ip == Task.LOCAL_VM_IP:
             remote_models_dirpath = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
-            remote_training_dataset_dirpath = training_dataset.dataset_dirpath
+            if training_dataset is not None:
+                remote_training_dataset_dirpath = training_dataset.dataset_dirpath
         else:
             remote_models_dirpath = os.path.join(self.remote_dataset_dirpath, dataset.dataset_name, Dataset.MODEL_DIRNAME)
-            remote_training_dataset_dirpath = os.path.join(self.remote_dataset_dirpath, training_dataset.dataset_name)
+
+            if training_dataset is not None:
+                remote_training_dataset_dirpath = os.path.join(self.remote_dataset_dirpath, training_dataset.dataset_name)
 
         submission_name = os.path.basename(submission_filepath)
         remote_submission_filepath = os.path.join(remote_scratch, submission_name)
@@ -477,7 +483,10 @@ class TrojAITask(Task):
             result_dirpath = custom_result_dirpath
 
         args = ['--models-dirpath', remote_models_dirpath, '--task-type', self.task_type, '--submission-filepath', remote_submission_filepath, '--home-dirpath', remote_home, '--scratch-dirpath', remote_scratch,
-                '--training-dataset-dirpath', remote_training_dataset_dirpath, '--result-dirpath', result_dirpath]
+                '--result-dirpath', result_dirpath]
+
+        if remote_training_dataset_dirpath is not None:
+            args.extend(['--training-dataset-dirpath', remote_training_dataset_dirpath])
 
         # Add excluded files into list
         args.append('--rsync-excludes')
@@ -656,12 +665,13 @@ class MitigationTask(TrojAITask):
 
             copy_dataset_params = ['--copy-links']
 
-            sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath,
-                                 source_params=copy_dataset_params)
-            errors += check_subprocess_error(sc, ':Copy in:',
-                                             '{} training dataset copy in may have failed'.format(vm_name),
-                                             send_mail=True,
-                                             subject='{} training dataset copy failed'.format(vm_name))
+            if training_dataset is not None:
+                sc = rsync_dir_to_vm(vm_ip, training_dataset.dataset_dirpath, remote_dataset_dirpath,
+                                     source_params=copy_dataset_params)
+                errors += check_subprocess_error(sc, ':Copy in:',
+                                                 '{} training dataset copy in may have failed'.format(vm_name),
+                                                 send_mail=True,
+                                                 subject='{} training dataset copy failed'.format(vm_name))
 
             # copy in models
             source_params = []
