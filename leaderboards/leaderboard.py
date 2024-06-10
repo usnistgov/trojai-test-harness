@@ -498,7 +498,9 @@ class TrojAILeaderboard(Leaderboard):
                         "cyber": CyberTask,
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
-                        "rl_lavaworld": ReinforcementLearningLavaWorld}
+                        "rl_lavaworld": ReinforcementLearningLavaWorld,
+                        'causal_language': CausalLanguageModeling,
+                        }
 
     VALID_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,
@@ -1354,12 +1356,13 @@ def update_configuration_latest(args):
             old_leaderboard_config = json.load(fp)
 
         if os.path.exists(backup_filepath):
-            print('Error, backup already exists, cancelling')
+            print('Error, backup already exists, skipping {}'.format(name))
+            continue
             # return
 
         # Write backup
-        # with open(backup_filepath, 'w') as fp:
-        #     json.dump(old_leaderboard_config, fp, indent=2)
+        with open(backup_filepath, 'w') as fp:
+            json.dump(old_leaderboard_config, fp, indent=2)
 
         leaderboard_name = None
         task_name = None
