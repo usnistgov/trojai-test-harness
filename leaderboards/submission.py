@@ -353,7 +353,7 @@ class Submission(object):
         ##################################################
         # Process the metrics from the submission
         ##################################################
-        error_dict, processed_metric_names = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, self.get_submission_epoch_str_primary(), self.processed_metric_names)
+        error_dict, processed_metric_names = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, self.get_submission_epoch_str_primary(), self.processed_metric_names, skip_upload_existing=False)
 
         self.processed_metric_names.extend(processed_metric_names)
 
@@ -619,7 +619,7 @@ class Submission(object):
 
     def compute_missing_metrics(self, results_manager: ResultsManager, actor: Actor, leaderboard: Leaderboard, g_drive: DriveIO):
         if self.has_new_metrics(leaderboard):
-            errors, new_processed_metrics = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, self.get_submission_epoch_str_primary(), self.processed_metric_names)
+            errors, new_processed_metrics = leaderboard.process_metrics(g_drive, results_manager, self.data_split_name, self.execution_results_dirpath, actor.name, actor.uuid, self.get_submission_epoch_str_primary(), self.processed_metric_names, skip_upload_existing=False)
             self.processed_metric_names.extend(new_processed_metrics)
 
         # TODO: Should we update the errors for the submission (will have to be careful to not repeat errors)
@@ -909,7 +909,7 @@ class SubmissionManager(object):
 
         return result_df
 
-    def recompute_metrics(self, trojai_config: TrojaiConfig, results_manager: ResultsManager, leaderboard: Leaderboard, new_only):
+    def recompute_metrics(self, trojai_config: TrojaiConfig, results_manager: ResultsManager, leaderboard: Leaderboard, new_only: bool, skip_upload_existing: bool):
 
         actor_manager = ActorManager.load_json(trojai_config)
         g_drive = DriveIO(trojai_config.token_pickle_filepath)
@@ -924,7 +924,7 @@ class SubmissionManager(object):
                         processed_metrics = submission.processed_metric_names
 
                     # This should recompute all metrics
-                    errors, new_processed_metrics = leaderboard.process_metrics(g_drive, results_manager, submission.data_split_name, submission.execution_results_dirpath, actor.name, actor.uuid, submission.get_submission_epoch_str_primary(), processed_metrics=processed_metrics)
+                    errors, new_processed_metrics = leaderboard.process_metrics(g_drive, results_manager, submission.data_split_name, submission.execution_results_dirpath, actor.name, actor.uuid, submission.get_submission_epoch_str_primary(), processed_metrics=processed_metrics, skip_upload_existing=skip_upload_existing)
 
                     if new_only:
                         submission.processed_metric_names.extend(new_processed_metrics)
@@ -984,7 +984,7 @@ def recompute_metrics(args):
         for name in leaderboard_names:
             leaderboard = Leaderboard.load_json(trojai_config, name)
             submission_manager = SubmissionManager.load_json(leaderboard)
-            submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard, args.new_only)
+            submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard, args.new_only, args.skip_upload_existing)
             print('Finished recomputing metrics for {}'.format(leaderboard.name))
     else:
         with open(lock_file, 'w') as f:
@@ -994,7 +994,7 @@ def recompute_metrics(args):
                 for name in leaderboard_names:
                     leaderboard = Leaderboard.load_json(trojai_config, name)
                     submission_manager = SubmissionManager.load_json(leaderboard)
-                    submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard, args.new_only)
+                    submission_manager.recompute_metrics(trojai_config, results_manager, leaderboard, args.new_only, args.skip_upload_existing)
                     print('Finished recomputing metrics for {}'.format(leaderboard.name))
             except OSError as e:
                 print('check-and-launch was already running when called. {}'.format(e))
@@ -1160,6 +1160,7 @@ if __name__ == "__main__":
     recompute_metrics_parser.add_argument('--name', type=str, help='The name of the leaderboards or None if rerun all leaderboards', required=False, default=None)
     recompute_metrics_parser.add_argument('--unsafe', action='store_true', help='Disables trojai lock (useful for debugging only)')
     recompute_metrics_parser.add_argument('--new-only', action='store_true', help='Whether to compute new metrics only or not, if this is not set, then all metrics will be recomputed')
+    recompute_metrics_parser.add_argument('--skip-upload-existing', action='store_true', help='Skips uploading files generated from metrics that already exist in Google drive')
     recompute_metrics_parser.set_defaults(func=recompute_metrics)
 
     generate_results_csv_parser = subparser.add_parser('generate-results-csv', help='Generates the RESULTS CSV for a round')

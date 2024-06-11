@@ -476,7 +476,7 @@ class Leaderboard(object):
         # If the file did not exist, then we return nan
         return np.nan
 
-    def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str, execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str, processed_metrics: list):
+    def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str, execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str, processed_metrics: list, skip_upload_existing: bool):
         raise NotImplementedError()
 
 class TrojAILeaderboard(Leaderboard):
@@ -661,7 +661,7 @@ class TrojAILeaderboard(Leaderboard):
 
 
     def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
-                        execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str, processed_metrics: list):
+                        execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str, processed_metrics: list, skip_upload_existing: bool):
         # Initialize error strings to return
         errors = {}
         new_processed_metric_names = []
@@ -809,13 +809,13 @@ class TrojAILeaderboard(Leaderboard):
                     # if len(external_share_files) > 0:
                     #     g_drive.enqueue_file_upload(external_share_files, folder_id=external_actor_submission_folder_id)
                     for file in external_share_files:
-                        g_drive.upload(file, folder_id=external_actor_submission_folder_id)
+                        g_drive.upload(file, folder_id=external_actor_submission_folder_id, skip_existing=skip_upload_existing)
 
                 if actor_submission_folder_id is not None:
                     # if len(actor_share_files) > 0:
                     #     g_drive.enqueue_file_upload(actor_share_files, folder_id=actor_submission_folder_id)
                     for file in actor_share_files:
-                        g_drive.upload(file, folder_id=actor_submission_folder_id)
+                        g_drive.upload(file, folder_id=actor_submission_folder_id, skip_existing=skip_upload_existing)
 
         if len(web_display_parse_errors) != 0:
             errors['web_display_parse_errors'] = web_display_parse_errors
@@ -1085,7 +1085,7 @@ class MitigationLeaderboard(Leaderboard):
 
     def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
                         execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str,
-                        processed_metrics: list):
+                        processed_metrics: list, skip_upload_existing: bool):
         errors_dict = {}
         new_processed_metric_names = []
         web_display_parse_errors = ''
@@ -1194,13 +1194,13 @@ class MitigationLeaderboard(Leaderboard):
                     # if len(external_share_files) > 0:
                     #     g_drive.enqueue_file_upload(external_share_files, folder_id=external_actor_submission_folder_id)
                     for file in external_share_files:
-                        g_drive.upload(file, folder_id=external_actor_submission_folder_id)
+                        g_drive.upload(file, folder_id=external_actor_submission_folder_id, skip_existing=skip_upload_existing)
 
                 if actor_submission_folder_id is not None:
                     # if len(actor_share_files) > 0:
                     #     g_drive.enqueue_file_upload(actor_share_files, folder_id=actor_submission_folder_id)
                     for file in actor_share_files:
-                        g_drive.upload(file, folder_id=actor_submission_folder_id)
+                        g_drive.upload(file, folder_id=actor_submission_folder_id, skip_existing=skip_upload_existing)
 
         if len(web_display_parse_errors) != 0:
             errors_dict['web_display_parse_errors'] = web_display_parse_errors

@@ -301,7 +301,7 @@ class DriveIO(object):
             logging.error('Upload workers were not correctly initialized prior to enqueueing files for upload')
 
 
-    def upload(self, file_path: str, folder_id=None) -> str:
+    def upload(self, file_path: str, folder_id=None, skip_existing=False) -> str:
         from googleapiclient.http import MediaFileUpload
         from googleapiclient.errors import HttpError
 
@@ -321,6 +321,10 @@ class DriveIO(object):
                 existing_file_id = None
                 if len(existing_files_list) > 0:
                     existing_file_id = existing_files_list[0].id
+
+                if existing_file_id is not None and skip_existing:
+                    logging.info('Skipping upload {}, it already exists on gdrive'.format(file_name))
+                    return existing_file_id
 
                 if folder_id is None:
                     file_metadata = {'name': file_name}
