@@ -56,7 +56,7 @@ class TrojAIMetric(Metric):
     # 'files': None or list of files saved
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
         raise NotImplementedError()
 
 
@@ -84,7 +84,7 @@ class AverageCrossEntropy(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
         ce = self.compute_cross_entropy(predictions, targets, self.epsilon)
 
         return {'result': np.average(ce).item(), 'files': None}
@@ -113,7 +113,14 @@ class GroupedCrossEntropyViolin(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
+        filepath = os.path.join(output_dirpath,
+                                '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(),
+                                                            leaderboard_name, data_split_name))
+
+        if skip_exists and os.path.exists(filepath):
+            return {'result': None, 'files': []}
+
         metadata = {}
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
@@ -175,9 +182,6 @@ class GroupedCrossEntropyViolin(TrojAIMetric):
 
         # t = axes.text(.7, .2, x_legend, transform=axes.figure.transFigure)
         # fig.subplots_adjust(right=.85)
-        filepath = os.path.join(output_dirpath,
-                                '{}_{}_{}_{}_{}.png'.format(actor_name, submission_epoch_str, self.get_name(),
-                                                            leaderboard_name, data_split_name))
 
         plt.savefig(filepath, bbox_inches='tight', dpi=300)
 
@@ -207,7 +211,7 @@ class CrossEntropyConfidenceInterval(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
         predictions = np.clip(predictions, self.epsilon, 1.0 - self.epsilon)
@@ -241,7 +245,7 @@ class BrierScore(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
         predictions = predictions.astype(np.float64)
         targets = targets.astype(np.float64)
 
@@ -273,7 +277,7 @@ class Grouped_ROC_AUC(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
         result_data = {}
         files = []
 
@@ -281,8 +285,22 @@ class Grouped_ROC_AUC(TrojAIMetric):
         thresholds = np.arange(0.0, 1.01, 0.01)
 
         for key, model_ids in model_lists.items():
+            confusion_matrix_filepath = os.path.join(output_dirpath,
+                                                     '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str,
+                                                                                    leaderboard_name, data_split_name,
+                                                                                    'Confusion_Matrix', key))
+
+            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str,
+                                                                                       leaderboard_name,
+                                                                                       data_split_name, 'ROC', key))
+
+            if skip_exists and os.path.exists(confusion_matrix_filepath) and os.path.exists(roc_filepath):
+                continue
+
             preds_for_key = np.zeros(len(model_ids))
             targets_for_key = np.zeros(len(model_ids))
+
+
 
             index = 0
             for model_id in model_ids:
@@ -340,17 +358,12 @@ class Grouped_ROC_AUC(TrojAIMetric):
                 roc_auc = np.nan
             result_data[key] = roc_auc
 
-            confusion_matrix_filepath = os.path.join(output_dirpath,
-                                                     '{}_{}-{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str,
-                                                                                    leaderboard_name, data_split_name,
-                                                                                    'Confusion_Matrix', key))
+
 
             fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
                                             confusion_matrix_filepath)
 
-            roc_filepath = os.path.join(output_dirpath, '{}_{}-{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str,
-                                                                                       leaderboard_name,
-                                                                                       data_split_name, 'ROC', key))
+
 
             try:
                 fpr, tpr, thres = sklearn.metrics.roc_curve(targets, predictions)
@@ -380,6 +393,9 @@ class Grouped_ROC_AUC(TrojAIMetric):
                                 '{}_{}_{}_{}_{}.json'.format(actor_name, submission_epoch_str, self.get_name(),
                                                              leaderboard_name, data_split_name))
 
+        if skip_exists and os.path.exists(filepath):
+            return {'result': None, 'files': files}
+
         with open(filepath, 'w') as fp:
             json.dump(result_data, fp, indent=2)
 
@@ -398,7 +414,7 @@ class ROC_AUC(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
         TP_counts = list()
         TN_counts = list()
         FP_counts = list()
@@ -441,24 +457,30 @@ class ROC_AUC(TrojAIMetric):
         FPR = np.asarray(FPR).reshape(-1)
         thresholds = np.asarray(thresholds).reshape(-1)
 
-        confusion_matrix_filepath = os.path.join(output_dirpath,
-                                                 '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str,
-                                                                             leaderboard_name,
-                                                                             data_split_name, 'Confusion_Matrix'))
-
-        fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
-                                        confusion_matrix_filepath)
-
-        roc_filepath = os.path.join(output_dirpath,
-                                    '{}_{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
-                                                                data_split_name, 'ROC'))
-
-        # roc_auc = auc(FPR, TPR)
         try:
             roc_auc = sklearn.metrics.roc_auc_score(targets, predictions)
         except ValueError as e:
             logging.warning(e)
             roc_auc = np.nan
+
+        confusion_matrix_filepath = os.path.join(output_dirpath,
+                                                 '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str,
+                                                                             leaderboard_name,
+                                                                             data_split_name, 'Confusion_Matrix'))
+
+
+        roc_filepath = os.path.join(output_dirpath,
+                                    '{}_{}-{}-{}-{}.png'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                                data_split_name, 'ROC'))
+
+        if skip_exists and os.path.exists(confusion_matrix_filepath) and os.path.exists(roc_filepath):
+            return {'result': float(roc_auc), 'files': []}
+
+        fs_utils.write_confusion_matrix(TP_counts, FP_counts, FN_counts, TN_counts, TPR, FPR, thresholds,
+                                        confusion_matrix_filepath)
+
+        # roc_auc = auc(FPR, TPR)
+
 
         try:
             fpr, tpr, thres = sklearn.metrics.roc_curve(targets, predictions)
@@ -497,8 +519,15 @@ class DEX_Factor_csv(TrojAIMetric):
 
     def compute(self, predictions: np.ndarray, targets: np.ndarray, model_names: list, metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
-                output_dirpath: str):
+                output_dirpath: str, skip_exists: bool):
+
         files = []
+
+        filepath = os.path.join(output_dirpath,
+                                '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
+                                                            data_split_name, 'Result_DEX_Metadata'))
+        if skip_exists and os.path.exists(filepath):
+            return {'result': None, 'files': files}
 
         # get sub dataframe with just this data split
         meta_df = metadata_df[metadata_df['data_split'] == data_split_name]
@@ -544,10 +573,6 @@ class DEX_Factor_csv(TrojAIMetric):
         cols.remove('accuracy')
         cols.insert(1, 'accuracy')
         meta_df = meta_df[cols]
-
-        filepath = os.path.join(output_dirpath,
-                                '{}_{}-{}-{}-{}.csv'.format(actor_name, submission_epoch_str, leaderboard_name,
-                                                            data_split_name, 'Result_DEX_Metadata'))
 
         meta_df.to_csv(filepath, index=False)
 

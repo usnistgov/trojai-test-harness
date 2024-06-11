@@ -768,7 +768,7 @@ class TrojAILeaderboard(Leaderboard):
             for metric_name in metrics_to_compute:
                 metric = self.submission_metrics[metric_name]
                 if isinstance(metric, TrojAIMetric):
-                    metric_output = metric.compute(predictions, targets, model_names, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, execution_results_dirpath)
+                    metric_output = metric.compute(predictions, targets, model_names, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, execution_results_dirpath, skip_upload_existing)
 
                     new_processed_metric_names.append(metric_name)
 
@@ -782,7 +782,7 @@ class TrojAILeaderboard(Leaderboard):
 
                     files = metric_output['files']
 
-                    if files is not None:
+                    if files is not None and len(files) > 0:
                         if isinstance(files, str):
                             files = [files]
 
