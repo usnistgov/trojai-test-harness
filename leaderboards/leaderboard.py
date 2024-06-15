@@ -1161,7 +1161,7 @@ class MitigationLeaderboard(Leaderboard):
                         if metric_result is not None:
                             update_entry[metric_name] = metric_result
                         else:
-                            logging.warning('Metric {} is slated to return a result, but the result was None'.format(metric_name))
+                            logging.warning('{} Metric {} is slated to return a result, but the result was None'.format(self.name, metric_name))
 
                     files = metric_output['files']
 

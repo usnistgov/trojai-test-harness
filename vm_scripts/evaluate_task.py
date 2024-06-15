@@ -568,10 +568,6 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
                  subset_model_ids: list):
-        # TODO: Might be necessary to use json here depending on Taylor
-        if metaparameters_filepath is None:
-            metaparameters_filepath = '/metaparameters.yml'
-
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
                          home_dirpath=home_dirpath,
@@ -585,13 +581,6 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                          result_prefix_filename=result_prefix_filename,
                          subset_model_ids=subset_model_ids)
 
-        # parser = argparse.ArgumentParser(description='Parser for Cyber')
-        # parser.add_argument('--scale-params-filepath', type=str, help='The filepath to the scale parameters file', required=True)
-        #
-        # args, extras = parser.parse_known_args()
-        #
-        # self.scale_params_filepath = args.scale_params_filepath
-        # self.scale_params_filename = os.path.basename(self.scale_params_filepath)
 
     def execute_container(self, container_instance, active_dirpath, container_scratch_dirpath, model_dirname):
 
@@ -606,33 +595,31 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
 
         mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
 
-        mitigate_args = ['--mitigate',
+        mitigate_args = ['mitigate',
                          '--model_filepath', model_filepath,
-                         '--metaparameters', self.metaparameters_filepath,
+                         '--metaparameters_filepath', self.metaparameters_filepath,
+                         '--schema_filepath', self.metaparameters_schema_filepath,
                          '--dataset', mitigate_dataset_dirpath,
                          '--scratch_dirpath', container_scratch_dirpath,
                          '--output_dirpath', output_dirpath,
-                         '--model_output', output_model_name]
+                         '--model_output_name', output_model_name]
 
         # Execute mitigate
-        # TODO: How to handle result from mitigate (check for 0 status?)
         result = Client.run(container_instance, mitigate_args, return_result=True)
         logging.info('Output from mitigate step: {}'.format(result))
 
         # Setup test arguments
         mitigated_model_filepath = os.path.join(output_dirpath, output_model_name)
 
-        # TODO: What to do if no mitigated model exists
         if not os.path.exists(mitigated_model_filepath):
-            logging.error('Failed to find mitigated model, mitigate step may have errors.')
-            return {}
-        else:
+            logging.error('Failed to find mitigated model, mitigate step may have errors, using original model.')
             mitigated_model_filepath = model_filepath
 
         test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
 
-        test_args = ['--test',
-                     '--metaparameters', self.metaparameters_filepath,
+        test_args = ['test',
+                     '--metaparameters_filepath', self.metaparameters_filepath,
+                     '--schema_filepath', self.metaparameters_schema_filepath,
                      '--model_filepath', mitigated_model_filepath,
                      '--dataset', test_dataset_dirpath,
                      '--scratch_dirpath', container_scratch_dirpath,
@@ -641,7 +628,6 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
 
         result = Client.run(container_instance, test_args, return_result=True)
 
-        # TODO: The results filepath should probably be passed in as a parameter.
         output_results_filepath = os.path.join(output_dirpath, 'results.json')
 
         # copy results back to real output filename
