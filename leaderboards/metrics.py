@@ -663,8 +663,8 @@ class MitigationAverageAccuracy(MitigationMetric):
                 prediction = np.argmax(logits)
                 target = targets_dict[self.target_name]
 
+                # If the target does not exist, then we should skip it as it is not a valid example
                 if target is None:
-                    logging.warning('Metric {} is requesting to process a target that does not exist'.format(self.get_name()))
                     continue
 
                 if prediction == target:
