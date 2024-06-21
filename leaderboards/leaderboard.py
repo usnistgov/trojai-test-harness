@@ -1237,7 +1237,13 @@ def add_dataset_to_leaderboard(args):
         slurm_queue_name = args.slurm_queue_name
 
     leaderboard = Leaderboard.load_json(trojai_config, args.name)
-    if leaderboard.add_default_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data, on_html=args.on_html):
+
+    if args.split_name == 'sts':
+        auto_delete_submission = True
+    else:
+        auto_delete_submission = False
+
+    if leaderboard.add_dataset(trojai_config, args.split_name, args.can_submit, slurm_queue_name, args.slurm_nice, args.has_source_data, auto_delete_submission, [], on_html=args.on_html):
         leaderboard.generate_metadata_csv(overwrite_csv=True)
         leaderboard.save_json(trojai_config)
 
