@@ -688,6 +688,10 @@ class MitigationPoisonedAccuracyOnPoisonedModel(MitigationAverageAccuracy):
 
     def get_sort_order(self):
         return 'asc'
+
+    def compare(self, computed, baseline):
+        return computed < baseline
+
 class MitigationCleanAccuracyOnPoisonedModel(MitigationAverageAccuracy):
     def __init__(self):
         super().__init__(name='Avg Clean Acc (psn model)', target_name='clean', clean_only=False, poisoned_only=True)
