@@ -604,6 +604,9 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                          '--output_dirpath', output_dirpath,
                          '--model_output_name', output_model_name]
 
+        if self.training_dataset_dirpath is not None:
+            mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
+
         # Execute mitigate
         result = Client.run(container_instance, mitigate_args, return_result=True)
         logging.info('Output from mitigate step: {}'.format(result))
@@ -625,6 +628,9 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                      '--scratch_dirpath', container_scratch_dirpath,
                      '--output_dirpath', output_dirpath,
                      ]
+
+        if self.training_dataset_dirpath is not None:
+            test_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
         result = Client.run(container_instance, test_args, return_result=True)
 

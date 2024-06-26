@@ -693,8 +693,7 @@ class MitigationTask(TrojAITask):
     #     errors = ''
     #     return errors
 
-def package_results(self, result_dirpath: str, info_dict: dict):
-    pass
+
 class ImageClassificationMitigationTask(MitigationTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'image_classification_mitigation', task_script_filepath)
