@@ -160,6 +160,9 @@ class Leaderboard(object):
     def load_results_df(self, results_manager: ResultsManager):
         return results_manager.load_results(self.name, self.leaderboard_results_filepath, self.get_default_result_columns())
 
+    def update_results_df(self, results_manager: ResultsManager, df):
+        results_manager.update_results(self.name, df)
+
     ########################
     # Dataset utility functions
     ########################
@@ -822,6 +825,8 @@ class TrojAILeaderboard(Leaderboard):
         if len(web_display_parse_errors) != 0:
             errors['web_display_parse_errors'] = web_display_parse_errors
 
+        self.update_results_df(results_manager, df)
+
         return errors, new_processed_metric_names
 
     def get_valid_metric(self, metric_name):
@@ -1107,6 +1112,7 @@ class MitigationLeaderboard(Leaderboard):
 
         # Add all missing metric columns, each with default value None
         if len(missing_columns) > 0:
+            logging.info('Found missing columns that are being added to dataframe: {}'.format(missing_columns))
             df = df.assign(**{col: None for col in missing_columns})
 
         filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split_name, actor_uuid)
@@ -1210,6 +1216,8 @@ class MitigationLeaderboard(Leaderboard):
 
         if len(web_display_parse_errors) != 0:
             errors_dict['web_display_parse_errors'] = web_display_parse_errors
+
+        self.update_results_df(results_manager, df)
 
         return errors_dict, new_processed_metric_names
 

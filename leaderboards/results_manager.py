@@ -25,6 +25,9 @@ class ResultsManager(object):
 
         return df
 
+    def update_results(self, leaderboard_name, df):
+        self.results_cache[leaderboard_name] = df
+
     def save(self, leaderboard_name: str):
         if leaderboard_name in self.results_filepaths:
             filepath = self.results_filepaths[leaderboard_name]
