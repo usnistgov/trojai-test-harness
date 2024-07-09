@@ -1,3 +1,5 @@
+import logging
+
 import jsonschema
 import numpy as np
 import random
@@ -57,12 +59,12 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
 
         if min_value is None:
             if print_warnings:
-                print('Warning: min value or suggested_minimum for param "{}" is missing.'.format(param_name))
+                logging.info('Warning: min value or suggested_minimum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             min_value = sys.float_info.min
         if max_value is None:
             if print_warnings:
-                print('Warning: max value or suggested_maximum for param "{}" is missing.'.format(param_name))
+                logging.info('Warning: max value or suggested_maximum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             max_value = sys.float_info.max
 
@@ -102,12 +104,12 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
 
         if min_value is None:
             if print_warnings:
-                print('Warning: min value or suggested_minimum for param "{}" is missing.'.format(param_name))
+                logging.info('Warning: min value or suggested_minimum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             min_value = -2147483647
         if max_value is None:
             if print_warnings:
-                print('Warning: max value or suggested_maximum for param "{}" is missing.'.format(param_name))
+                logging.info('Warning: max value or suggested_maximum for param "{}" is missing.'.format(param_name))
             num_issues += 1
             max_value = 2147483647
 
@@ -128,7 +130,7 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
         return value
 
     # elif 'string' in type and not 'enum' in canonicalized_param:
-    #     print('test')
+    #     logging.info('test')
 
     elif 'array' in type_name:
         array_schema = canonicalized_param.get('items', {})
@@ -144,23 +146,23 @@ def get_value(param_name, canonicalized_param, type_name, base_value, variation_
             for i in range(max_size):
                 default_value = base_value[i]
 
-                print('Processing array {} out of {} for param "{}"'.format(i+1, max_size, param_name))
+                logging.info('Processing array {} out of {} for param "{}"'.format(i+1, max_size, param_name))
                 array_config = build_json_config(array_schema, default_value, print_warnings=print_warnings)
-                print('')
+                logging.info('')
                 array_ret.append(array_config)
             return array_ret
         else:
-            print('Unknown format for param "{}" (expecting list) for base_value in array: {}'.format(param_name, base_value))
+            logging.info('Unknown format for param "{}" (expecting list) for base_value in array: {}'.format(param_name, base_value))
             num_issues += 1
 
-        print('Not implemented: array for {}, param name: {}, using default: {}'.format(canonicalized_param, param_name, base_value))
+        logging.info('Not implemented: array for {}, param name: {}, using default: {}'.format(canonicalized_param, param_name, base_value))
         num_issues += 1
 
     elif 'object' in type_name:
-        print('Not implemented: object for {}, param name: {}, using default: {}'.format(canonicalized_param, param_name, base_value))
+        logging.info('Not implemented: object for {}, param name: {}, using default: {}'.format(canonicalized_param, param_name, base_value))
         num_issues += 1
     else:
-        print('Unknown option: {}, param_name: {}, using default: {}'.format(canonicalized_param, param_name, base_value))
+        logging.info('Unknown option: {}, param_name: {}, using default: {}'.format(canonicalized_param, param_name, base_value))
         num_issues += 1
 
     return base_value
@@ -174,27 +176,27 @@ def build_json_config(json_schema, json_original_config, randomly_perturb_param=
 
         if 'technique' not in json_schema:
             if print_warnings:
-                print('Missing "technique" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+                logging.info('Missing "technique" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'technique_description' not in json_schema:
             if print_warnings:
-                print('Missing "technique_description" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+                logging.info('Missing "technique_description" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'technique_changes' not in json_schema:
             if print_warnings:
-                print('Missing "technique_changes" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+                logging.info('Missing "technique_changes" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'commit_id' not in json_schema:
             if print_warnings:
-                print('Missing "commit_id" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+                logging.info('Missing "commit_id" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'repo_name' not in json_schema:
             if print_warnings:
-                print('Missing "repo_name" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+                logging.info('Missing "repo_name" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
         if 'technique_type' not in json_schema:
             if print_warnings:
-                print('Missing "technique_type" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
+                logging.info('Missing "technique_type" in root schema, see "https://pages.nist.gov/trojai/docs/submission.html#parameter-loading" for an example')
             num_issues += 1
 
     resolved_json_schema = _resolve.resolve_all_refs(copy.deepcopy(json_schema))
@@ -212,7 +214,7 @@ def build_json_config(json_schema, json_original_config, randomly_perturb_param=
 
         if 'type' in param and param['type'] == 'string' and 'enum' not in param:
             if print_warnings:
-                print('Warning: param "{}" is marked as a string and does not contain an enum. Using "{}" as the default.'.format(param_name, json_original_config[param_name]))
+                logging.info('Warning: param "{}" is marked as a string and does not contain an enum. Using "{}" as the default.'.format(param_name, json_original_config[param_name]))
             num_issues += 1
             param_properties[param_name]['enum'] = [json_original_config[param_name]]
 
@@ -229,7 +231,7 @@ def build_json_config(json_schema, json_original_config, randomly_perturb_param=
 
         if param_name not in json_original_config:
             if print_warnings:
-                print('Warning: param "{}" was not found in your configuration file. Skipping adding it to new config.'.format(param_name))
+                logging.info('Warning: param "{}" was not found in your configuration file. Skipping adding it to new config.'.format(param_name))
             num_issues += 1
             continue
 
@@ -244,7 +246,7 @@ def build_json_config(json_schema, json_original_config, randomly_perturb_param=
     for param_name in json_original_config.keys():
         if param_name not in config:
             if print_warnings:
-                print('Warning: param "{}" was found in original config file, but is not in the generated one'.format(param_name))
+                logging.info('Warning: param "{}" was found in original config file, but is not in the generated one'.format(param_name))
             num_issues += 1
 
 
@@ -262,11 +264,11 @@ def collect_json_metaparams(s_path):
         output_str = output[0]
 
     if not isinstance(output_str, str):
-        print('Failed to load metaparameters_schema.json, output: {}'.format(output))
+        logging.info('Failed to load metaparameters_schema.json, output: {}'.format(output))
         return None
 
     if "return_code" in output and output["return_code"] != 0:
-        print('Error, unable to find metaparameters')
+        logging.info('Error, unable to find metaparameters')
         return None
 
     return json.loads(output_str)
@@ -281,25 +283,29 @@ def collect_json_metaparams_schema(s_path) :
         output_str = output[0]
 
     if not isinstance(output_str, str):
-        print('Failed to load metaparameters_schema.json, output: {}'.format(output))
+        logging.info('Failed to load metaparameters_schema.json, output: {}'.format(output))
         return None
 
     if "return_code" in output and output["return_code"] != 0:
-        print('Error, unable to find metaparameters_schema')
+        logging.info('Error, unable to find metaparameters_schema')
         return None
 
     if '$schema' not in output_str:
-        print('Failed to find $schema in {}'.format(output_str))
+        logging.info('Failed to find $schema in {}'.format(output_str))
         return None
 
-    return json.loads(output_str)
+    try:
+        return json.loads(output_str)
+    except json.decoder.JSONDecodeError as e:
+        logging.info('Failed to parse json metaparamter schema, json decode error: {}'.format(e))
+
 
 def is_schema_configuration_valid(json_schema, config):
     global num_issues
 
     # Check for $schema
     if '$schema' not in json_schema:
-        print(
+        logging.info(
             'Missing "$schema" in root schema, see "https://github.com/usnistgov/trojai-example/blob/master/metaparameters_schema.json" for an example')
         num_issues += 1
 
@@ -315,23 +321,23 @@ def is_schema_configuration_valid(json_schema, config):
     try:
         jsonschema.validate(instance=config, schema=json_schema)
     except jsonschema.exceptions.SchemaError as e:
-        print(e)
+        logging.info(e)
         num_issues += 1
     except jsonschema.exceptions.ValidationError as ex:
-        print(ex)
+        logging.info(ex)
         num_issues += 1
     except Exception as exc:
-        print(exc)
+        logging.info(exc)
         num_issues += 1
 
     try:
         build_json_config(json_schema, config, print_warnings=True)
     except Exception as e:
-        print('There was an issue parsing your schema. We may not have support for one of your options, please send us your schema to check.\nException: {}'.format(e))
+        logging.info('There was an issue parsing your schema. We may not have support for one of your options, please send us your schema to check.\nException: {}'.format(e))
         num_issues += 1
 
 
-    print('There were {} issues while parsing your jsonschema.'.format(num_issues))
+    logging.info('There were {} issues while parsing your jsonschema.'.format(num_issues))
 
     return num_issues == 0
 
@@ -385,12 +391,12 @@ if __name__ == "__main__":
             json_original_config = json.load(f)
 
         if json_schema is None or json_original_config is None:
-            print('Failed to load schema and configuration files.')
+            logging.info('Failed to load schema and configuration files.')
             exit(1)
 
         # param_lookup = create_param_lookup(json_schema)
         # new_config = perturb_config(param_lookup, json_original_config)
-        print('Done')
+        logging.info('Done')
 
         if not is_schema_configuration_valid(json_schema, json_original_config):
             exit(1)
