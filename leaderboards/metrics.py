@@ -602,7 +602,7 @@ class MitigationAverageAccuracy(MitigationMetric):
         return self.name
 
     @staticmethod
-    def compute_accuracy(self, model_name: str, model_predictions_dict, model_targets_dict, actor_name, target_name):
+    def compute_accuracy(model_name: str, model_predictions_dict, model_targets_dict, actor_name, target_name):
         target_examples_dict = model_targets_dict[model_name]
 
         if model_name not in model_predictions_dict:
