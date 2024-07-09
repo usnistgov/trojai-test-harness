@@ -752,8 +752,8 @@ class MitigationFidelityMetric(MitigationMetric):
 
         fidelities = []
         for model_name in model_names_to_process:
-            actor_asr = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, 'poisoned')
-            actor_acc = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, 'clean')
+            actor_asr = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, actor_name, 'poisoned')
+            actor_acc = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, actor_name, 'clean')
             pre_asr = pre_mitigation_asr[model_name]
             pre_acc = pre_mitigation_acc[model_name]
 
