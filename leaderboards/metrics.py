@@ -640,7 +640,7 @@ class MitigationAverageAccuracy(MitigationMetric):
 
         if total == 0:
             logging.warning(
-                'Metric {}: Model {} contained no examples or there were other errors'.format(self.name, model_name))
+                'Accuray calculation: Model {} contained no examples or there were other errors'.format(model_name))
             return 0.0
         else:
             return float(correct) / float(total)
