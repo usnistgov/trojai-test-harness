@@ -56,7 +56,9 @@ class Leaderboard(object):
         'DEX_Factor_csv': DEX_Factor_csv,
         'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
         'Mit_Clean_Acc_Psn': MitigationCleanAccuracyOnPoisonedModel,
-        'Mit_Clean_acc': MitigationAccuracyOnCleanModel
+        'Mit_Clean_acc': MitigationAccuracyOnCleanModel,
+        'Mit_Overall_acc': MitigationAccuraccyOverall,
+        'Mit_fidelity': MitigationFidelityMetric
     }
 
     ALL_SUMMARY_METRIC_NAMES = {
@@ -840,9 +842,13 @@ class MitigationLeaderboard(Leaderboard):
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
     VALID_TASK_NAMES = {'image_classification_mitigation': ImageClassificationMitigationTask}
-    VALID_METRIC_NAMES = { 'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
+    VALID_METRIC_NAMES = {
+        'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
         'Mit_Clean_Acc_Psn': MitigationCleanAccuracyOnPoisonedModel,
-        'Mit_Clean_acc': MitigationAccuracyOnCleanModel}
+        'Mit_Clean_acc': MitigationAccuracyOnCleanModel,
+        'Mit_Overall_acc': MitigationAccuraccyOverall,
+        'Mit_fidelity': MitigationFidelityMetric
+    }
 
     DEFAULT_METRICS = [MitigationPoisonedAccuracyOnPoisonedModel,
                        MitigationCleanAccuracyOnPoisonedModel,

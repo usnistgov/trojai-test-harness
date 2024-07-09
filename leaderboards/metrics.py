@@ -601,6 +601,50 @@ class MitigationAverageAccuracy(MitigationMetric):
     def get_name(self):
         return self.name
 
+    @staticmethod
+    def compute_accuracy(self, model_name: str, model_predictions_dict, model_targets_dict, actor_name, target_name):
+        target_examples_dict = model_targets_dict[model_name]
+
+        if model_name not in model_predictions_dict:
+            logging.warning(
+                '{}, Unable to find {} in predictions_dict for avg accuracy metric'.format(actor_name, model_name))
+            return None
+
+        examples_logits_dict = model_predictions_dict[model_name]
+
+        correct = 0
+        total = 0
+        for example_name, targets_dict in target_examples_dict.items():
+            if example_name not in examples_logits_dict:
+                logging.warning(
+                    '{}, Unable to find example {} in model {}, examples_logits_dict for avg accuracy metric'.format(
+                        actor_name, example_name, model_name))
+                continue
+
+            logits = examples_logits_dict[example_name]
+
+            if np.any(~(np.isfinite(logits))):
+                # logging.warning('One or more logits for {} may contain errors for {} (not finite)'.format(actor_name, model_name))
+                continue
+
+            prediction = np.argmax(logits)
+            target = targets_dict[target_name]
+
+            # If the target does not exist, then we should skip it as it is not a valid example
+            if target is None:
+                continue
+
+            if prediction == target:
+                correct += 1
+            total += 1
+
+        if total == 0:
+            logging.warning(
+                'Metric {}: Model {} contained no examples or there were other errors'.format(self.name, model_name))
+            return 0.0
+        else:
+            return float(correct) / float(total)
+
     def compute(self, model_predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], model_targets_dict: Dict[str, Dict[str, Dict[str, int]]],
             metadata_df: pd.DataFrame,
             actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
@@ -639,43 +683,12 @@ class MitigationAverageAccuracy(MitigationMetric):
         for model_name in model_names_to_process:
             accuracy_index += 1
 
-            target_examples_dict = model_targets_dict[model_name]
+            accuracy_val = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, actor_name, self.target_name)
 
-            if model_name not in model_predictions_dict:
-                logging.warning('{}, Unable to find {} in predictions_dict for avg accuracy metric'.format(actor_name, model_name))
+            if accuracy_val is None:
                 continue
 
-            examples_logits_dict = model_predictions_dict[model_name]
-
-            correct = 0
-            total = 0
-            for example_name, targets_dict in target_examples_dict.items():
-                if example_name not in examples_logits_dict:
-                    logging.warning('{}, Unable to find example {} in model {}, examples_logits_dict for avg accuracy metric'.format(actor_name, example_name, model_name))
-                    continue
-
-                logits = examples_logits_dict[example_name]
-
-                if np.any(~(np.isfinite(logits))):
-                    # logging.warning('One or more logits for {} may contain errors for {} (not finite)'.format(actor_name, model_name))
-                    continue
-
-                prediction = np.argmax(logits)
-                target = targets_dict[self.target_name]
-
-                # If the target does not exist, then we should skip it as it is not a valid example
-                if target is None:
-                    continue
-
-                if prediction == target:
-                    correct += 1
-                total += 1
-
-            if total == 0:
-                logging.warning('Metric {}: Model {} contained no examples or there were other errors'.format(self.name, model_name))
-                accuracy_vals[accuracy_index] = 0
-            else:
-                accuracy_vals[accuracy_index] = float(correct) / float(total)
+            accuracy_vals[accuracy_index] = accuracy_val
 
         return {'result': np.average(accuracy_vals).item(), 'files': None}
 
@@ -700,3 +713,55 @@ class MitigationCleanAccuracyOnPoisonedModel(MitigationAverageAccuracy):
 class MitigationAccuracyOnCleanModel(MitigationAverageAccuracy):
     def __init__(self):
         super().__init__('Avg Acc (clean model)', target_name='clean', clean_only=True, poisoned_only=False)
+
+class MitigationAccuraccyOverall(MitigationAverageAccuracy):
+    def __init__(self):
+        super().__init__('Overall Acc', target_name='clean', clean_only=True, poisoned_only=True)
+
+class MitigationFidelityMetric(MitigationMetric):
+    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True, share_with_external: bool = False):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
+
+    def get_name(self):
+        return 'Fidelity'
+
+    def compute(self, model_predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], model_targets_dict: Dict[str, Dict[str, Dict[str, int]]],
+            metadata_df: pd.DataFrame,
+            actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+            output_dirpath: str):
+
+        model_names_to_process = []
+        pre_mitigation_asr = {}
+        pre_mitigation_acc = {}
+        for model_name in model_targets_dict.keys():
+            # Check metadata_df for clean or poisoned
+            filtered_df = metadata_df[metadata_df['model_name'] == model_name]
+
+            if len(filtered_df) != 1:
+                logging.warning('Failed to process metadata_df for model name {} found {} rows'.format(model_name,
+                                                                                                       len(filtered_df)))
+            is_both = False
+            is_model_poisoned = filtered_df['poisoned'].values[0]
+
+            if is_model_poisoned:
+                model_names_to_process.append(model_name)
+
+                pre_mitigation_acc[model_name] = filtered_df['average_clean_test_example_accuracy'].values[0]
+                pre_mitigation_asr[model_name] = filtered_df['average_poisoned_test_example_accuracy'].values[0]
+
+
+        fidelities = []
+        for model_name in model_names_to_process:
+            actor_asr = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, 'poisoned')
+            actor_acc = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, 'clean')
+            pre_asr = pre_mitigation_asr[model_name]
+            pre_acc = pre_mitigation_acc[model_name]
+
+            fidelity = ((pre_asr - actor_asr) / pre_asr) * (actor_acc / pre_acc)
+            fidelities.append(fidelity)
+
+
+        return {'result': np.average(fidelities).item(), 'files': None}
+
+    def compare(self, computed, baseline):
+        return computed > baseline
