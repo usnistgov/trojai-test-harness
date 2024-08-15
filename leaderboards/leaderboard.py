@@ -998,6 +998,8 @@ class MitigationLeaderboard(Leaderboard):
 
 
         for model_dir, examples_dict in ground_truth_dict.items():
+            if examples_dict is None:
+                continue
             for example_name, labels_dict in examples_dict.items():
                 model_names.append(model_dir)
                 example_names.append(example_name)
