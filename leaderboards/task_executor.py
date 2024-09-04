@@ -15,7 +15,7 @@ import subprocess
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
          vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str,
-         scanner_script: str, custom_remote_home=None, custom_remote_scratch=None, job_id=None,
+         scanner_script=None, custom_remote_home=None, custom_remote_scratch=None, job_id=None,
          custom_metaparameter_filepath=None, subset_model_ids=None, custom_evaluate_python_env_filepath=None):
 
     actor_manager = ActorManager.load_json(trojai_config)
