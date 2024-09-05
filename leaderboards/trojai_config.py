@@ -25,6 +25,7 @@ class TrojaiConfig(object):
         file_dirpath = os.path.dirname(os.path.realpath(__file__))
         self.trojai_test_harness_dirpath = os.path.normpath(os.path.join(file_dirpath, '..'))
         self.task_evaluator_script_filepath = os.path.join(file_dirpath, 'task_executor.py')
+        self.scanner_script_filepath = os.path.join(file_dirpath, 'run_scan.sh')
         self.python_env = '/home/trojai/trojai-env/bin/python3'
         self.evaluate_python_env = '/home/trojai/miniconda3/envs/trojai_evaluate/bin/python'
         self.local_trojai_conda_env = '/home/trojai/miniconda3'

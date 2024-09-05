@@ -15,7 +15,7 @@ import subprocess
 
 def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name: str,
          vm_name: str, team_name: str, team_email: str, submission_filepath: str, result_dirpath: str,
-         scanner_script=None, custom_remote_home=None, custom_remote_scratch=None, job_id=None,
+         custom_remote_home=None, custom_remote_scratch=None, job_id=None,
          custom_metaparameter_filepath=None, subset_model_ids=None, custom_evaluate_python_env_filepath=None):
 
     actor_manager = ActorManager.load_json(trojai_config)
@@ -81,10 +81,10 @@ def main(trojai_config: TrojaiConfig, leaderboard: Leaderboard, data_split_name:
             submission_filepath = os.path.join(submission_dir, submission_name)
 
         # Scan download
-        if scanner_script is not None:
+        if trojai_config.scanner_script_filepath is not None:
             logging.info('Scanning submission {}'.format(submission_filepath))
             try:
-                subprocess.run([scanner_script, submission_filepath], check=True)
+                subprocess.run([trojai_config.scanner_script_filepath, submission_filepath], check=True)
             except subprocess.CalledProcessError as e:
                 logging.error('Scan FAILED')
                 logging.error(str(e))
@@ -233,11 +233,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--job-id', type=str, help='The slurm job ID', default=None)
 
-    parser.add_argument('--scanner-script', type=str,
-                        help='Path to a script to scan downloaded containers.  '
-                        'If this argument is not given, containers will not be scanned.',
-                        default=None)
-
     args = parser.parse_args()
 
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
@@ -245,7 +240,7 @@ if __name__ == '__main__':
     leaderboard = Leaderboard.load_json(trojai_config, args.leaderboard_name)
 
     main(trojai_config, leaderboard, args.data_split_name, args.vm_name, args.team_name, args.team_email,
-         args.container_filepath, args.result_dirpath, args.scanner_script, args.custom_remote_home, args.custom_remote_scratch, args.job_id,
+         args.container_filepath, args.result_dirpath, args.custom_remote_home, args.custom_remote_scratch, args.job_id,
          args.custom_metaparameters_filepath, args.model_ids_subset, args.custom_evaluate_python_env_filepath)
 
 
