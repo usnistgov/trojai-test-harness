@@ -506,6 +506,7 @@ class TrojAILeaderboard(Leaderboard):
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
                         'causal_language': CausalLanguageModeling,
+                        "cyber_windows_pe_malware": CyberWindowsPEMalware
                         }
 
     VALID_METRIC_NAMES = {
