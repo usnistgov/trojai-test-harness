@@ -40,6 +40,7 @@ class Leaderboard(object):
                         'nlp_ner': NaturalLanguageProcessingNamedEntityRecognition,
                         'nlp_qa': NaturalLanguageProcessingQuestionAnswering,
                         "cyber": CyberTask,
+                        "cyber_windows_pe_malware": CyberWindowsPEMalware,
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
@@ -1051,15 +1052,15 @@ class MitigationLeaderboard(Leaderboard):
                     logging.warning('Failed to find model {}'.format(model_dirpath))
                     continue
 
-                model_ground_truth_filepath = os.path.join(model_dirpath, 'ground_truth.csv')
-                if not os.path.exists(model_ground_truth_filepath):
-                    logging.warning('Failed to find model ground truth CSV'.format(model_ground_truth_filepath))
-                    continue
-
-                model_ground_truth = np.nan
-                with open(model_ground_truth_filepath, 'r') as fp:
-                    file_contents = fp.readline().strip()
-                    model_ground_truth = float(file_contents)
+                # model_ground_truth_filepath = os.path.join(model_dirpath, 'ground_truth.csv')
+                # if not os.path.exists(model_ground_truth_filepath):
+                #     logging.warning('Failed to find model ground truth CSV'.format(model_ground_truth_filepath))
+                #     continue
+                #
+                # model_ground_truth = np.nan
+                # with open(model_ground_truth_filepath, 'r') as fp:
+                #     file_contents = fp.readline().strip()
+                #     model_ground_truth = float(file_contents)
 
                 test_data_ground_truth_filepath = os.path.join(model_dirpath, 'test_example_data_lookup.json')
 

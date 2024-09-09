@@ -585,7 +585,7 @@ class MitigationMetric(Metric):
     def __init__(self, write_html: bool, share_with_actor: bool, store_result: bool, share_with_external: bool):
         super().__init__(write_html, share_with_actor, store_result, share_with_external)
 
-    def compute(self, predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], targets_dict: Dict[str, Dict[str, int]], metadata_df: pd.DataFrame,
+    def compute(self, predictions_dict: Dict[str, Dict[str, Union[float, np.ndarray]]], model_targets_dict: Dict[str, Dict[str, Dict[str, int]]], metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
                 output_dirpath:str):
         raise NotImplementedError()

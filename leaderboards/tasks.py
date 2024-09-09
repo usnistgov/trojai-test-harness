@@ -791,6 +791,10 @@ class CyberApkMalware(CyberTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name)
 
+class CyberWindowsPEMalware(CyberTask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name)
+
 class CyberPdfMalware(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         self.scale_params_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'scale_params.npy')
