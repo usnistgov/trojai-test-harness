@@ -829,3 +829,9 @@ class CyberPdfMalware(TrojAITask):
 class ReinforcementLearningLavaWorld(ReinforcementLearningTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name)
+
+class ReinforcementLearningColorfulMemory(
+    TrojAITask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        super().__init__(trojai_config, leaderboard_name, 'rl_color', task_script_filepath)
+

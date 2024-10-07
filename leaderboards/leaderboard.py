@@ -44,6 +44,7 @@ class Leaderboard(object):
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
+                        "rl_colorful": ReinforcementLearningColorfulMemory,
                         'causal_language': CausalLanguageModeling,
                         'image_classification_mitigation': ImageClassificationMitigationTask}
 
@@ -506,7 +507,8 @@ class TrojAILeaderboard(Leaderboard):
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
                         'causal_language': CausalLanguageModeling,
-                        "cyber_windows_pe_malware": CyberWindowsPEMalware
+                        "cyber_windows_pe_malware": CyberWindowsPEMalware,
+                        "rl_colorful": ReinforcementLearningColorfulMemory
                         }
 
     VALID_METRIC_NAMES = {
@@ -526,7 +528,7 @@ class TrojAILeaderboard(Leaderboard):
     DEFAULT_SUMMARY_METRICS = [SummaryAverageCEOverTime]
 
 
-    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False, default_metrics = None):
+    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool = False, default_metrics = None, required_files=None):
         super().__init__(name, task_name, trojai_config)
 
         if self.task_name not in TrojAILeaderboard.VALID_TASK_NAMES:
@@ -536,7 +538,12 @@ class TrojAILeaderboard(Leaderboard):
         self.evaluation_metric_name = ROC_AUC().get_name()
 
         self.excluded_files.extend(TrojAILeaderboard.DEFAULT_EXCLUDED_FILES)
-        self.required_files.extend(TrojAILeaderboard.DEFAULT_REQUIRED_FILES)
+
+        if required_files is not None:
+            self.required_files.extend(required_files)
+        else:
+            self.required_files.extend(TrojAILeaderboard.DEFAULT_REQUIRED_FILES)
+
 
         for metric in TrojAILeaderboard.DEFAULT_METRICS:
             new_metric = metric()
@@ -864,7 +871,7 @@ class MitigationLeaderboard(Leaderboard):
 
     VALID_SUMMARY_METRIC_NAMES = {}
     DEFAULT_SUMMARY_METRICS = []
-    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool):
+    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool, required_files=None):
         super().__init__(name, task_name, trojai_config)
 
         if self.task_name not in MitigationLeaderboard.VALID_TASK_NAMES:
@@ -874,7 +881,12 @@ class MitigationLeaderboard(Leaderboard):
         self.evaluation_metric_name = MitigationPoisonedAccuracyOnPoisonedModel().get_name()
 
         self.excluded_files.extend(MitigationLeaderboard.DEFAULT_EXCLUDED_FILES)
-        self.required_files.extend(MitigationLeaderboard.DEFAULT_REQUIRED_FILES)
+
+        if required_files is not None:
+            self.required_files.extend(required_files)
+        else:
+            self.required_files.extend(MitigationLeaderboard.DEFAULT_REQUIRED_FILES)
+
 
         for metric in MitigationLeaderboard.DEFAULT_METRICS:
             new_metric = metric()
@@ -1226,21 +1238,21 @@ class MitigationLeaderboard(Leaderboard):
         return errors_dict, new_processed_metric_names
 
 
+
 def init_leaderboard(args):
     trojai_config = TrojaiConfig.load_json(args.trojai_config_filepath)
+    required_files = None
     if args.required_files is not None:
-        req_files = args.required_files.split(',')
-        logging.warning("Over-riding default required files list {} with {}".format(trojai_config.default_required_files, req_files))
-        trojai_config.default_required_files = req_files
+        required_files = args.required_files.split(',')
 
     leaderboard_type = args.leaderboard_type
 
     leaderboard = None
 
     if leaderboard_type == 'trojai':
-        leaderboard = TrojAILeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
+        leaderboard = TrojAILeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit, required_files=required_files)
     elif leaderboard_type == 'mitigation':
-        leaderboard = MitigationLeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit)
+        leaderboard = MitigationLeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit, required_files=required_files)
 
     if leaderboard is not None:
         leaderboard.save_json(trojai_config)
