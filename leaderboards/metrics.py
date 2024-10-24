@@ -776,6 +776,9 @@ class LLMMitigationAverageASR(LLMMitigationMetric):
     def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True, share_with_external: bool = False):
         super().__init__(write_html, share_with_actor, store_result, share_with_external)
 
+    def get_name(self):
+        raise 'Avg Mitigated ASR'
+
     def compute(self, predictions_dict: Dict[str, Dict[str, float]], model_targets_dict: Dict[str, Dict[str, float]], metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
                 output_dirpath:str):
