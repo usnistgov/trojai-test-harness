@@ -8,9 +8,28 @@ import subprocess
 import logging
 import glob
 import time
+
+import signal
 from spython.main import Client
 
 from abc import ABC, abstractmethod
+
+
+class TimeoutError(Exception):
+    pass
+
+class timeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
+
 
 class StreamToLogger(object):
     """
@@ -81,7 +100,8 @@ class EvaluateTrojAITask(EvaluateTask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
         super().__init__()
         self.models_dirpath = models_dirpath
         self.submission_filepath = submission_filepath
@@ -95,6 +115,8 @@ class EvaluateTrojAITask(EvaluateTask):
         self.source_dataset_dirpath = source_dataset_dirpath
         self.result_prefix_filename = result_prefix_filename
         self.subset_model_ids = subset_model_ids
+        self.timeout_time = timeout_time
+        self.total_execution_time = 0
 
         if not os.path.exists(self.result_dirpath):
             os.makedirs(self.result_dirpath, exist_ok=True)
@@ -132,11 +154,22 @@ class EvaluateTrojAITask(EvaluateTask):
         sys.stderr = StreamToLogger(logger, logging.ERROR)
 
     def execute_container(self, container_instance, active_dirpath, container_scratch_dirpath, model_dirname):
+
         active_result_filepath = os.path.join(active_dirpath, 'result.txt')
 
         container_args = self.get_execute_task_args(active_dirpath, container_scratch_dirpath, active_result_filepath)
 
-        result = Client.run(container_instance, container_args, return_result=True)
+        remaining_time = self.timeout_time - self.total_execution_time
+
+        if remaining_time <= 0:
+            raise TimeoutError('Timeout')
+
+        execute_start = time.time()
+        with timeout(seconds=int(remaining_time)):
+            result = Client.run(container_instance, container_args, return_result=True)
+
+        execute_end = time.time()
+        self.total_execution_time = self.total_execution_time + (execute_end - execute_start)
 
         # copy results back to real output filename
         if os.path.exists(active_result_filepath):
@@ -197,6 +230,8 @@ class EvaluateTrojAITask(EvaluateTask):
 
             container_exec_time = container_end_time - container_start_time
 
+
+
             with open(os.path.join(self.result_dirpath, '{}{}-walltime.txt'.format(self.result_prefix_filename, model_dirname)), 'w') as f:
                 f.write('{}'.format(container_exec_time))
 
@@ -243,7 +278,8 @@ class EvaluateImageTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -256,7 +292,8 @@ class EvaluateImageTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
@@ -291,7 +328,8 @@ class EvaluateClmTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -304,7 +342,8 @@ class EvaluateClmTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
         options = super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
@@ -341,7 +380,8 @@ class EvaluateNLPTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -354,7 +394,8 @@ class EvaluateNLPTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
         parser = argparse.ArgumentParser(description='Parser for NLP')
         parser.add_argument('--tokenizer-dirpath', type=str, help='The directory path to tokenizers', required=True)
@@ -411,7 +452,8 @@ class EvaluateRLTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -424,7 +466,8 @@ class EvaluateRLTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
@@ -460,7 +503,8 @@ class EvaluateRLColorfulMemoryTask(EvaluateRLTask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -473,7 +517,8 @@ class EvaluateRLColorfulMemoryTask(EvaluateRLTask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=False):
         return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
@@ -507,7 +552,8 @@ class EvaluateCyberTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -520,7 +566,8 @@ class EvaluateCyberTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
 
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
@@ -557,7 +604,8 @@ class EvaluateCyberPDFTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
 
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
@@ -570,7 +618,8 @@ class EvaluateCyberPDFTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
         parser = argparse.ArgumentParser(description='Parser for Cyber')
         parser.add_argument('--scale-params-filepath', type=str, help='The filepath to the scale parameters file', required=True)
@@ -616,7 +665,8 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                  learned_parameters_dirpath: str,
                  source_dataset_dirpath: str,
                  result_prefix_filename: str,
-                 subset_model_ids: list):
+                 subset_model_ids: list,
+                 timeout_time: int):
         super().__init__(models_dirpath=models_dirpath,
                          submission_filepath=submission_filepath,
                          home_dirpath=home_dirpath,
@@ -628,60 +678,69 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
                          learned_parameters_dirpath=learned_parameters_dirpath,
                          source_dataset_dirpath=source_dataset_dirpath,
                          result_prefix_filename=result_prefix_filename,
-                         subset_model_ids=subset_model_ids)
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
 
 
     def execute_container(self, container_instance, active_dirpath, container_scratch_dirpath, model_dirname):
 
-        # Called for each model.
-        # Setup mitigation Arguments
-        model_filepath = os.path.join(active_dirpath, 'model.pt')
-        output_dirpath = os.path.join(active_dirpath, 'output')
-        output_model_name = 'mitigated.pt'
+        remaining_time = self.timeout_time - self.total_execution_time
 
-        if not os.path.exists(output_dirpath):
-            os.makedirs(output_dirpath)
+        if remaining_time <= 0:
+            raise TimeoutError('Timeout')
 
-        mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
+        execute_start = time.time()
 
-        mitigate_args = ['mitigate',
-                         '--model_filepath', model_filepath,
+        with timeout(seconds=int(remaining_time)):
+            # Called for each model.
+            # Setup mitigation Arguments
+            model_filepath = os.path.join(active_dirpath, 'model.pt')
+            output_dirpath = os.path.join(active_dirpath, 'output')
+            output_model_name = 'mitigated.pt'
+
+            if not os.path.exists(output_dirpath):
+                os.makedirs(output_dirpath)
+
+            mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
+
+            mitigate_args = ['mitigate',
+                             '--model_filepath', model_filepath,
+                             '--metaparameters_filepath', self.metaparameters_filepath,
+                             '--schema_filepath', self.metaparameters_schema_filepath,
+                             '--dataset', mitigate_dataset_dirpath,
+                             '--scratch_dirpath', container_scratch_dirpath,
+                             '--output_dirpath', output_dirpath,
+                             '--model_output_name', output_model_name]
+
+            if self.training_dataset_dirpath is not None:
+                mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
+
+            # Execute mitigate
+            result = Client.run(container_instance, mitigate_args, return_result=True)
+            logging.info('Output from mitigate step: {}'.format(result))
+
+            # Setup test arguments
+            mitigated_model_filepath = os.path.join(output_dirpath, output_model_name)
+
+            if not os.path.exists(mitigated_model_filepath):
+                logging.error('Failed to find mitigated model, mitigate step may have errors, using original model.')
+                mitigated_model_filepath = model_filepath
+
+            test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
+
+            test_args = ['test',
                          '--metaparameters_filepath', self.metaparameters_filepath,
                          '--schema_filepath', self.metaparameters_schema_filepath,
-                         '--dataset', mitigate_dataset_dirpath,
+                         '--model_filepath', mitigated_model_filepath,
+                         '--dataset', test_dataset_dirpath,
                          '--scratch_dirpath', container_scratch_dirpath,
                          '--output_dirpath', output_dirpath,
-                         '--model_output_name', output_model_name]
+                         ]
 
-        if self.training_dataset_dirpath is not None:
-            mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
+            if self.training_dataset_dirpath is not None:
+                test_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
-        # Execute mitigate
-        result = Client.run(container_instance, mitigate_args, return_result=True)
-        logging.info('Output from mitigate step: {}'.format(result))
-
-        # Setup test arguments
-        mitigated_model_filepath = os.path.join(output_dirpath, output_model_name)
-
-        if not os.path.exists(mitigated_model_filepath):
-            logging.error('Failed to find mitigated model, mitigate step may have errors, using original model.')
-            mitigated_model_filepath = model_filepath
-
-        test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
-
-        test_args = ['test',
-                     '--metaparameters_filepath', self.metaparameters_filepath,
-                     '--schema_filepath', self.metaparameters_schema_filepath,
-                     '--model_filepath', mitigated_model_filepath,
-                     '--dataset', test_dataset_dirpath,
-                     '--scratch_dirpath', container_scratch_dirpath,
-                     '--output_dirpath', output_dirpath,
-                     ]
-
-        if self.training_dataset_dirpath is not None:
-            test_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
-
-        result = Client.run(container_instance, test_args, return_result=True)
+            result = Client.run(container_instance, test_args, return_result=True)
 
         output_results_filepath = os.path.join(output_dirpath, 'results.json')
 
@@ -690,6 +749,199 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
             shutil.copy(output_results_filepath, os.path.join(self.result_dirpath, '{}{}.json'.format(self.result_prefix_filename, model_dirname)))
         else:
             logging.warning('{} is missing the output result file {}'.format(model_dirname, output_results_filepath))
+
+        execute_end = time.time()
+
+        self.total_execution_time = self.total_execution_time + (execute_end - execute_start)
+
+        return result
+
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
+
+    def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
+        args = []
+
+        return args
+
+
+class EvaluateLLMMitigationTask(EvaluateTrojAITask):
+    def __init__(self, models_dirpath: str,
+                 submission_filepath: str,
+                 home_dirpath: str,
+                 result_dirpath: str,
+                 scratch_dirpath: str,
+                 training_dataset_dirpath: str,
+                 metaparameters_filepath: str,
+                 rsync_excludes: list,
+                 learned_parameters_dirpath: str,
+                 source_dataset_dirpath: str,
+                 result_prefix_filename: str,
+                 subset_model_ids: list,
+                 timeout_time: int):
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
+
+
+
+    def process_models(self):
+        active_dirpath = os.path.join(self.scratch_dirpath, 'active')
+        container_scratch_dirpath = os.path.join(self.scratch_dirpath, 'container-scratch')
+
+        if not os.path.exists(active_dirpath):
+            os.makedirs(active_dirpath)
+
+        if not os.path.exists(container_scratch_dirpath):
+            os.makedirs(container_scratch_dirpath)
+
+        model_files = [fn for fn in os.listdir(self.models_dirpath) if fn.startswith('id-')]
+        random.shuffle(model_files)
+
+        options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
+        logging.info("Starting container instance.")
+        container_instance = Client.instance(self.submission_filepath, options=options)
+        logging.info("Container started.")
+
+        logging.info('Starting eval container instance.')
+        eval_options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
+        eval_options.extend(['--bind', self.models_dirpath])
+        #TODO: Update path to correct one
+        eval_instance = Client.instance('/home/trojai/mitigation_evaluator.sif', option=eval_options)
+        logging.info('Eval container started.')
+
+        for model_idx in range(len(model_files)):
+            model_dirname = model_files[model_idx]
+
+            # Clean up scratch and active dir prior to running
+            clean_dirpath_contents(container_scratch_dirpath)
+            clean_dirpath_contents(active_dirpath)
+
+            model_dirpath = os.path.join(self.models_dirpath, model_dirname)
+            rsync_params = ['-ar', '--prune-empty-dirs', '--delete']
+
+            for rsync_exclude in self.rsync_excludes:
+                rsync_params.append('--exclude={}'.format(rsync_exclude))
+
+            rsync_dirpath(os.path.join(model_dirpath, '*'), active_dirpath, rsync_params)
+
+            # check for reduced-config, and copy it if it does exist to config.json
+            reduced_config_filepath = os.path.join(active_dirpath, 'reduced-config.json')
+            if os.path.exists(reduced_config_filepath):
+                shutil.copy(reduced_config_filepath, os.path.join(active_dirpath, 'config.json'))
+
+            logging.info('Starting execution of {} ({}/{})'.format(model_dirname, model_idx, len(model_files)))
+
+            container_start_time = time.time()
+
+            result = self.execute_container_llm(container_instance, eval_instance, active_dirpath, container_scratch_dirpath, model_dirname)
+
+            return_code = -1
+            if 'return_code' in result:
+                return_code = result['return_code']
+            else:
+                logging.error('Failed to obtain result from singularity execution: {}'.format(result))
+
+            container_end_time = time.time()
+
+            container_exec_time = container_end_time - container_start_time
+
+
+
+            with open(os.path.join(self.result_dirpath, '{}{}-walltime.txt'.format(self.result_prefix_filename, model_dirname)), 'w') as f:
+                f.write('{}'.format(container_exec_time))
+
+            logging.info('Finished executing {}, returned status code: {}'.format(model_dirname, return_code))
+
+
+
+        logging.info("All model executions complete, stopping continer.")
+        container_instance.stop()
+        logging.info("Container stopped.")
+
+
+    def execute_container_llm(self, container_instance, eval_instance, active_dirpath, container_scratch_dirpath, model_dirname):
+
+        remaining_time = self.timeout_time - self.total_execution_time
+
+        if remaining_time <= 0:
+            raise TimeoutError('Timeout')
+
+        execute_start = time.time()
+
+        with timeout(seconds=int(remaining_time)):
+            # Called for each model.
+            # Setup mitigation Arguments
+            model_dirpath = active_dirpath
+            output_dirpath = os.path.join(active_dirpath, 'output')
+
+            if not os.path.exists(output_dirpath):
+                os.makedirs(output_dirpath)
+
+            mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
+
+            mitigate_args = ['mitigate',
+                             '--metaparameters_filepath', self.metaparameters_filepath,
+                             '--schema_filepath', self.metaparameters_schema_filepath,
+                             '--model', model_dirpath,
+                             '--dataset_dirpath', mitigate_dataset_dirpath,
+                             '--output_dirpath', output_dirpath,
+                             '--scratch_dirpath', container_scratch_dirpath,
+                             '--batch_size', 1]
+
+            if self.training_dataset_dirpath is not None:
+                mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
+
+            # Execute mitigate
+            result = Client.run(container_instance, mitigate_args, return_result=True)
+            logging.info('Output from mitigate step: {}'.format(result))
+
+            # Setup test arguments
+            checkpoint_filepath = output_dirpath
+            round_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'round_config.json')
+            tokenizer_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'tokenizer_config.json')
+            source_datasets_dirpath = self.source_dataset_dirpath
+            training_args_bin_filepath = os.path.join(self.models_dirpath, model_dirname, 'training_args.bin')
+            num_samples=4
+
+            # test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
+            test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
+
+            test_args = ['--checkpoint_filepath', checkpoint_filepath,
+                         '--round_config_filepath', round_config_filepath,
+                         '--tokenizer_config_filepath', tokenizer_config_filepath,
+                         '--source_datasets_filepath', test_dataset_dirpath,
+                         '--output_filepath', output_dirpath,
+                         '--training_args_bin_filepath', training_args_bin_filepath,
+                         '--num_samples', num_samples
+                         ]
+
+            # if self.training_dataset_dirpath is not None:
+            #     test_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
+
+            result = Client.run(eval_instance, test_args, return_result=True)
+
+        output_results_filepath = os.path.join(output_dirpath, 'results.json')
+
+        # copy results back to real output filename
+        if os.path.exists(output_results_filepath):
+            shutil.copy(output_results_filepath, os.path.join(self.result_dirpath, '{}{}.json'.format(self.result_prefix_filename, model_dirname)))
+        else:
+            logging.warning('{} is missing the output result file {}'.format(model_dirname, output_results_filepath))
+
+        execute_end = time.time()
+
+        self.total_execution_time = self.total_execution_time + (execute_end - execute_start)
 
         return result
 
@@ -704,6 +956,7 @@ class EvaluateMitigationTask(EvaluateTrojAITask):
 
         return args
 
+
 if __name__ == '__main__':
     VALID_TASK_TYPES = {
       'rl': EvaluateRLTask,
@@ -713,11 +966,14 @@ if __name__ == '__main__':
       'cyber': EvaluateCyberTask,
       'cyber_pdf': EvaluateCyberPDFTask,
       'clm': EvaluateClmTask,
-      'image_classification_mitigation': EvaluateMitigationTask
+      'image_classification_mitigation': EvaluateMitigationTask,
+      'llm_mitigation': EvaluateLLMMitigationTask,
+      'rl_gym': EvaluateRLColorfulMemoryTask
     }
 
     parser = argparse.ArgumentParser(description='Entry point to execute containers')
 
+    parser.add_argument('--timeout', type=int, help='The amount of time to timeout the execution in seconds')
     parser.add_argument('--models-dirpath',  type=str, help='The directory path to models to evaluate', required=True)
     parser.add_argument('--task-type', type=str, choices=VALID_TASK_TYPES.keys(), help='The type of submission', required=True)
     parser.add_argument('--submission-filepath', type=str, help='The filepath to the submission', required=True)
@@ -747,6 +1003,11 @@ if __name__ == '__main__':
                                                          learned_parameters_dirpath=args.learned_parameters_dirpath,
                                                          source_dataset_dirpath=args.source_dataset_dirpath,
                                                          result_prefix_filename=args.result_prefix_filename,
-                                                         subset_model_ids=args.subset_model_ids)
+                                                         subset_model_ids=args.subset_model_ids,
+                                                         timeout_time=args.timeout)
 
-    evaluate_task_instance.process_models()
+    try:
+        evaluate_task_instance.process_models()
+    except TimeoutError as e:
+        logging.info('Your submission has failed to process all models within the timelimit ({}s)'.format(args.timeout))
+        exit(-9)

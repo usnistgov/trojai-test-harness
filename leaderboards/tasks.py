@@ -426,9 +426,9 @@ class TrojAITask(Task):
         logging.info('Starting execution of {}'.format(submission_name))
 
         if vm_ip == Task.LOCAL_VM_IP:
-            params = ['timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', python_execution_env_filepath, remote_evaluate_models_python_filepath]
+            params = [python_execution_env_filepath, remote_evaluate_models_python_filepath, '--timeout', str(dataset.timeout_time_sec)]
         else:
-            params = ['ssh', '-q', 'trojai@' + vm_ip, 'timeout', '-s', 'SIGTERM', '-k', '30', str(dataset.timeout_time_sec) + 's', python_execution_env_filepath, remote_evaluate_models_python_filepath]
+            params = ['ssh', '-q', 'trojai@' + vm_ip, python_execution_env_filepath, remote_evaluate_models_python_filepath, '--timeout', str(dataset.timeout_time_sec)]
 
         params.extend(self.get_basic_execute_args(vm_ip, submission_filepath, dataset, training_dataset, excluded_files, custom_remote_home, custom_remote_scratch, custom_metaparameter_filepath, subset_model_ids, custom_result_dirpath))
         params.extend(self.get_custom_execute_args(vm_ip, submission_filepath, dataset, training_dataset, custom_remote_home, custom_remote_scratch, custom_result_dirpath))
@@ -693,6 +693,27 @@ class MitigationTask(TrojAITask):
     #     errors = ''
     #     return errors
 
+class LLMMitigationTask(MitigationTask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        super().__init__(trojai_config, leaderboard_name, 'llm_mitigation', task_script_filepath)
+
+        self.mitigation_evaluator_filepath = os.path.join(trojai_config.datasets_dirpath, leaderboard_name, 'mitigation_evaluator.sif')
+
+    def copy_in_task_data(self, vm_ip, vm_name, submission_filepath: str, dataset: Dataset,
+                          training_dataset: Dataset, excluded_files: List[str], custom_remote_home: str = None,
+                          custom_remote_scratch: str = None, custom_metaparameter_filepath: str = None):
+        errors = super().copy_in_task_data(vm_ip, vm_name, submission_filepath, dataset, training_dataset, excluded_files, custom_remote_home,
+                                  custom_remote_scratch, custom_metaparameter_filepath)
+
+
+
+        sc = rsync_file_to_vm(self.evaluate_model_python_filepath, self.remote_dataset_dirpath)
+        errors += check_subprocess_error(sc, ':Copy in:',
+                                             '{} mitigation evaluation script {} copy in may have failed'.format(vm_name,
+                                                self.mitigation_evaluator_filepath), send_mail=True, subject='{} dataset copy failed'.format(vm_name))
+
+        return errors
+
 
 class ImageClassificationMitigationTask(MitigationTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
@@ -834,4 +855,8 @@ class ReinforcementLearningColorfulMemory(
     TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
         super().__init__(trojai_config, leaderboard_name, 'rl_color', task_script_filepath)
+
+class ReinforcementLearningSafetyGym(TrojAITask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str, task_script_filepath=None):
+        super().__init__(trojai_config, leaderboard_name, 'rl_gym', task_script_filepath)
 

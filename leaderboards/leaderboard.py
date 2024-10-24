@@ -45,8 +45,11 @@ class Leaderboard(object):
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
                         "rl_colorful": ReinforcementLearningColorfulMemory,
+                        "rl_gym": ReinforcementLearningSafetyGym,
                         'causal_language': CausalLanguageModeling,
-                        'image_classification_mitigation': ImageClassificationMitigationTask}
+                        'image_classification_mitigation': ImageClassificationMitigationTask,
+                        'llm_mitigation': LLMMitigationTask
+                      }
 
     ALL_METRIC_NAMES = {
         'AverageCrossEntropy': AverageCrossEntropy,
@@ -506,6 +509,7 @@ class TrojAILeaderboard(Leaderboard):
                         "cyber_apk_malware": CyberApkMalware,
                         "cyber_pdf_malware": CyberPdfMalware,
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
+                        "rl_gym": ReinforcementLearningSafetyGym,
                         'causal_language': CausalLanguageModeling,
                         "cyber_windows_pe_malware": CyberWindowsPEMalware,
                         "rl_colorful": ReinforcementLearningColorfulMemory
@@ -1237,6 +1241,400 @@ class MitigationLeaderboard(Leaderboard):
 
         return errors_dict, new_processed_metric_names
 
+
+class LLMMitigationLeaderboard(Leaderboard):
+    DEFAULT_EVALUATION_METRIC_NAME = ''
+    DEFAULT_EXCLUDED_FILES = ["test_example_data_lookup.json", 'ground_truth.csv', 'poisoned-example-data', 'detailed_stats.csv', 'fg_class_translation.json', 'clean-example-data', 'foregrounds',
+                               "detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "log.txt",
+                               "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv",
+                               "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
+    DEFAULT_REQUIRED_FILES = ["model.pt", 'mitigate-example-data', "test-example-data", "reduced-config.json", "test_example_data_lookup.json", 'ground_truth.csv']
+    TRAIN_DATASET_NAME = 'train'
+    DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']
+    DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
+    VALID_TASK_NAMES = {'llm_mitigation': LLMMitigationTask}
+    VALID_METRIC_NAMES = {
+        # TODO: Add for llm mit
+        # 'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
+        # 'Mit_Clean_Acc_Psn': MitigationCleanAccuracyOnPoisonedModel,
+        # 'Mit_Clean_acc': MitigationAccuracyOnCleanModel,
+        # 'Mit_Overall_acc': MitigationAccuraccyOverall,
+        # 'Mit_fidelity': MitigationFidelityMetric
+    }
+
+    # TODO: Update
+    DEFAULT_METRICS = [MitigationPoisonedAccuracyOnPoisonedModel,
+                       MitigationCleanAccuracyOnPoisonedModel,
+                       MitigationAccuracyOnCleanModel]
+
+
+    VALID_SUMMARY_METRIC_NAMES = {}
+    DEFAULT_SUMMARY_METRICS = []
+    def __init__(self, name: str, task_name: str, trojai_config: TrojaiConfig, add_default_data_split: bool, required_files=None):
+        super().__init__(name, task_name, trojai_config)
+
+        if self.task_name not in LLMMitigationLeaderboard.VALID_TASK_NAMES:
+            raise RuntimeError('Invalid task name: {}'.format(self.task_name))
+
+        self.task = LLMMitigationLeaderboard.VALID_TASK_NAMES[self.task_name](trojai_config, self.name)
+        self.evaluation_metric_name = MitigationPoisonedAccuracyOnPoisonedModel().get_name()
+
+        self.excluded_files.extend(LLMMitigationLeaderboard.DEFAULT_EXCLUDED_FILES)
+
+        if required_files is not None:
+            self.required_files.extend(required_files)
+        else:
+            self.required_files.extend(LLMMitigationLeaderboard.DEFAULT_REQUIRED_FILES)
+
+
+        for metric in LLMMitigationLeaderboard.DEFAULT_METRICS:
+            new_metric = metric()
+            self.submission_metrics[new_metric.get_name()] = new_metric
+
+        for metric in LLMMitigationLeaderboard.DEFAULT_SUMMARY_METRICS:
+            new_metric = metric()
+            self.summary_metrics.append(new_metric)
+
+        if add_default_data_split:
+            for split_name in LLMMitigationLeaderboard.DEFAULT_DATASET_SPLIT_NAMES:
+                if split_name in LLMMitigationLeaderboard.DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES:
+                    can_submit = True
+                    on_html = True
+                else:
+                    can_submit = False
+                    on_html = False
+
+                auto_delete_submission = False
+                auto_execute_split_names = []
+
+                if split_name == 'sts':
+                    slurm_queue_name = LLMMitigationLeaderboard.STS_SLURM_QUEUE_NAME
+                    slurm_nice = 0
+                    auto_delete_submission = True
+                else:
+                    slurm_queue_name = LLMMitigationLeaderboard.GENERAL_SLURM_QUEUE_NAME
+                    slurm_nice = 0
+
+                has_source_data = True
+
+                self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data, auto_delete_submission, auto_execute_split_names, generate_metadata_csv=False, on_html=on_html)
+
+        self.initialize_directories()
+        self.generate_metadata_csv()
+
+    def get_default_result_columns(self):
+        column_names = super().get_default_result_columns()
+        # TODO: Might not want this
+        column_names.extend(['asr_dict'])
+        for metric_name, metric in self.submission_metrics.items():
+            if metric.store_result:
+                column_names.append(metric_name)
+        return column_names
+
+    def get_training_dataset_name(self):
+        return LLMMitigationLeaderboard.TRAIN_DATASET_NAME
+
+    # Loads the results from an actor into a dictionary with the format: Dict[model_name][example_filename] = np.nan or np.ndarray
+    def load_results(self, actor_name: str, execution_results_dirpath: str, all_models_ground_truth: Dict[str, Dict[str, Any]], metadata_df: pd.DataFrame) -> Tuple[str, Dict[str, Dict[str, Union[float, np.ndarray]]]]:
+        results_dict = {}
+        errors = ''
+        for model_name in all_models_ground_truth.keys():
+            results_dict[model_name] = {}
+            filtered_df = metadata_df[metadata_df['model_name'] == model_name]
+            if len(filtered_df) != 1:
+                logging.warning('Unable to find {} in metadata_df'.format(model_name))
+                continue
+            # TODO: Implement
+
+            example_file_list = all_models_ground_truth[model_name].keys()
+            result_filepath = os.path.join(execution_results_dirpath, model_name + '.json')
+
+            if not os.path.exists(result_filepath):
+                for example_name in example_file_list:
+                    results_dict[model_name][example_name] = np.nan
+                logging.warning(
+                    'Missing result file from actor {} for {} example {}'.format(actor_name,
+                                                                                              model_name,
+                                                                                              example_name))
+                if ':Missing Results(file):' not in errors:
+                    errors += ':Missing Results(file):'
+                continue
+
+            # with open(result_filepath, 'r') as fp:
+            #     prediction_dict = json.load(fp)
+            #
+            #     for example_filename in example_file_list:
+            #         results_dict[model_name][example_filename] = np.nan
+            #         if example_filename in prediction_dict:
+            #             logits: np.ndarray = prediction_dict[example_filename]
+            #             if len(logits) == number_classes:
+            #                 results_dict[model_name][example_filename] = logits
+            #             else:
+            #                 results_dict[model_name][example_filename] = np.nan
+            #                 if ':Missing Results(logits):' not in errors:
+            #                     errors += ':Missing Results(logits):'
+            #
+            #                 logging.warning('Missing results from actor {} for {} example {}, expected {}, got {}'.format(actor_name, model_name, example_filename, number_classes, len(logits)))
+
+        return errors, results_dict
+
+
+    def update_results_csv(self, result_df: pd.DataFrame, results_manager: ResultsManager, submission_epoch: int, data_split: str, actor_name: str, actor_uuid: str):
+        new_data = dict()
+
+        submission_epoch_str = time_utils.convert_epoch_to_iso(submission_epoch)
+
+        df = self.load_results_df(results_manager)
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split, actor_uuid)
+
+        result_df_already_exists = result_df is not None and not result_df[
+            (result_df['team_name'] == actor_name) & (result_df['submission_timestamp'] == submission_epoch_str) & (
+                        result_df['data_split'] == data_split)].empty
+
+
+        if result_df_already_exists:
+            return new_data
+
+        if filtered_df is None or len(filtered_df) != 1:
+            logging.warning('Failed to find {}, {}, {}, when generating round results CSV'.format(
+                submission_epoch_str, data_split, actor_uuid))
+            return new_data
+
+        ground_truth_dict = filtered_df['ground_truth_dict'].values[0]
+        predictions_dict = filtered_df['predictions_dict'].values[0]
+
+        ground_truth_clean_entries = []
+        ground_truth_poisoned_entries = []
+        model_names = []
+        example_names = []
+        predictions = []
+
+
+        for model_dir, examples_dict in ground_truth_dict.items():
+            if examples_dict is None:
+                continue
+            for example_name, labels_dict in examples_dict.items():
+                model_names.append(model_dir)
+                example_names.append(example_name)
+                ground_truth_clean_entries.append(labels_dict['clean'])
+                ground_truth_poisoned_entries.append(labels_dict['poisoned'])
+                logits = predictions_dict[model_dir][example_name]
+
+                if logits is None or np.any(~(np.isfinite(logits))):
+                    predictions.append(np.nan)
+                else:
+                    predictions.append(np.argmax(logits))
+
+
+
+        if not result_df_already_exists:
+            new_data['model_name'] = model_names
+            new_data['team_name'] = [actor_name] * len(model_names)
+            new_data['submission_timestamp'] = [submission_epoch_str] * len(model_names)
+            new_data['data_split'] = [data_split] * len(model_names)
+            new_data['example_name'] = example_names
+            new_data['prediction'] = predictions
+            new_data['ground_truth_clean_entry'] = ground_truth_clean_entries
+            new_data['ground_truth_poisoned_entry'] = ground_truth_poisoned_entries
+
+        return new_data
+
+    # Loads the ground truth for every model and every example, this returns Dict[model_name][example_name]['clean'/'poisoned']
+    def load_ground_truth(self, data_split_name) -> Dict[str, Dict[str, Dict[str, int]]]:
+        # Tuple[
+        # Dict[str, List[str]], Dict[str, Dict[str, int]], Dict[str, Dict[str, int]], Dict[str, Dict[str, int]]]:
+        dataset: Dataset = self.dataset_manager.get(data_split_name)
+
+        all_models_ground_truth = {}
+        # clean_models_ground_truth = {}
+        # poisoned_models_ground_truth = {}
+        # poisoned_models_trigger_ground_truth = {}
+        # all_model_examples = {}
+
+        models_dirpath: str = os.path.join(dataset.dataset_dirpath, Dataset.MODEL_DIRNAME)
+
+        if os.path.exists(models_dirpath):
+            for model_dir in os.listdir(models_dirpath):
+                if not model_dir.startswith('id-'):
+                    continue
+
+                model_dirpath = os.path.join(models_dirpath, model_dir)
+
+                if not os.path.isdir(model_dirpath):
+                    logging.warning('Failed to find model {}'.format(model_dirpath))
+                    continue
+
+                # model_ground_truth_filepath = os.path.join(model_dirpath, 'ground_truth.csv')
+                # if not os.path.exists(model_ground_truth_filepath):
+                #     logging.warning('Failed to find model ground truth CSV'.format(model_ground_truth_filepath))
+                #     continue
+                #
+                # model_ground_truth = np.nan
+                # with open(model_ground_truth_filepath, 'r') as fp:
+                #     file_contents = fp.readline().strip()
+                #     model_ground_truth = float(file_contents)
+
+                test_data_ground_truth_filepath = os.path.join(model_dirpath, 'test_example_data_lookup.json')
+
+                if not os.path.exists(test_data_ground_truth_filepath):
+                    continue
+
+                all_models_ground_truth[model_dir] = {}
+                # clean_models_ground_truth[str(model_dir)] = {}
+                # poisoned_models_trigger_ground_truth[str(model_dir)] = {}
+                # poisoned_models_ground_truth[str(model_dir)] = {}
+                # all_model_examples[model_dir] = []
+
+                with open(test_data_ground_truth_filepath, 'r') as fp:
+                    example_data_lookup_dict = json.load(fp)
+
+                    if isinstance(example_data_lookup_dict, dict):
+                        for example_filename, example_dict in example_data_lookup_dict.items():
+                            # all_model_examples[model_dir].append(example_filename)
+                            clean_label = example_dict['clean_label']
+                            poisoned_label = example_dict['poisoned_label']
+
+                            all_models_ground_truth[model_dir][example_filename] = {'clean': clean_label, 'poisoned': poisoned_label}
+                            # if model_ground_truth == 0:
+                            #     clean_models_ground_truth[str(model_dir)][example_filename] =  clean_label
+                            # else:
+                            #     poisoned_models_ground_truth[str(model_dir)][example_filename] = clean_label
+                            #     poisoned_models_trigger_ground_truth[str(model_dir)][example_filename] = poisoned_label
+
+        return all_models_ground_truth
+
+    def get_valid_metric(self, metric_name):
+        return MitigationLeaderboard.VALID_METRIC_NAMES[metric_name]
+
+    def get_valid_summary_metric(self, metric_name):
+        return MitigationLeaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name]
+
+    def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
+                        execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str,
+                        processed_metrics: list, skip_upload_existing: bool):
+        errors_dict = {}
+        new_processed_metric_names = []
+        web_display_parse_errors = ''
+
+        # Load results dataframe
+        df = self.load_results_df(results_manager)
+
+        # Check to make sure that all metrics exist in the dataframe
+        missing_columns = []
+        for metric_name, metric in self.submission_metrics.items():
+            if metric.store_result and metric_name not in df.columns:
+                missing_columns.append(metric_name)
+
+        # Add all missing metric columns, each with default value None
+        if len(missing_columns) > 0:
+            logging.info('Found missing columns that are being added to dataframe: {}'.format(missing_columns))
+            df = df.assign(**{col: None for col in missing_columns})
+
+        filtered_df = results_manager.filter_primary_key(df, submission_epoch_str, data_split_name, actor_uuid)
+
+        update_entry = {}
+        metrics_to_compute = []
+
+        # If the entry already exists, then we need to check for missing/empty metrics
+        if filtered_df is not None:
+            if len(filtered_df) > 1:
+                logging.error('Found {} entries for submission {}, split {}, actor {}'.format(len(filtered_df), submission_epoch_str, data_split_name, actor_name))
+                return
+
+            submission_metric_names = self.submission_metrics.keys()
+
+            # Check for metrics to compute
+            for metric_name in submission_metric_names:
+                if processed_metrics is None or metric_name not in processed_metrics:
+                    metrics_to_compute.append(metric_name)
+
+        else:
+            update_entry = {'submission_timestamp': submission_epoch_str, 'data_split': data_split_name,
+                         'actor_UUID': actor_uuid, 'actor_name': actor_name}
+
+            # Add all metrics to compute
+            metrics_to_compute.extend(self.submission_metrics.keys())
+
+        # If there are any metrics to compute, then let's compute them and update the filtered_df
+        # We will also ensure we get the latest
+        if len(metrics_to_compute) > 0:
+            metadata_df = self.load_metadata_csv_into_df()
+            data_split_metadata = metadata_df[metadata_df['data_split'] == data_split_name]
+
+            all_models_ground_truth = self.load_ground_truth(data_split_name)
+            errors, predictions_dict = self.load_results(actor_name, execution_results_dirpath, all_models_ground_truth, data_split_metadata)
+
+            if errors != '':
+                web_display_parse_errors = errors
+
+            external_share_files = []
+            actor_share_files = []
+
+            update_entry['ground_truth_dict'] = all_models_ground_truth
+            update_entry['predictions_dict'] = predictions_dict
+
+            # Compute metrics for leaderboard
+            for metric_name in metrics_to_compute:
+                metric = self.submission_metrics[metric_name]
+
+                if isinstance(metric, MitigationMetric):
+                    metric_output = metric.compute(predictions_dict, all_models_ground_truth, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, execution_results_dirpath)
+
+                    new_processed_metric_names.append(metric_name)
+
+                    if metric.store_result:
+                        metric_result = metric_output['result']
+
+                        if metric_result is not None:
+                            update_entry[metric_name] = metric_result
+                        else:
+                            logging.warning('{} Metric {} is slated to return a result, but the result was None'.format(self.name, metric_name))
+
+                    files = metric_output['files']
+
+                    if files is not None:
+                        if isinstance(files, str):
+                            files = [files]
+
+                        if metric.share_with_actor:
+                            actor_share_files.extend(files)
+
+                        if metric.share_with_external:
+                            external_share_files.extend(files)
+                else:
+                    logging.warning(
+                        'Invalid metric type: {}, expected MitigationMetric for leaderboard {}'.format(type(metric),
+                                                                                                   self.name))
+                    continue
+
+            # Update entry or add entry to result dataframe
+            if filtered_df is not None:
+                df.loc[filtered_df.index[0], update_entry.keys()] = update_entry.values()
+            else:
+                df.loc[len(df)] = update_entry
+
+            # Upload metric files with external and actor Google Drive folders
+            if len(external_share_files) > 0 or len(actor_share_files) > 0:
+                actor_submission_folder_id, external_actor_submission_folder_id = g_drive.get_submission_actor_and_external_folder_ids(actor_name, self.name, data_split_name)
+
+                if external_actor_submission_folder_id is not None:
+                    # if len(external_share_files) > 0:
+                    #     g_drive.enqueue_file_upload(external_share_files, folder_id=external_actor_submission_folder_id)
+                    for file in external_share_files:
+                        g_drive.upload(file, folder_id=external_actor_submission_folder_id, skip_existing=skip_upload_existing)
+
+                if actor_submission_folder_id is not None:
+                    # if len(actor_share_files) > 0:
+                    #     g_drive.enqueue_file_upload(actor_share_files, folder_id=actor_submission_folder_id)
+                    for file in actor_share_files:
+                        g_drive.upload(file, folder_id=actor_submission_folder_id, skip_existing=skip_upload_existing)
+
+        if len(web_display_parse_errors) != 0:
+            errors_dict['web_display_parse_errors'] = web_display_parse_errors
+
+        self.update_results_df(results_manager, df)
+
+        return errors_dict, new_processed_metric_names
 
 
 def init_leaderboard(args):
