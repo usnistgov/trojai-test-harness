@@ -1440,7 +1440,7 @@ class LLMMitigationLeaderboard(Leaderboard):
         return new_data
 
     # Loads the ground truth for every model and every example, this returns Dict[model_name][example_name]['clean'/'poisoned']
-    def load_ground_truth(self, data_split_name) -> Dict[str, Dict[str, Dict[str, int]]]:
+    def load_ground_truth(self, data_split_name) -> Dict[str, Dict[str, float]]:
         # Tuple[
         # Dict[str, List[str]], Dict[str, Dict[str, int]], Dict[str, Dict[str, int]], Dict[str, Dict[str, int]]]:
         dataset: Dataset = self.dataset_manager.get(data_split_name)
@@ -1474,32 +1474,27 @@ class LLMMitigationLeaderboard(Leaderboard):
                 #     file_contents = fp.readline().strip()
                 #     model_ground_truth = float(file_contents)
 
-                test_data_ground_truth_filepath = os.path.join(model_dirpath, 'test_example_data_lookup.json')
+                test_data_ground_truth_filepath = os.path.join(model_dirpath, 'test_eval_groundtruth.json')
+                test_data_ground_truth_dict = None
+                if os.path.exists(test_data_ground_truth_filepath):
+                    with open(test_data_ground_truth_filepath, 'r') as fp:
+                        test_data_ground_truth_dict = json.load(fp)
 
-                if not os.path.exists(test_data_ground_truth_filepath):
+                mmlu_filepath = os.path.join(model_dirpath, 'eval-mmlu.json')
+                if not os.path.exists(mmlu_filepath):
+                    logging.warning('Failed to find model {} mmlu'.format(model_dirpath))
                     continue
 
-                all_models_ground_truth[model_dir] = {}
-                # clean_models_ground_truth[str(model_dir)] = {}
-                # poisoned_models_trigger_ground_truth[str(model_dir)] = {}
-                # poisoned_models_ground_truth[str(model_dir)] = {}
-                # all_model_examples[model_dir] = []
+                mmlu_value = None
+                with open(mmlu_filepath, 'r') as fp:
+                    mmlu_dict = json.load(fp)
+                    mmlu_value = float(mmlu_dict['results']['mmlu']['acc,none'])
 
-                with open(test_data_ground_truth_filepath, 'r') as fp:
-                    example_data_lookup_dict = json.load(fp)
+                asr_value = None
+                if test_data_ground_truth_dict is not None and 'all_trigger0_asr' in test_data_ground_truth_dict:
+                    asr_value = test_data_ground_truth_dict['all_trigger0_asr']
 
-                    if isinstance(example_data_lookup_dict, dict):
-                        for example_filename, example_dict in example_data_lookup_dict.items():
-                            # all_model_examples[model_dir].append(example_filename)
-                            clean_label = example_dict['clean_label']
-                            poisoned_label = example_dict['poisoned_label']
-
-                            all_models_ground_truth[model_dir][example_filename] = {'clean': clean_label, 'poisoned': poisoned_label}
-                            # if model_ground_truth == 0:
-                            #     clean_models_ground_truth[str(model_dir)][example_filename] =  clean_label
-                            # else:
-                            #     poisoned_models_ground_truth[str(model_dir)][example_filename] = clean_label
-                            #     poisoned_models_trigger_ground_truth[str(model_dir)][example_filename] = poisoned_label
+                all_models_ground_truth[model_dir] = {'asr': asr_value, 'mmlu': mmlu_value}
 
         return all_models_ground_truth
 

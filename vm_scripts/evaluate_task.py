@@ -539,6 +539,38 @@ class EvaluateRLColorfulMemoryTask(EvaluateRLTask):
 
         return args
 
+class EvaluateRLSafetyGym(EvaluateRLColorfulMemoryTask):
+    def __init__(self, models_dirpath: str,
+                 submission_filepath: str,
+                 home_dirpath: str,
+                 result_dirpath: str,
+                 scratch_dirpath: str,
+                 training_dataset_dirpath: str,
+                 metaparameters_filepath: str,
+                 rsync_excludes: list,
+                 learned_parameters_dirpath: str,
+                 source_dataset_dirpath: str,
+                 result_prefix_filename: str,
+                 subset_model_ids: list,
+                 timeout_time: int):
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
+
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        return super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
+
 
 class EvaluateCyberTask(EvaluateTrojAITask):
     def __init__(self, models_dirpath: str,
@@ -968,7 +1000,7 @@ if __name__ == '__main__':
       'clm': EvaluateClmTask,
       'image_classification_mitigation': EvaluateMitigationTask,
       'llm_mitigation': EvaluateLLMMitigationTask,
-      'rl_gym': EvaluateRLColorfulMemoryTask
+      'rl_gym': EvaluateRLSafetyGym
     }
 
     parser = argparse.ArgumentParser(description='Entry point to execute containers')
