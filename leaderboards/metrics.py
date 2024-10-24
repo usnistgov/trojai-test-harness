@@ -895,10 +895,10 @@ class LLMMitigationFidelityMetric(LLMMitigationMetric):
                 fidelity = ((pre_asr - actor_asr) / pre_asr) * (actor_mmlu / pre_mmlu)
                 fidelities.append(fidelity)
             else:
-                actor_acc = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, actor_name, 'clean')
-                pre_acc = filtered_df['average_clean_test_example_accuracy'].values[0]
+                actor_mmlu = predictions_dict[model_name]['mmlu']
+                pre_mmlu = model_targets_dict[model_name]['mmlu']
 
-                fidelity = 1.0 * (actor_acc / pre_acc)
+                fidelity = 1.0 * (actor_mmlu / pre_mmlu)
                 fidelities.append(fidelity)
 
         return {'result': np.average(fidelities).item(), 'files': None}

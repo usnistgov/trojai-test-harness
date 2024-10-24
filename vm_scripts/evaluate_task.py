@@ -848,8 +848,8 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
         logging.info('Starting eval container instance.')
         eval_options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
         eval_options.extend(['--bind', self.models_dirpath])
-        #TODO: Update path to correct one
-        eval_instance = Client.instance('/home/trojai/mitigation_evaluator.sif', option=eval_options)
+
+        eval_instance = Client.instance(os.path.join(self.home_dirpath, 'mitigation_evaluator.sif'), option=eval_options)
         logging.info('Eval container started.')
 
         for model_idx in range(len(model_files)):
@@ -942,20 +942,16 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
             checkpoint_filepath = output_dirpath
             round_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'round_config.json')
             tokenizer_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'tokenizer_config.json')
-            source_datasets_dirpath = self.source_dataset_dirpath
-            training_args_bin_filepath = os.path.join(self.models_dirpath, model_dirname, 'training_args.bin')
-            num_samples=4
+            num_samples = 100
+            test_dataset_filepath = os.path.join(active_dirpath, 'test-example-data', 'prompts.json')
+            output_filepath = os.path.join(output_dirpath, 'results.json')
 
-            # test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
-            test_dataset_dirpath = os.path.join(active_dirpath, 'test-example-data')
-
-            test_args = ['--checkpoint_filepath', checkpoint_filepath,
-                         '--round_config_filepath', round_config_filepath,
-                         '--tokenizer_config_filepath', tokenizer_config_filepath,
-                         '--source_datasets_filepath', test_dataset_dirpath,
-                         '--output_filepath', output_dirpath,
-                         '--training_args_bin_filepath', training_args_bin_filepath,
-                         '--num_samples', num_samples
+            test_args = [checkpoint_filepath,
+                         round_config_filepath,
+                         tokenizer_config_filepath,
+                         test_dataset_filepath,
+                         num_samples,
+                         output_filepath
                          ]
 
             # if self.training_dataset_dirpath is not None:
