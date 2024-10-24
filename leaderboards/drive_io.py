@@ -92,9 +92,10 @@ class DriveIO(object):
         # Cache is stale after 120 seconds
         self.stale_time_limit = 120
 
-    def __get_service(self, token_pickle_filepath):
+    def __get_service(self, token_json_filepath):
         from googleapiclient.discovery import build
         from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
 
         logging.debug('Starting connection to Google Drive.')
         creds = None
@@ -102,10 +103,9 @@ class DriveIO(object):
             # The file token.pickle stores the user's access and refresh tokens, and is
             # created automatically when the authorization flow completes for the first
             # time.
-            if os.path.exists(token_pickle_filepath):
-                logging.debug('Found token file: {}'.format(token_pickle_filepath))
-                with open(token_pickle_filepath, 'rb') as token:
-                    creds = pickle.load(token)
+            if os.path.exists(token_json_filepath):
+                creds = Credentials.from_authorized_user_file(token_json_filepath, DriveIO.SCOPES)
+
             logging.debug('Token credentials loaded')
             # If there are no (valid) credentials available, let the user log in.
             if not creds:
@@ -119,9 +119,9 @@ class DriveIO(object):
                     creds.refresh(Request())
                     logging.debug('Credentials refreshed successfully.')
                     # Save the credentials for the next run
-                    with open(token_pickle_filepath, 'wb') as token:
+                    with open(token_json_filepath, 'wb') as token:
                         pickle.dump(creds, token)
-                    logging.debug('Credentials refreshed and saved to "{}".'.format(token_pickle_filepath))
+                    logging.debug('Credentials refreshed and saved to "{}".'.format(token_json_filepath))
                 else:
                     logging.error('Could not refresh credentials. Rebuild token using create_auth_token.py.')
                     raise RuntimeError('Could not refresh credentials. Rebuild token using create_auth_token.py.')
