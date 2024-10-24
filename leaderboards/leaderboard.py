@@ -1318,7 +1318,11 @@ class LLMMitigationLeaderboard(Leaderboard):
                     slurm_queue_name = LLMMitigationLeaderboard.GENERAL_SLURM_QUEUE_NAME
                     slurm_nice = 0
 
-                has_source_data = True
+                source_data_filepath = os.path.join(trojai_config.datasets_dirpath, self.name, 'source-data')
+                has_source_data = False
+
+                if os.path.exists(source_data_filepath):
+                    has_source_data = True
 
                 self.add_dataset(trojai_config, split_name, can_submit, slurm_queue_name, slurm_nice, has_source_data, auto_delete_submission, auto_execute_split_names, generate_metadata_csv=False, on_html=on_html)
 
