@@ -1254,18 +1254,19 @@ class LLMMitigationLeaderboard(Leaderboard):
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
     VALID_TASK_NAMES = {'llm_mitigation': LLMMitigationTask}
     VALID_METRIC_NAMES = {
-        # TODO: Add for llm mit
-        # 'Mit_Psn_Acc': MitigationPoisonedAccuracyOnPoisonedModel,
-        # 'Mit_Clean_Acc_Psn': MitigationCleanAccuracyOnPoisonedModel,
-        # 'Mit_Clean_acc': MitigationAccuracyOnCleanModel,
-        # 'Mit_Overall_acc': MitigationAccuraccyOverall,
-        # 'Mit_fidelity': MitigationFidelityMetric
+        'LLMMit_Avg_ASR': LLMMitigationAverageASR,
+        'LLMMit_Avg_MMLU_PSN': LLMMitigationAveragePoisonedMMLU,
+        'LLMMit_Avg_MMLU_Clean': LLMMitigationAverageCleanMMLU,
+        'LLMMit_Avg_MMLU_All': LLMMitigationAverageAllMMLU,
+        'LLMMit_Fidelity': LLMMitigationFidelityMetric
+
     }
 
-    # TODO: Update
-    DEFAULT_METRICS = [MitigationPoisonedAccuracyOnPoisonedModel,
-                       MitigationCleanAccuracyOnPoisonedModel,
-                       MitigationAccuracyOnCleanModel]
+    DEFAULT_METRICS = [LLMMitigationAverageASR,
+                       LLMMitigationAveragePoisonedMMLU,
+                       LLMMitigationAverageCleanMMLU,
+                       LLMMitigationAverageAllMMLU,
+                       LLMMitigationFidelityMetric]
 
 
     VALID_SUMMARY_METRIC_NAMES = {}

@@ -119,8 +119,7 @@ class DriveIO(object):
                     logging.debug('Credentials refreshed successfully.')
                     # Save the credentials for the next run
                     with open(token_json_filepath, 'w') as token:
-                        json.dump(creds, token)
-                        # pickle.dump(creds, token)
+                        token.write(creds.to_json())
                     logging.debug('Credentials refreshed and saved to "{}".'.format(token_json_filepath))
                 else:
                     logging.error('Could not refresh credentials. Rebuild token using create_auth_token.py.')
