@@ -1280,7 +1280,7 @@ class LLMMitigationLeaderboard(Leaderboard):
             raise RuntimeError('Invalid task name: {}'.format(self.task_name))
 
         self.task = LLMMitigationLeaderboard.VALID_TASK_NAMES[self.task_name](trojai_config, self.name)
-        self.evaluation_metric_name = MitigationPoisonedAccuracyOnPoisonedModel().get_name()
+        self.evaluation_metric_name = LLMMitigationFidelityMetric().get_name()
 
         self.excluded_files.extend(LLMMitigationLeaderboard.DEFAULT_EXCLUDED_FILES)
 
