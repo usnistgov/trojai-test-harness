@@ -1324,8 +1324,9 @@ class LLMMitigationLeaderboard(Leaderboard):
 
     def get_default_result_columns(self):
         column_names = super().get_default_result_columns()
-        # TODO: Might not want this
-        column_names.extend(['asr_dict'])
+
+        column_names.extend(['ground_truth_asr', 'ground_truth_mmlu', 'mitigated_asr', 'mitigated_mmlu'])
+
         for metric_name, metric in self.submission_metrics.items():
             if metric.store_result:
                 column_names.append(metric_name)
@@ -1344,38 +1345,27 @@ class LLMMitigationLeaderboard(Leaderboard):
             if len(filtered_df) != 1:
                 logging.warning('Unable to find {} in metadata_df'.format(model_name))
                 continue
-            # TODO: Implement
 
-            example_file_list = all_models_ground_truth[model_name].keys()
+            results_dict[model_name]['mmlu'] = np.nan
+            results_dict[model_name]['asr'] = np.nan
+
             result_filepath = os.path.join(execution_results_dirpath, model_name + '.json')
 
             if not os.path.exists(result_filepath):
-                for example_name in example_file_list:
-                    results_dict[model_name][example_name] = np.nan
                 logging.warning(
-                    'Missing result file from actor {} for {} example {}'.format(actor_name,
-                                                                                              model_name,
-                                                                                              example_name))
+                    'Missing result file from actor {} for {}'.format(actor_name, model_name))
                 if ':Missing Results(file):' not in errors:
                     errors += ':Missing Results(file):'
                 continue
 
-            # with open(result_filepath, 'r') as fp:
-            #     prediction_dict = json.load(fp)
-            #
-            #     for example_filename in example_file_list:
-            #         results_dict[model_name][example_filename] = np.nan
-            #         if example_filename in prediction_dict:
-            #             logits: np.ndarray = prediction_dict[example_filename]
-            #             if len(logits) == number_classes:
-            #                 results_dict[model_name][example_filename] = logits
-            #             else:
-            #                 results_dict[model_name][example_filename] = np.nan
-            #                 if ':Missing Results(logits):' not in errors:
-            #                     errors += ':Missing Results(logits):'
-            #
-            #                 logging.warning('Missing results from actor {} for {} example {}, expected {}, got {}'.format(actor_name, model_name, example_filename, number_classes, len(logits)))
 
+            with open(result_filepath, 'r') as fp:
+                result_dict = json.load(fp)
+                if 'mmlu' in result_dict:
+                    results_dict[model_name]['mmlu'] = result_dict['mmlu']
+
+                if 'asr' in result_dict:
+                    results_dict[model_name]['asr'] = result_dict['asr']
         return errors, results_dict
 
 
@@ -1400,42 +1390,21 @@ class LLMMitigationLeaderboard(Leaderboard):
                 submission_epoch_str, data_split, actor_uuid))
             return new_data
 
-        ground_truth_dict = filtered_df['ground_truth_dict'].values[0]
-        predictions_dict = filtered_df['predictions_dict'].values[0]
-
-        ground_truth_clean_entries = []
-        ground_truth_poisoned_entries = []
-        model_names = []
-        example_names = []
-        predictions = []
-
-
-        for model_dir, examples_dict in ground_truth_dict.items():
-            if examples_dict is None:
-                continue
-            for example_name, labels_dict in examples_dict.items():
-                model_names.append(model_dir)
-                example_names.append(example_name)
-                ground_truth_clean_entries.append(labels_dict['clean'])
-                ground_truth_poisoned_entries.append(labels_dict['poisoned'])
-                logits = predictions_dict[model_dir][example_name]
-
-                if logits is None or np.any(~(np.isfinite(logits))):
-                    predictions.append(np.nan)
-                else:
-                    predictions.append(np.argmax(logits))
-
-
+        model_names = filtered_df['model_names'].values[0]
+        gt_asr_value = filtered_df['ground_truth_asr'].values[0]
+        gt_mmlu_value = filtered_df['ground_truth_mmlu'].values[0]
+        mit_asr_value = filtered_df['mitigated_asr'].values[0]
+        mit_mmlu_value = filtered_df['mitigated_mmlu'].values[0]
 
         if not result_df_already_exists:
             new_data['model_name'] = model_names
             new_data['team_name'] = [actor_name] * len(model_names)
             new_data['submission_timestamp'] = [submission_epoch_str] * len(model_names)
             new_data['data_split'] = [data_split] * len(model_names)
-            new_data['example_name'] = example_names
-            new_data['prediction'] = predictions
-            new_data['ground_truth_clean_entry'] = ground_truth_clean_entries
-            new_data['ground_truth_poisoned_entry'] = ground_truth_poisoned_entries
+            new_data['ground_truth_asr'] = gt_asr_value
+            new_data['ground_truth_mmlu'] = gt_mmlu_value
+            new_data['mitigated_truth_asr'] = mit_asr_value
+            new_data['mitigated_truth_mmlu'] = mit_mmlu_value
 
         return new_data
 
@@ -1463,16 +1432,6 @@ class LLMMitigationLeaderboard(Leaderboard):
                 if not os.path.isdir(model_dirpath):
                     logging.warning('Failed to find model {}'.format(model_dirpath))
                     continue
-
-                # model_ground_truth_filepath = os.path.join(model_dirpath, 'ground_truth.csv')
-                # if not os.path.exists(model_ground_truth_filepath):
-                #     logging.warning('Failed to find model ground truth CSV'.format(model_ground_truth_filepath))
-                #     continue
-                #
-                # model_ground_truth = np.nan
-                # with open(model_ground_truth_filepath, 'r') as fp:
-                #     file_contents = fp.readline().strip()
-                #     model_ground_truth = float(file_contents)
 
                 test_data_ground_truth_filepath = os.path.join(model_dirpath, 'test_eval_groundtruth.json')
                 test_data_ground_truth_dict = None
@@ -1565,8 +1524,10 @@ class LLMMitigationLeaderboard(Leaderboard):
             external_share_files = []
             actor_share_files = []
 
-            update_entry['ground_truth_dict'] = all_models_ground_truth
-            update_entry['predictions_dict'] = predictions_dict
+            update_entry['ground_truth_asr'] = all_models_ground_truth['asr']
+            update_entry['ground_truth_mmlu'] = all_models_ground_truth['mmlu']
+            update_entry['mitigated_asr'] = predictions_dict['asr']
+            update_entry['mitigated_mmlu'] = predictions_dict['mmlu']
 
             # Compute metrics for leaderboard
             for metric_name in metrics_to_compute:

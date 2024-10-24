@@ -759,3 +759,139 @@ class MitigationFidelityMetric(MitigationMetric):
 
     def compare(self, computed, baseline):
         return computed > baseline
+
+
+class LLMMitigationMetric(Metric):
+
+    def __init__(self, write_html: bool, share_with_actor: bool, store_result: bool, share_with_external: bool):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
+
+    def compute(self, predictions_dict: Dict[str, Dict[str, float]], model_targets_dict: Dict[str, Dict[str, float]], metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath:str):
+        raise NotImplementedError()
+
+
+class LLMMitigationAverageASR(LLMMitigationMetric):
+    def __init__(self, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True, share_with_external: bool = False):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
+
+    def compute(self, predictions_dict: Dict[str, Dict[str, float]], model_targets_dict: Dict[str, Dict[str, float]], metadata_df: pd.DataFrame,
+                actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+                output_dirpath:str):
+        all_asr = []
+        for model_name in predictions_dict.keys():
+            model_dict = predictions_dict[model_name]
+            if np.isnan(model_dict['asr']):
+                continue
+
+            all_asr.append(model_dict['asr'])
+
+        arr = np.array(all_asr, dtype=np.float64)
+
+        return {'result': np.average(arr).item(), 'files': None}
+
+class LLMMitigationAverageMMLU(LLMMitigationMetric):
+    def __init__(self, name: str, target_name: str, clean_only: bool, poisoned_only: bool, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True, share_with_external: bool = False):
+        super().__init__(write_html, share_with_actor, store_result, share_with_external)
+        self.name = name
+        self.target_name = target_name
+        self.clean_only = clean_only
+        self.poisoned_only = poisoned_only
+
+    def get_name(self):
+        return self.name
+
+    @staticmethod
+    def compute_accuracy(model_name: str, model_predictions_dict, model_targets_dict, actor_name, target_name):
+        target_examples_dict = model_targets_dict[model_name]
+
+        if model_name not in model_predictions_dict:
+            logging.warning(
+                '{}, Unable to find {} in predictions_dict for avg accuracy metric'.format(actor_name, model_name))
+            return None
+
+        examples_logits_dict = model_predictions_dict[model_name]
+
+        correct = 0
+        total = 0
+        for example_name, targets_dict in target_examples_dict.items():
+            if example_name not in examples_logits_dict:
+                logging.warning(
+                    '{}, Unable to find example {} in model {}, examples_logits_dict for avg accuracy metric'.format(
+                        actor_name, example_name, model_name))
+                continue
+
+            logits = examples_logits_dict[example_name]
+
+            if np.any(~(np.isfinite(logits))):
+                # logging.warning('One or more logits for {} may contain errors for {} (not finite)'.format(actor_name, model_name))
+                continue
+
+            prediction = np.argmax(logits)
+            target = targets_dict[target_name]
+
+            # If the target does not exist, then we should skip it as it is not a valid example
+            if target is None:
+                continue
+
+            if prediction == target:
+                correct += 1
+            total += 1
+
+        if total == 0:
+            logging.warning(
+                'Accuray calculation: Model {} contained no examples or there were other errors'.format(model_name))
+            return 0.0
+        else:
+            return float(correct) / float(total)
+
+    def compute(self, predictions_dict: Dict[str, Dict[str, float]], model_targets_dict: Dict[str, Dict[str, float]],
+            metadata_df: pd.DataFrame,
+            actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
+            output_dirpath: str):
+        pass
+        # Gather list of models based on whether the metric requires poisoned only, clean only, or both
+        # model_names_to_process = []
+        # for model_name in model_targets_dict.keys():
+        #     # Check metadata_df for clean or poisoned
+        #     filtered_df = metadata_df[metadata_df['model_name'] == model_name]
+        #
+        #     if len(filtered_df) != 1:
+        #         logging.warning('Failed to process metadata_df for model name {} found {} rows'.format(model_name,
+        #                                                                                                len(filtered_df)))
+        #     is_both = False
+        #     is_model_poisoned = filtered_df['poisoned'].values[0]
+        #     is_model_clean = not is_model_poisoned
+        #
+        #     # check if wanting to process both clean and poisoned models
+        #     if self.clean_only and self.poisoned_only:
+        #         is_both = True
+        #
+        #     # Check for clean model, but should only process poisoned, if is_both then will process
+        #     if not is_both and is_model_clean and self.poisoned_only:
+        #         continue
+        #
+        #     # Check for poisoned model, but should only process clean, if is_both then will process
+        #     if not is_both and is_model_poisoned and self.clean_only:
+        #         continue
+        #
+        #     model_names_to_process.append(model_name)
+        #
+        # mmlu_vals = []
+        #
+        # for model_name in model_names_to_process:
+        #
+        #     accuracy_index += 1
+        #
+        #     accuracy_val = MitigationAverageAccuracy.compute_accuracy(model_name, model_predictions_dict, model_targets_dict, actor_name, self.target_name)
+        #
+        #     if accuracy_val is None:
+        #         continue
+        #
+        #     accuracy_vals[accuracy_index] = accuracy_val
+        #
+        # return {'result': np.average(accuracy_vals).item(), 'files': None}
+
+    def compare(self, computed, baseline):
+        return computed > baseline
