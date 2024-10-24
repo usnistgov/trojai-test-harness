@@ -137,8 +137,9 @@ class DriveIO(object):
             self.user_details = response.get('user')
             self.email_address = self.user_details.get('emailAddress')
             logging.info('Connected to Drive for user: "{}" with email "{}".'.format(self.user_details.get('displayName'), self.email_address))
-        except:
+        except Exception as e:
             logging.error('Failed to connect to Drive.')
+            logging.error('Exception: {}'.format(e))
             raise
 
     def __query_worker(self, query: str) -> List[GoogleDriveFile]:
