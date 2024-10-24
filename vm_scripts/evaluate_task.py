@@ -920,13 +920,13 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
             if not os.path.exists(output_dirpath):
                 os.makedirs(output_dirpath)
 
-            mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
+            # mitigate_dataset_dirpath = os.path.join(active_dirpath, 'mitigate-example-data')
 
             mitigate_args = ['mitigate',
                              '--metaparameters_filepath', self.metaparameters_filepath,
                              '--schema_filepath', self.metaparameters_schema_filepath,
                              '--model', model_dirpath,
-                             '--dataset_dirpath', mitigate_dataset_dirpath,
+                             # '--dataset_dirpath', mitigate_dataset_dirpath,
                              '--output_dirpath', output_dirpath,
                              '--scratch_dirpath', container_scratch_dirpath,
                              '--batch_size', 1]
