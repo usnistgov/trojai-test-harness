@@ -29,7 +29,7 @@ from leaderboards.results_manager import ResultsManager
 
 
 class Leaderboard(object):
-    LEADERBOARD_TYPES = ['trojai', 'mitigation']
+    LEADERBOARD_TYPES = ['trojai', 'mitigation', 'llm_mitigation']
 
     ALL_TASK_NAMES = {'image_summary': ImageSummary,
                         'nlp_summary': NaturalLanguageProcessingSummary,
@@ -1247,8 +1247,10 @@ class LLMMitigationLeaderboard(Leaderboard):
     DEFAULT_EXCLUDED_FILES = ["test_example_data_lookup.json", 'ground_truth.csv', 'poisoned-example-data', 'detailed_stats.csv', 'fg_class_translation.json', 'clean-example-data', 'foregrounds',
                                "detailed_stats.csv", "detailed_timing_stats.csv", "config.json", "log.txt",
                                "log-per-class.txt", "machine.log", "poisoned-example-data", "stats.json", "METADATA.csv",
-                               "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json"]
-    DEFAULT_REQUIRED_FILES = ["model.pt", 'mitigate-example-data', "test-example-data", "reduced-config.json", "test_example_data_lookup.json", 'ground_truth.csv']
+                               "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json", 'detailed_test_eval_groundtruth.csv',
+                              'eval-mmlu.json', 'generation_config.json', 'inference_log.txt', 'test_eval_groundtruth.json', 'test_eval_groundtruth_failed_responses.json', 'failed_responses.json',
+                              'trojan-hparam.json', 'rot-hparams.json', 'all_results.json', 'eval_perplexity_stats.json', 'perplexity_log.txt', 'stats.json', 'training_args.json']
+    DEFAULT_REQUIRED_FILES = ["model.pt", "test-example-data", "reduced-config.json", "test_example_data_lookup.json", 'ground_truth.csv']
     TRAIN_DATASET_NAME = 'train'
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']
     DEFAULT_SUBMISSION_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'dev']
@@ -1459,10 +1461,10 @@ class LLMMitigationLeaderboard(Leaderboard):
         return all_models_ground_truth
 
     def get_valid_metric(self, metric_name):
-        return MitigationLeaderboard.VALID_METRIC_NAMES[metric_name]
+        return LLMMitigationLeaderboard.VALID_METRIC_NAMES[metric_name]
 
     def get_valid_summary_metric(self, metric_name):
-        return MitigationLeaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name]
+        return LLMMitigationLeaderboard.VALID_SUMMARY_METRIC_NAMES[metric_name]
 
     def process_metrics(self, g_drive: DriveIO, results_manager: ResultsManager, data_split_name: str,
                         execution_results_dirpath: str, actor_name: str, actor_uuid: str, submission_epoch_str: str,
@@ -1534,7 +1536,7 @@ class LLMMitigationLeaderboard(Leaderboard):
             for metric_name in metrics_to_compute:
                 metric = self.submission_metrics[metric_name]
 
-                if isinstance(metric, MitigationMetric):
+                if isinstance(metric, LLMMitigationMetric):
                     metric_output = metric.compute(predictions_dict, all_models_ground_truth, data_split_metadata, actor_name, self.name, data_split_name, submission_epoch_str, execution_results_dirpath)
 
                     new_processed_metric_names.append(metric_name)
@@ -1560,7 +1562,7 @@ class LLMMitigationLeaderboard(Leaderboard):
                             external_share_files.extend(files)
                 else:
                     logging.warning(
-                        'Invalid metric type: {}, expected MitigationMetric for leaderboard {}'.format(type(metric),
+                        'Invalid metric type: {}, expected LLMMitigationMetric for leaderboard {}'.format(type(metric),
                                                                                                    self.name))
                     continue
 
@@ -1608,6 +1610,8 @@ def init_leaderboard(args):
         leaderboard = TrojAILeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit, required_files=required_files)
     elif leaderboard_type == 'mitigation':
         leaderboard = MitigationLeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit, required_files=required_files)
+    elif leaderboard_type == 'llm_mitigation':
+        leaderboard = LLMMitigationLeaderboard(args.name, args.task_name, trojai_config, add_default_data_split=args.add_default_datasplit, required_files=required_files)
 
     if leaderboard is not None:
         leaderboard.save_json(trojai_config)
