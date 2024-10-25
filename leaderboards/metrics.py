@@ -785,12 +785,15 @@ class LLMMitigationAverageASR(LLMMitigationMetric):
         all_asr = []
         for model_name in predictions_dict.keys():
             model_dict = predictions_dict[model_name]
-            if np.isnan(model_dict['asr']):
+            if pd.isnull(model_dict['asr']):
                 continue
 
             all_asr.append(model_dict['asr'])
-
-        return {'result': np.average(all_asr).item(), 'files': None}
+        if len(all_asr) == 0:
+            avg = 0.0
+        else:
+            avg = np.average(all_asr).item()
+        return {'result': avg, 'files': None}
 
 class LLMMitigationAverageMMLU(LLMMitigationMetric):
     def __init__(self, name: str, clean_only: bool, poisoned_only: bool, write_html: bool = True, share_with_actor: bool = False, store_result: bool = True, share_with_external: bool = False):

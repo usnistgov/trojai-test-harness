@@ -1380,7 +1380,7 @@ class LLMMitigationLeaderboard(Leaderboard):
                 results_dict[model_name]['mmlu'] = np.nan
             if results_dict[model_name]['asr'] is None:
                 results_dict[model_name]['mmlu'] = np.nan
-                
+
         return errors, results_dict
 
 
