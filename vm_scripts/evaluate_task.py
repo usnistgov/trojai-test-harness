@@ -870,7 +870,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
             # check for reduced-config, and copy it if it does exist to config.json
             reduced_config_filepath = os.path.join(active_dirpath, 'reduced-config.json')
             if os.path.exists(reduced_config_filepath):
-                shutil.copy(reduced_config_filepath, os.path.join(active_dirpath, 'config.json'))
+                shutil.copy(reduced_config_filepath, os.path.join(active_dirpath, 'round_config.json'))
 
             logging.info('Starting execution of {} ({}/{})'.format(model_dirname, model_idx, len(model_files)))
 
@@ -926,7 +926,6 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
                              '--metaparameters_filepath', self.metaparameters_filepath,
                              '--schema_filepath', self.metaparameters_schema_filepath,
                              '--model', model_dirpath,
-                             # '--dataset_dirpath', mitigate_dataset_dirpath,
                              '--output_dirpath', output_dirpath,
                              '--scratch_dirpath', container_scratch_dirpath,
                              '--batch_size', str(1)]
@@ -943,7 +942,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
             round_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'round_config.json')
             tokenizer_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'tokenizer_config.json')
             num_samples = 100
-            test_dataset_filepath = os.path.join(active_dirpath, 'test-example-data', 'prompts.json')
+            test_dataset_filepath = os.path.join(self.models_dirpath, model_dirname, 'test-example-data', 'prompts.json')
             output_filepath = os.path.join(output_dirpath, 'results.json')
 
             test_args = [checkpoint_filepath,
