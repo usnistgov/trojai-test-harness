@@ -1379,7 +1379,7 @@ class LLMMitigationLeaderboard(Leaderboard):
             if pd.isnull(results_dict[model_name]['mmlu']):
                 results_dict[model_name]['mmlu'] = np.nan
             if pd.isnull(results_dict[model_name]['asr']):
-                results_dict[model_name]['mmlu'] = np.nan
+                results_dict[model_name]['asr'] = np.nan
 
         return errors, results_dict
 
