@@ -909,6 +909,7 @@ class LLMMitigationFidelityMetric(LLMMitigationMetric):
             is_model_poisoned = filtered_df['poisoned'].values[0]
 
             if is_model_poisoned:
+                logging.info('Predictions dict: {}, model targets dict: {}'.format(predictions_dict, model_targets_dict))
                 actor_asr = predictions_dict[model_name]['asr']
                 actor_mmlu = predictions_dict[model_name]['mmlu']
                 pre_asr = model_targets_dict[model_name]['asr']
