@@ -1332,7 +1332,7 @@ class LLMMitigationLeaderboard(Leaderboard):
     def get_default_result_columns(self):
         column_names = super().get_default_result_columns()
 
-        column_names.extend(['ground_truth_asr', 'ground_truth_mmlu', 'mitigated_asr', 'mitigated_mmlu'])
+        column_names.extend(['model_names', 'ground_truth_asr', 'ground_truth_mmlu', 'mitigated_asr', 'mitigated_mmlu'])
 
         for metric_name, metric in self.submission_metrics.items():
             if metric.store_result:
@@ -1531,10 +1531,25 @@ class LLMMitigationLeaderboard(Leaderboard):
             external_share_files = []
             actor_share_files = []
 
-            update_entry['ground_truth_asr'] = all_models_ground_truth['asr']
-            update_entry['ground_truth_mmlu'] = all_models_ground_truth['mmlu']
-            update_entry['mitigated_asr'] = predictions_dict['asr']
-            update_entry['mitigated_mmlu'] = predictions_dict['mmlu']
+            gt_asr_list = []
+            gt_mmlu_list = []
+            mit_asr_list = []
+            mit_mmlu_list = []
+
+            model_names = list(all_models_ground_truth.keys())
+            model_names.sort()
+
+            for i in range(len(model_names)):
+                gt_asr_list.append(all_models_ground_truth[model_names[i]]['asr'])
+                gt_mmlu_list.append(all_models_ground_truth[model_names[i]]['mmlu'])
+                mit_asr_list.append(predictions_dict[model_names[i]]['asr'])
+                mit_mmlu_list.append(predictions_dict[model_names[i]]['mmlu'])
+
+            update_entry['model_names'] = model_names
+            update_entry['ground_truth_asr'] = gt_asr_list
+            update_entry['ground_truth_mmlu'] = gt_mmlu_list
+            update_entry['mitigated_asr'] = mit_asr_list
+            update_entry['mitigated_mmlu'] = mit_mmlu_list
 
             # Compute metrics for leaderboard
             for metric_name in metrics_to_compute:
