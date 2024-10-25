@@ -929,7 +929,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
                              # '--dataset_dirpath', mitigate_dataset_dirpath,
                              '--output_dirpath', output_dirpath,
                              '--scratch_dirpath', container_scratch_dirpath,
-                             '--batch_size', 1]
+                             '--batch_size', str(1)]
 
             if self.training_dataset_dirpath is not None:
                 mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
@@ -950,7 +950,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
                          round_config_filepath,
                          tokenizer_config_filepath,
                          test_dataset_filepath,
-                         num_samples,
+                         str(num_samples),
                          output_filepath
                          ]
 
