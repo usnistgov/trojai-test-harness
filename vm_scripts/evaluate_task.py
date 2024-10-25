@@ -849,7 +849,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
         eval_options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
         eval_options.extend(['--bind', self.models_dirpath])
 
-        eval_instance = Client.instance(os.path.join(self.home_dirpath, 'mitigation_evaluator.sif'), option=eval_options)
+        eval_instance = Client.instance(os.path.join(self.home_dirpath, 'mitigation_evaluator.sif'), options=eval_options)
         logging.info('Eval container started.')
 
         for model_idx in range(len(model_files)):
