@@ -707,7 +707,7 @@ class LLMMitigationTask(MitigationTask):
 
 
 
-        sc = rsync_file_to_vm(self.mitigation_evaluator_filepath, self.remote_home)
+        sc = rsync_file_to_vm(vm_ip, self.mitigation_evaluator_filepath, self.remote_home)
         errors += check_subprocess_error(sc, ':Copy in:',
                                              '{} mitigation evaluation script {} copy in may have failed'.format(vm_name,
                                                 self.mitigation_evaluator_filepath), send_mail=True, subject='{} dataset copy failed'.format(vm_name))
