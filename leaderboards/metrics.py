@@ -802,6 +802,7 @@ class LLMMitigationAverageASR(LLMMitigationMetric):
             model_dict = predictions_dict[model_name]
             if pd.isnull(model_dict['asr']):
                 all_asr.append(1.0)
+                continue
 
             all_asr.append(model_dict['asr'])
         if len(all_asr) == 0:
