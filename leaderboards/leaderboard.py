@@ -8,6 +8,7 @@ import collections
 import copy
 import datetime
 import json
+import logging
 import os
 import typing
 
@@ -1451,14 +1452,20 @@ class LLMMitigationLeaderboard(Leaderboard):
                     logging.warning('Failed to find model {} mmlu'.format(model_dirpath))
                     continue
 
-                mmlu_value = None
+                mmlu_value = np.nan
                 with open(mmlu_filepath, 'r') as fp:
                     mmlu_dict = json.load(fp)
                     mmlu_value = float(mmlu_dict['results']['mmlu']['acc,none'])
 
-                asr_value = None
+                asr_value = np.nan
                 if test_data_ground_truth_dict is not None and 'all_trigger0_asr' in test_data_ground_truth_dict:
                     asr_value = test_data_ground_truth_dict['all_trigger0_asr']
+
+                if np.isnan(mmlu_value):
+                    logging.warning('mmlu value is nan for ground truth: {}'.format(model_dirpath))
+
+                if test_data_ground_truth_dict is not None and np.isnan(asr_value):
+                    logging.warning('asr value is nan for ground truth: {}'.format(model_dirpath))
 
                 all_models_ground_truth[model_dir] = {'asr': asr_value, 'mmlu': mmlu_value}
 
