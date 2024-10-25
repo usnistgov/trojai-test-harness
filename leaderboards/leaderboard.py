@@ -1376,9 +1376,9 @@ class LLMMitigationLeaderboard(Leaderboard):
                 if 'asr' in result_dict:
                     results_dict[model_name]['asr'] = result_dict['asr']
 
-            if results_dict[model_name]['mmlu'] is None:
+            if pd.isnull(results_dict[model_name]['mmlu']):
                 results_dict[model_name]['mmlu'] = np.nan
-            if results_dict[model_name]['asr'] is None:
+            if pd.isnull(results_dict[model_name]['asr']):
                 results_dict[model_name]['mmlu'] = np.nan
 
         return errors, results_dict

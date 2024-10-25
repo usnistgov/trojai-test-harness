@@ -782,11 +782,26 @@ class LLMMitigationAverageASR(LLMMitigationMetric):
     def compute(self, predictions_dict: Dict[str, Dict[str, float]], model_targets_dict: Dict[str, Dict[str, float]], metadata_df: pd.DataFrame,
                 actor_name: str, leaderboard_name: str, data_split_name: str, submission_epoch_str: str,
                 output_dirpath:str):
+
+        # Gather list of models based on whether the metric requires poisoned only, clean only, or both
+        model_names_to_process = []
+        for model_name in model_targets_dict.keys():
+            # Check metadata_df for clean or poisoned
+            filtered_df = metadata_df[metadata_df['model_name'] == model_name]
+
+            if len(filtered_df) != 1:
+                logging.warning('Failed to process metadata_df for model name {} found {} rows'.format(model_name,
+                                                                                                       len(filtered_df)))
+            is_model_poisoned = filtered_df['poisoned'].values[0]
+            if is_model_poisoned:
+                model_names_to_process.append(model_name)
+
+
         all_asr = []
-        for model_name in predictions_dict.keys():
+        for model_name in model_names_to_process:
             model_dict = predictions_dict[model_name]
             if pd.isnull(model_dict['asr']):
-                continue
+                all_asr.append(1.0)
 
             all_asr.append(model_dict['asr'])
         if len(all_asr) == 0:
