@@ -899,6 +899,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
 
         logging.info("All model executions complete, stopping continer.")
         container_instance.stop()
+        eval_instance.stop()
         logging.info("Container stopped.")
 
 
@@ -935,6 +936,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
 
             # Execute mitigate
             result = Client.run(container_instance, mitigate_args, return_result=True)
+
             logging.info('Output from mitigate step: {}'.format(result))
 
             # Setup test arguments
