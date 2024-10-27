@@ -842,12 +842,15 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
 
         options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
         logging.info("Starting container instance.")
+        logging.info('Binding performer container with options: {}'.format(options))
         container_instance = Client.instance(self.submission_filepath, options=options)
         logging.info("Container started.")
 
         logging.info('Starting eval container instance.')
         eval_options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
         eval_options.extend(['--bind', self.models_dirpath])
+
+        logging.info('Binding mitigation evaluator with options: {}'.format(eval_options))
 
         eval_instance = Client.instance(os.path.join(self.home_dirpath, 'mitigation_evaluator.sif'), options=eval_options)
         logging.info('Eval container started.')
@@ -934,6 +937,8 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
             if self.training_dataset_dirpath is not None:
                 mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
+            logging.info('Running performer container with args: {}'.format(mitigate_args))
+
             # Execute mitigate
             result = Client.run(container_instance, mitigate_args, return_result=True)
 
@@ -954,7 +959,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
                          str(num_samples),
                          output_filepath
                          ]
-
+            logging.info('Running evaluate with args: {}'.format(test_args))
             # if self.training_dataset_dirpath is not None:
             #     test_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
