@@ -848,7 +848,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
 
         logging.info('Starting eval container instance.')
         eval_options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
-        eval_options.extend(['--bind', self.models_dirpath, '--bind', os.path.join(self.home_dirpath, '.cache', 'huggingface', 'datasets')])
+        eval_options.extend(['--bind', self.models_dirpath, '--bind', os.path.join(self.home_dirpath, '.cache', 'huggingface')])
 
         logging.info('Binding mitigation evaluator with options: {}'.format(eval_options))
 
