@@ -913,8 +913,6 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
         if remaining_time <= 0:
             raise TimeoutError('Timeout')
 
-        execute_start = time.time()
-
         with timeout(seconds=int(remaining_time)):
             # Called for each model.
             # Setup mitigation Arguments
@@ -938,9 +936,11 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
                 mitigate_args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
 
             logging.info('Running performer container with args: {}'.format(mitigate_args))
+            execute_start = time.time()
 
             # Execute mitigate
             result = Client.run(container_instance, mitigate_args, return_result=True)
+            execute_end = time.time()
 
             logging.info('Output from mitigate step: {}'.format(result))
 
@@ -973,7 +973,6 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
         else:
             logging.warning('{} is missing the output result file {}'.format(model_dirname, output_results_filepath))
 
-        execute_end = time.time()
 
         self.total_execution_time = self.total_execution_time + (execute_end - execute_start)
 
