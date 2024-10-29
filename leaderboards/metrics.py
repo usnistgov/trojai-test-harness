@@ -924,7 +924,11 @@ class LLMMitigationFidelityMetric(LLMMitigationMetric):
                 fidelity = 1.0 * (actor_mmlu / pre_mmlu)
                 fidelities.append(fidelity)
 
-        return {'result': np.average(fidelities).item(), 'files': None}
+        result = 0.0
+        if len(fidelities) != 0:
+            result = np.average(fidelities).item()
+
+        return {'result': result, 'files': None}
 
     def compare(self, computed, baseline):
         return computed > baseline
