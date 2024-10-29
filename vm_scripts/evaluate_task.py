@@ -848,7 +848,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
 
         logging.info('Starting eval container instance.')
         eval_options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
-        eval_options.extend(['--bind', self.models_dirpath])
+        eval_options.extend(['--bind', self.models_dirpath, '--bind', os.path.join(self.home_dirpath, '.cache', 'huggingface', 'datasets')])
 
         logging.info('Binding mitigation evaluator with options: {}'.format(eval_options))
 
@@ -947,7 +947,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
             # Setup test arguments
             checkpoint_filepath = output_dirpath
             round_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'round_config.json')
-            tokenizer_config_filepath = os.path.join(self.models_dirpath, model_dirname, 'tokenizer_config.json')
+            tokenizer_config_filepath = os.path.join(output_dirpath, 'tokenizer_config.json')
             num_samples = 100
             test_dataset_filepath = os.path.join(self.models_dirpath, model_dirname, 'test-example-data', 'prompts.json')
             output_filepath = os.path.join(output_dirpath, 'results.json')
