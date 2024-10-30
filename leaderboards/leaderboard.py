@@ -1353,6 +1353,8 @@ class LLMMitigationLeaderboard(Leaderboard):
             filtered_df = metadata_df[metadata_df['model_name'] == model_name]
             if len(filtered_df) != 1:
                 logging.warning('Unable to find {} in metadata_df'.format(model_name))
+                results_dict[model_name]['mmlu'] = np.nan
+                results_dict[model_name]['asr'] = np.nan
                 continue
 
             results_dict[model_name]['mmlu'] = np.nan
