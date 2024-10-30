@@ -1251,7 +1251,7 @@ class LLMMitigationLeaderboard(Leaderboard):
                                "trigger_*", "DATA_LICENSE.txt", "METADATA_DICTIONARY.csv", "models-packaged", "README.txt", "watermark.json", 'detailed_test_eval_groundtruth.csv',
                               'eval-mmlu.json', 'generation_config.json', 'inference_log.txt', 'test_eval_groundtruth.json', 'test_eval_groundtruth_failed_responses.json', 'failed_responses.json',
                               'trojan-hparam.json', 'rot-hparams.json', 'all_results.json', 'eval_perplexity_stats.json', 'perplexity_log.txt', 'stats.json', 'training_args.json',
-                              'detailed_eval_generative_stats.csv', 'detailed_eval_perplexity_stats.csv', 'eval_generative_stats.json', 'test-example-data']
+                              'detailed_eval_generative_stats.csv', 'detailed_eval_perplexity_stats.csv', 'eval_generative_stats.json']
     DEFAULT_REQUIRED_FILES = ["test-example-data", "reduced-config.json", 'eval-mmlu.json', 'config.json']
     TRAIN_DATASET_NAME = 'train'
     DEFAULT_DATASET_SPLIT_NAMES = ['train', 'test', 'sts', 'holdout', 'dev']

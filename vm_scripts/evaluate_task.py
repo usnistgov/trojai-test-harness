@@ -855,6 +855,9 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
         eval_instance = Client.instance(os.path.join(self.home_dirpath, 'mitigation_evaluator.sif'), options=eval_options)
         logging.info('Eval container started.')
 
+        # Add test-example-data to rsync excludes
+        self.rsync_excludes.append('test-example-data')
+
         for model_idx in range(len(model_files)):
             model_dirname = model_files[model_idx]
 
@@ -864,6 +867,7 @@ class EvaluateLLMMitigationTask(EvaluateTrojAITask):
 
             model_dirpath = os.path.join(self.models_dirpath, model_dirname)
             rsync_params = ['-ar', '--prune-empty-dirs', '--delete']
+
 
             for rsync_exclude in self.rsync_excludes:
                 rsync_params.append('--exclude={}'.format(rsync_exclude))
