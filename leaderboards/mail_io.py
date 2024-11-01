@@ -33,7 +33,7 @@ class TrojaiMail(object):
         self.sent_cache = [x for x in self.sent_cache if abs(current_epoch - x[1]) < stale_timeout]
 
     def save_cache(self):
-        json_io.write(self.CACHE_FILEPATH, self.sent_cache)
+        json_io.write(self.CACHE_FILEPATH, self.sent_cache, with_lock=False)
 
     def reset_cache(self):
         self.sent_cache = list()
