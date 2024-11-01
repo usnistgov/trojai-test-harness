@@ -395,6 +395,74 @@ class EvaluateClmInstructTask(EvaluateTrojAITask):
                          subset_model_ids=subset_model_ids,
                          timeout_time=timeout_time)
 
+
+    def process_models(self):
+        active_dirpath = os.path.join(self.scratch_dirpath, 'active')
+        container_scratch_dirpath = os.path.join(self.scratch_dirpath, 'container-scratch')
+
+        if not os.path.exists(active_dirpath):
+            os.makedirs(active_dirpath)
+
+        if not os.path.exists(container_scratch_dirpath):
+            os.makedirs(container_scratch_dirpath)
+
+        model_files = [fn for fn in os.listdir(self.models_dirpath) if fn.startswith('id-')]
+        random.shuffle(model_files)
+
+        options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
+        logging.info("Starting container instance.")
+        container_instance = Client.instance(self.submission_filepath, options=options)
+        logging.info("Container started.")
+        for model_idx in range(len(model_files)):
+            model_dirname = model_files[model_idx]
+
+            # Clean up scratch and active dir prior to running
+            clean_dirpath_contents(container_scratch_dirpath)
+            clean_dirpath_contents(active_dirpath)
+
+            model_dirpath = os.path.join(self.models_dirpath, model_dirname)
+            rsync_params = ['-ar', '--prune-empty-dirs', '--delete']
+
+            for rsync_exclude in self.rsync_excludes:
+                rsync_params.append('--exclude={}'.format(rsync_exclude))
+
+            rsync_dirpath(os.path.join(model_dirpath, '*'), active_dirpath, rsync_params)
+
+            # check for reduced-config, and copy it if it does exist to config.json
+            reduced_config_filepath = os.path.join(active_dirpath, 'reduced-config.json')
+            if os.path.exists(reduced_config_filepath):
+                shutil.copy(reduced_config_filepath, os.path.join(active_dirpath, 'round_config.json'))
+
+            logging.info('Starting execution of {} ({}/{})'.format(model_dirname, model_idx, len(model_files)))
+
+            container_start_time = time.time()
+
+            result = self.execute_container(container_instance, active_dirpath, container_scratch_dirpath, model_dirname)
+
+            return_code = -1
+            if 'return_code' in result:
+                return_code = result['return_code']
+            else:
+                logging.error('Failed to obtain result from singularity execution: {}'.format(result))
+
+            container_end_time = time.time()
+
+            container_exec_time = container_end_time - container_start_time
+
+
+
+            with open(os.path.join(self.result_dirpath, '{}{}-walltime.txt'.format(self.result_prefix_filename, model_dirname)), 'w') as f:
+                f.write('{}'.format(container_exec_time))
+
+            logging.info('Finished executing {}, returned status code: {}'.format(model_dirname, return_code))
+
+
+
+        logging.info("All model executions complete, stopping continer.")
+        container_instance.stop()
+        logging.info("Container stopped.")
+
+
     def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
         options = super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
         return options
