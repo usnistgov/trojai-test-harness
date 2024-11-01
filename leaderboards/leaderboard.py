@@ -48,6 +48,7 @@ class Leaderboard(object):
                         "rl_colorful": ReinforcementLearningColorfulMemory,
                         "rl_gym": ReinforcementLearningSafetyGym,
                         'causal_language': CausalLanguageModeling,
+                        'causal_language_inst': CausalInstructLanguageModeling,
                         'image_classification_mitigation': ImageClassificationMitigationTask,
                         'llm_mitigation': LLMMitigationTask
                       }
