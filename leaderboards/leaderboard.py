@@ -526,6 +526,7 @@ class TrojAILeaderboard(Leaderboard):
                         "rl_lavaworld": ReinforcementLearningLavaWorld,
                         "rl_gym": ReinforcementLearningSafetyGym,
                         'causal_language': CausalLanguageModeling,
+                        'causal_language_inst': CausalInstructLanguageModeling,
                         "cyber_windows_pe_malware": CyberWindowsPEMalware,
                         "rl_colorful": ReinforcementLearningColorfulMemory
                         }

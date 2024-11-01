@@ -793,6 +793,9 @@ class CausalLanguageModeling(TrojAITask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
         super().__init__(trojai_config, leaderboard_name, 'clm')
 
+class CausalInstructLanguageModeling(TrojAITask):
+    def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):
+        super().__init__(trojai_config, leaderboard_name, 'clm_inst')
 
 class NaturalLanguageProcessingSentiment(NaturalLanguageProcessingTask):
     def __init__(self, trojai_config: TrojaiConfig, leaderboard_name: str):

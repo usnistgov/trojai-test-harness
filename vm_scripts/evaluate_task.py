@@ -366,6 +366,54 @@ class EvaluateClmTask(EvaluateTrojAITask):
 
         return args
 
+class EvaluateClmInstructTask(EvaluateTrojAITask):
+    def __init__(self, models_dirpath: str,
+                 submission_filepath: str,
+                 home_dirpath: str,
+                 result_dirpath: str,
+                 scratch_dirpath: str,
+                 training_dataset_dirpath: str,
+                 metaparameters_filepath: str,
+                 rsync_excludes: list,
+                 learned_parameters_dirpath: str,
+                 source_dataset_dirpath: str,
+                 result_prefix_filename: str,
+                 subset_model_ids: list,
+                 timeout_time: int):
+
+        super().__init__(models_dirpath=models_dirpath,
+                         submission_filepath=submission_filepath,
+                         home_dirpath=home_dirpath,
+                         result_dirpath=result_dirpath,
+                         scratch_dirpath=scratch_dirpath,
+                         training_dataset_dirpath=training_dataset_dirpath,
+                         metaparameters_filepath=metaparameters_filepath,
+                         rsync_excludes=rsync_excludes,
+                         learned_parameters_dirpath=learned_parameters_dirpath,
+                         source_dataset_dirpath=source_dataset_dirpath,
+                         result_prefix_filename=result_prefix_filename,
+                         subset_model_ids=subset_model_ids,
+                         timeout_time=timeout_time)
+
+    def get_singularity_instance_options(self, active_dirpath, scratch_dirpath, uses_gpu=True):
+        options = super().get_singularity_instance_options(active_dirpath, scratch_dirpath, uses_gpu)
+        return options
+
+    def get_execute_task_args(self, active_dirpath: str, container_scratch_dirpath: str, active_result_filepath: str):
+        args = ['--model_filepath', active_dirpath,
+                '--result_filepath', active_result_filepath,
+                '--scratch_dirpath', container_scratch_dirpath,
+                '--metaparameters_filepath', self.metaparameters_filepath,
+                '--schema_filepath', self.metaparameters_schema_filepath,
+                '--learned_parameters_dirpath', self.learned_parameters_dirpath]
+
+        if self.training_dataset_dirpath is not None:
+            args.extend(['--round_training_dataset_dirpath', self.training_dataset_dirpath])
+
+        if self.source_dataset_dirpath is not None:
+            args.extend(['--source_dataset_dirpath', self.source_dataset_dirpath])
+
+        return args
 
 class EvaluateNLPTask(EvaluateTrojAITask):
 
@@ -1003,6 +1051,7 @@ if __name__ == '__main__':
       'cyber': EvaluateCyberTask,
       'cyber_pdf': EvaluateCyberPDFTask,
       'clm': EvaluateClmTask,
+      'clm_inst': EvaluateClmInstructTask,
       'image_classification_mitigation': EvaluateMitigationTask,
       'llm_mitigation': EvaluateLLMMitigationTask,
       'rl_gym': EvaluateRLSafetyGym
