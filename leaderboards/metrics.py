@@ -928,7 +928,15 @@ class LLMMitigationFidelityMetric(LLMMitigationMetric):
         if len(fidelities) != 0:
             result = np.average(fidelities).item()
 
+        if np.isnan(result) or pd.isnull(result):
+            result = 0.0
+
         return {'result': result, 'files': None}
 
     def compare(self, computed, baseline):
+        if np.isnan(computed) or pd.isnull(computed):
+            return False
+        elif np.isnan(baseline) or pd.isnull(baseline):
+            return True
+
         return computed > baseline
