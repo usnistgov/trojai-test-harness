@@ -412,9 +412,10 @@ class EvaluateClmInstructTask(EvaluateTrojAITask):
         random.shuffle(model_files)
 
         options = self.get_singularity_instance_options(active_dirpath, container_scratch_dirpath)
+        options.extend(['--bind', '/home/trojai/.cache/huggingface/hub'])
         logging.info("Starting container instance.")
         container_instance = Client.instance(self.submission_filepath, options=options)
-        logging.info("Container started.")
+        logging.info("Container started with options {}.".format(options))
         for model_idx in range(len(model_files)):
             model_dirname = model_files[model_idx]
 
