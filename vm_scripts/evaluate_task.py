@@ -397,6 +397,8 @@ class EvaluateClmInstructTask(EvaluateTrojAITask):
 
 
     def process_models(self):
+        os.environ['HF_HUB_OFFLINE'] = str(1)
+
         active_dirpath = os.path.join(self.scratch_dirpath, 'active')
         container_scratch_dirpath = os.path.join(self.scratch_dirpath, 'container-scratch')
 
