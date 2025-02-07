@@ -639,6 +639,14 @@ class SubmissionManager(object):
                 msg = msg + "  " + s.__str__() + "\n"
         return msg
 
+    def total_submission_count(self):
+        count = 0
+        for team in self.__submissions.keys():
+            submission_list = self.__submissions[team]
+            if isinstance(submission_list, list):
+                count += len(submission_list)
+        return count
+
     def check_for_new_metrics(self, results_manager: ResultsManager, leaderboard: Leaderboard, actor_manager: ActorManager, g_drive: DriveIO):
         for actor_uuid, submissions in self.__submissions.items():
             actor = actor_manager.get_from_uuid(actor_uuid)

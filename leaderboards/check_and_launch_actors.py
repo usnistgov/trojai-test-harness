@@ -263,15 +263,18 @@ def main(trojai_config: TrojaiConfig) -> None:
 
     logging.debug('Serializing updated submission_managers back to json.')
     # Should only have to save the submission manager. Leaderboard should be static
+    total_submissions_count = 0
     for leaderboard_name, submission_manager in active_submission_managers.items():
         leaderboard = active_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard)
+        total_submissions_count += submission_manager.total_submission_count()
 
     for leaderboard_name, submission_manager in archive_submission_managers.items():
         leaderboard = archive_leaderboards[leaderboard_name]
         submission_manager.save_json(leaderboard)
+        total_submissions_count += submission_manager.total_submission_count()
 
-    logging.info('Checking for new/missing metrics')
+    logging.info('Checking for new/missing metrics, total submissions = {}'.format(total_submissions_count))
     # Check to see if we need to compute any new/missing metrics
     for leaderboard_name, leaderboard in active_leaderboards.items():
         if leaderboard.check_for_missing_metrics:
