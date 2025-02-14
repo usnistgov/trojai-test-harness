@@ -3,6 +3,8 @@ import pandas
 import pandas as pd
 import os
 
+from drive_io import DriveIO
+
 class ResultsManager(object):
 
     def __init__(self):
@@ -37,6 +39,13 @@ class ResultsManager(object):
 
             df = self.results_cache[leaderboard_name]
             df.to_parquet(filepath)
+
+    def share_all(self, g_drive: DriveIO):
+        trojai_summary_folder_id = g_drive.create_leaderboard_summary_folder()
+
+        for leaderboard_name in self.results_filepaths.keys():
+            filepath = self.results_filepaths[leaderboard_name]
+            g_drive.upload(filepath, trojai_summary_folder_id)
 
     def save_all(self):
         for leaderboard_name in self.results_filepaths.keys():

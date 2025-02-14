@@ -411,6 +411,7 @@ def main(trojai_config: TrojaiConfig) -> None:
         submission_manager.save_json(leaderboard)
 
     results_manager.save_all()
+    results_manager.share_all(g_drive)
 
     # Add None special value into queue and notify all
     # TODO: Uncomment when multi thread upload is working
